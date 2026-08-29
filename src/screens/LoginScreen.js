@@ -22,8 +22,9 @@ export default function LoginScreen({ navigation }) {
 
   async function handleRegister() {
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) Alert.alert('Error al registrar', error.message);
+    else if (data.session) Alert.alert('Cuenta creada', 'Tu cuenta se ha creado y la sesión está iniciada');
     else Alert.alert('Registro exitoso', 'Revisa tu correo para verificar la cuenta');
     setLoading(false);
   }

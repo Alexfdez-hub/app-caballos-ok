@@ -62,6 +62,10 @@ AUTHENTICATION CHANGES:
 - Login, sign-up and sign-out continue to use Supabase Auth; navigation resets from auth state rather than imperative route replacement.
 - Startup displays a neutral loading indicator while session restoration completes.
 
+BUGBOT CORRECTION:
+- Sign-up now checks the session returned by Supabase: without a session it keeps the verification-email message; with a session it reports that the account is created and signed in while `AuthProvider` controls navigation to Home.
+- Validation rerun: `npm run typecheck` passed, `npx expo-doctor` passed 18/18 checks, and `git diff --check` passed.
+
 METADATA:
 - Removed Expo blank-template package metadata.
 - Package name/version are now `app-caballos-ok` / `1.0.0`.
