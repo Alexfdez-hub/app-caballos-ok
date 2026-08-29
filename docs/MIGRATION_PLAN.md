@@ -3,7 +3,7 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 0 aprobada; siguiente fase autorizada = Phase 1
+**Estado:** Phase 2C en implementación; Phase 3A requiere aprobación posterior
 
 ## 1. Método
 
@@ -65,63 +65,113 @@ Migrations:
 
 No crear centers/equines/bookings todavía.
 
-## 6. Phase 3 — Centers
+## 6. Phase 2C — Clean baseline / legacy retirement
+
+Retirar el prototipo original por decisión de producto, sin backfill:
+- eliminar trigger/función Auth legacy;
+- eliminar `public.bookings`, `public.horses`, `public.users`;
+- retirar pantallas y dependencias exclusivas del prototipo;
+- conservar infraestructura Expo, Supabase Auth/sesión y tablas 001–004.
+
+Migration: `005_legacy_retirement`.
+
+## 7. Phase 3A — Identity integration
+
+Construir directamente sobre `persons` + `user_accounts`. Crear provisioning,
+onboarding y perfil de identidad sin reintroducir `users.role`.
+
+Migration prevista: `006_identity_integration`.
+
+Secuencia de migrations actualizada:
+
+```text
+001_extensions_and_core
+002_markets
+003_persons_accounts
+004_policies
+005_legacy_retirement
+006_identity_integration
+007_guardians
+008_centers
+009_center_memberships
+010_equines
+011_equine_ownership_management
+012_equine_center_relations
+013_disciplines
+014_qualifications
+015_assessments
+016_equine_requirements
+017_services
+018_zero_sessions_authorizations
+019_calendar
+020_bookings
+021_booking_functions
+022_sessions
+023_activity
+024_reviews_incidents
+025_audit
+026_storage_policies
+027_rls_security_tests
+```
+
+## 8. Phase 3B — Centers
 
 Crear centers, languages, memberships. Onboarding de centro de piloto controlado. Roles: ADMIN/MANAGER/INSTRUCTOR/ASSESSOR.
 
-## 7. Phase 4 — Equines
+## 9. Phase 4 — Equines
 
 Crear equines/media/ownership/management/center assignments/permissions. Migrar horses progresivamente. No inventar datos ausentes.
 
-## 8. Phase 5 — Riders / disciplines / qualifications
+## 10. Phase 5 — Riders / disciplines / qualifications
 
 Crear rider profiles, disciplines/translations, qualification systems/levels, rider qualifications. Activación Rider requiere `RIDER_POLICY`.
 
-## 9. Phase 6 — Assessments
+## 11. Phase 6 — Assessments
 
 Crear assessments + discipline results + restrictions. Assessor debe tener membership válido y no puede autoevaluarse.
 
-## 10. Phase 7 — Guardians/minors
+## 12. Phase 7 — Guardians/minors
 
 Crear guardian relationships/consents. Menor puede existir como person sin Auth. Implementar `grant_guardian_consent()`. P0: menor sin consentimiento requerido no confirma actividad.
 
-## 11. Phase 8 — Requirements/services/trust
+## 13. Phase 8 — Requirements/services/trust
 
 Crear equine requirements, center services, service-equines, Zero Sessions y rider-equine authorizations.
 
-## 12. Phase 9 — Calendar
+## 14. Phase 9 — Calendar
 
 Crear availability rules + calendar blocks. Calendar blocks = ocupación canónica. Añadir exclusión/race protection en PostgreSQL. Test concurrencia obligatorio.
 
-## 13. Phase 10 — Bookings/eligibility
+## 15. Phase 10 — Bookings/eligibility
 
 Crear bookings + booking requirements. Implementar `check_booking_eligibility`, `create_booking_request`, `confirm_booking`. Confirmación atómica + calendar block + policy snapshot.
 
-## 14. Phase 11 — Verified sessions
+## 16. Phase 11 — Verified sessions
 
 Crear sessions/events/evidence/equine activities. Implementar start/end session. Timer server-authoritative. Offline sólo para booking confirmado con permit.
 
-## 15. Phase 12 — Reviews/incidents/audit
+## 17. Phase 12 — Reviews/incidents/audit
 
 Crear reviews, incidents, audit_events.
 
-## 16. Phase 13 — Storage security
+## 18. Phase 13 — Storage security
 
 Buckets objetivo: avatars, equine-media, qualification-documents, session-evidence, assessment-documents. Evidence privada.
 
-## 17. Phase 14 — Security test suite
+## 19. Phase 14 — Security test suite
 
 Tests RLS, minors, assessments, permissions, booking transitions, double booking, evidence privacy.
 
-## 18. Phase 15 — Legacy cleanup
+## 20. Phase 15 — Transitional cleanup
 
-Sólo tras validación: eliminar CRUD legacy, tablas/código antiguo innecesario. Antes: backup → migrate → verify → remove later.
+Eliminar únicamente estructuras transitorias restantes tras su validación. El
+prototipo original se retira en Phase 2C por decisión de producto.
 
-## 19. Commits
+## 21. Commits
 
 Un commit por cambio lógico. Evitar commits gigantes.
 
-## 20. Estado por fase
+## 22. Estado por fase
 
 Después de cada fase actualizar `docs/MIGRATION_STATUS.md` con:
 - PHASE
@@ -134,7 +184,7 @@ Después de cada fase actualizar `docs/MIGRATION_STATUS.md` con:
 - MANUAL STEPS
 - NEXT PHASE
 
-## 21. Prompt exacto para Phase 1
+## 23. Prompt exacto para Phase 1
 
 ```text
 Phase 0 has been reviewed and approved.
@@ -176,8 +226,8 @@ Update docs/MIGRATION_STATUS.md and STOP after Phase 1.
 Report files changed, dependencies, TypeScript config, env config, auth changes, checks, warnings and manual steps.
 ```
 
-## 22. Governance
+## 24. Governance
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente acción autorizada:** Phase 1 solamente.
+**Siguiente fase prevista tras aprobar Phase 2C:** Phase 3A — Identity integration.

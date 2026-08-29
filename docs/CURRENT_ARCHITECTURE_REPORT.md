@@ -1,261 +1,108 @@
-# Informe de arquitectura actual
+# Current architecture report
 
-**Proyecto:** app-caballos-ok  
-**Tipo:** aplicación cliente Expo (React Native) para alquiler ecuestre  
-**Idioma de interfaz:** español  
-**Fecha de inspección:** 29 de agosto de 2026
+**Project:** app-caballos-ok
+**Baseline:** Phase 2C — Clean baseline / legacy retirement
+**Date:** 2026-08-29
 
-Este documento describe únicamente lo que existe en el repositorio y lo que el cliente asume del backend.
+## Summary
 
----
+The repository is an Expo/React Native client backed by Supabase. Phase 2C
+retires the original horse-rental prototype so future work can implement frozen
+Data Architecture 2.1 directly.
 
-## 1. Resumen
+The application is now a minimal TypeScript shell. It initializes the Supabase
+client, restores any persisted Auth session, and displays baseline status. It
+does not implement registration, login, identity onboarding, profiles, equines,
+or bookings.
 
-La app es un cliente móvil/web construido con Expo SDK 54 y React Native 0.81. No hay servidor propio, ni API intermedia, ni migraciones SQL en el repo. Toda persistencia y autenticación van a un proyecto Supabase (`efkauegdlmfkonzwyyiv`) mediante el cliente JavaScript y llamadas HTTP a Storage.
+## Retained application infrastructure
 
-El dominio de producto en pantalla es: registro e inicio de sesión, catálogo de caballos ajenos, reserva por fecha/hora, listado de reservas del jinete, y gestión de caballos propios (alta, edición, baja, foto).
+- Expo SDK 54 and React Native
+- TypeScript strict checking with gradual JavaScript support
+- React Navigation native stack
+- `AuthProvider`, persisted session restoration, and Auth state subscription
+- Supabase client using public Expo environment variables
+- `App.tsx` and `index.js` entry infrastructure
 
----
+## Active runtime
 
-## 2. Stack y runtime
-
-| Pieza | Versión / detalle |
-| --- | --- |
-| Entrada | `index.js` → `registerRootComponent(App)` |
-| UI | React 19.1, React Native 0.81.5, `react-native-web` 0.21 |
-| Framework | Expo `~54.0.0` |
-| Navegación | React Navigation 7 (`native-stack` + `bottom-tabs`) |
-| Backend BaaS | `@supabase/supabase-js` ^2.112 |
-| Sesión local | `@react-native-async-storage/async-storage` |
-| Fecha/hora | `@react-native-community/datetimepicker` (plugin en `app.json`) |
-| Imágenes | `expo-image-picker` |
-| Iconos | `@expo/vector-icons` (`Ionicons`) |
-
-Scripts npm: `expo start`, `--android`, `--ios`, `--web`.
-
-`package.json` conserva metadatos de plantilla (`expo-template-blank`, versión 57.0.11). `app.json` nombra la app `HelloWorld`, slug `expo-template-blank`, orientación portrait, tema claro.
-
-No hay TypeScript, tests, CI, variables de entorno (`.env` está en `.gitignore` pero las credenciales viven en código), ni capa de estado global (Redux, Zustand, Context de auth, etc.).
-
----
-
-## 3. Árbol de código
-
-```
-app-caballos-ok/
-├── index.js                 # registro del root Expo
-├── App.js                   # stack de navegación raíz
-├── supabase.js              # cliente único de Supabase
-├── app.json                 # config Expo
-├── package.json
-├── src/screens/             # todas las pantallas; no hay carpetas de componentes, hooks ni servicios
-│   ├── LoginScreen.js
-│   ├── HomeScreen.js        # tabs (no es un dashboard plano)
-│   ├── SearchScreen.js
-│   ├── HorseDetailScreen.js
-│   ├── BookingsScreen.js
-│   ├── ProfileScreen.js
-│   ├── OwnerHorsesScreen.js
-│   ├── OwnerRegisterHorseScreen.js
-│   └── OwnerEditHorseScreen.js
-└── assets/                  # iconos Expo
+```text
+index.js
+  -> App.tsx
+     -> AuthProvider
+        -> RootNavigator
+           -> BaselineScreen
 ```
 
-Patrón de código: pantallas monolíticas con `StyleSheet` inline, llamadas directas a `supabase` y `Alert` para errores. No hay módulos compartidos de UI, validación ni acceso a datos.
+`AuthProvider` remains generic infrastructure. It reads the persisted Supabase
+Auth session and listens for Auth changes. `BaselineScreen` only reports
+whether a session was restored and permits sign-out when one exists.
 
----
+No registration or identity provisioning is implemented in Phase 2C.
 
-## 4. Navegación
+## Database target present before Phase 2C
 
-### 4.1 Stack raíz (`App.js`)
+Deployed migrations 001–004 introduced:
 
-Ruta inicial: `Login`. Cabeceras ocultas en `Login` y `Home`; el resto muestra título y «Volver».
+- `public.markets`
+- `public.persons`
+- `public.user_accounts`
+- `public.policy_documents`
+- `public.policy_acceptances`
 
-| Ruta | Componente | Título de cabecera |
-| --- | --- | --- |
-| `Login` | `LoginScreen` | — |
-| `Home` | `HomeScreen` | — (tabs con su propio header) |
-| `HorseDetail` | `HorseDetailScreen` | Detalles del Caballo |
-| `RegisterHorse` | `OwnerRegisterHorseScreen` | Nuevo Caballo |
-| `OwnerHorses` | `OwnerHorsesScreen` | Mis Caballos Registrados |
-| `OwnerEditHorse` | `OwnerEditHorseScreen` | Editar Caballo |
+These remain intact, constrained, and protected by RLS.
 
-Las pantallas de propietario y detalle cuelgan del stack raíz, no de los tabs. Desde un tab, `navigation.navigate('HorseDetail' | 'RegisterHorse' | 'OwnerHorses')` resuelve en el stack padre.
+## Legacy retirement
 
-No hay listener de sesión al arrancar: siempre se muestra `Login`, aunque AsyncStorage pueda tener un token persistido.
+Migration `005_legacy_retirement.sql` removes the confirmed prototype chain:
 
-### 4.2 Tabs (`HomeScreen.js`)
-
-Tres pestañas con iconos Ionicons (activo/inactivo) y tint `#111`:
-
-| Tab | Componente |
-| --- | --- |
-| Buscar | `SearchScreen` |
-| Reservas | `BookingsScreen` |
-| Perfil | `ProfileScreen` |
-
-En el mismo archivo queda definido `BookingsDummy` (texto «Tus reservas activas») y no se usa: el tab Reservas apunta a `BookingsScreen`.
-
-### 4.3 Flujos
-
-```
-Login ──signIn──► Home (tabs)
-  │                 ├─ Buscar ──tap──► HorseDetail ──insert booking──► atrás
-  │                 ├─ Reservas (lista del rider)
-  │                 └─ Perfil ──► RegisterHorse | OwnerHorses ──► OwnerEditHorse
-  │                         └──signOut──► Login (replace)
-  └──signUp──► permanece en Login (alerta de verificar correo)
+```text
+auth.users.on_auth_user_created
+  -> public.handle_new_user()
+  -> public.users
+     <- public.horses
+        <- public.bookings
 ```
 
----
+The migration removes the trigger, function, and the three public legacy
+tables in dependency-safe order without `CASCADE`. It does not drop or alter
+`auth.users`.
 
-## 5. Autenticación y sesión
+The previous horse catalog, horse CRUD, booking, legacy profile, and legacy
+registration screens have been removed. Their routes and table calls no longer
+exist in production application code.
 
-Cliente en `supabase.js`:
+## Supabase client and Auth
 
-- URL y **anon key** embebidas en el fuente.
-- Auth: `storage: AsyncStorage`, `autoRefreshToken: true`, `persistSession: true`, `detectSessionInUrl: false` (adecuado a RN, no a OAuth vía URL).
+The client remains in `src/services/supabase/client.ts` and uses:
 
-`LoginScreen`:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- AsyncStorage session persistence
+- token refresh
+- Auth state change subscription
 
-- `signInWithPassword({ email, password })` → alerta de bienvenida y `navigation.replace('Home')`.
-- `signUp({ email, password })` → alerta para revisar el correo; no navega.
-- Sin recuperación de contraseña, OAuth, ni roles en UI.
+No `service_role` credential is present in the application.
 
-`ProfileScreen`: `getUser()` para mostrar email; `signOut()` y `replace('Login')`.
+## Current limitations by design
 
-Pantallas de datos vuelven a llamar `getUser()` en cada carga. No hay gate de autenticación en el navegador ni redirección si el token caduca a mitad de uso (salvo el fallo de la query).
+- No login or registration UI
+- No `persons` / `user_accounts` provisioning
+- No profile UI
+- No domain role selection
+- No equine, center, guardian, assessment, service, calendar, or booking UI
+- No replacement business tables beyond migrations 001–004
 
----
+These are deliberate stop conditions, not runtime regressions. Phase 3A will
+build identity integration on `persons` and `user_accounts`.
 
-## 6. Backend asumido (Supabase)
+## Historical records
 
-El repo no define el esquema. El cliente usa estas superficies:
+`docs/REMOTE_DATABASE_INVENTORY.md` remains the authoritative historical
+inventory of the retired legacy schema. Git history preserves the deleted
+prototype application.
 
-### 6.1 Auth
-
-Usuarios de Supabase Auth. El id de `user.id` se usa como `owner_id` y `rider_id`. No hay lectura de una tabla `users` / perfiles.
-
-### 6.2 Tabla `horses`
-
-Operaciones: `select *`, `insert`, `update` por `id`, `delete` por `id`, filtro `owner_id` y `neq('owner_id', user.id)` en búsqueda.
-
-Campos leídos o escritos en UI:
-
-| Campo | Uso |
-| --- | --- |
-| `id` | claves de lista, delete, update, reserva |
-| `owner_id` | alta y filtro de catálogo / inventario |
-| `name` | listados, detalle, reservas |
-| `discipline` | formularios y cards (fallback «General») |
-| `level_required` | alta/edición/detalle |
-| `price_per_session` | alta/edición/detalle/reservas |
-| `max_daily_sessions` | alta/edición; se muestra en inventario del dueño (no se aplica en reservas) |
-| `facility_fee` | alta/edición; se muestra en detalle si `> 0` |
-| `media_url` | URL pública de foto |
-
-### 6.3 Tabla `bookings`
-
-Insert desde detalle:
-
-- `horse_id`, `rider_id`, `session_date` (ISO del `Date` del picker), `status: 'pendiente'`.
-
-Select desde Reservas (jinete):
-
-```
-id, session_date, status, horses ( name, discipline, price_per_session )
-```
-
-filtro `.eq('rider_id', user.id)`. Join embebido de PostgREST hacia `horses`. `price_per_session` se pide pero no se pinta. No hay listado para el propietario, ni update/cancel de estado, ni cobro.
-
-### 6.4 Storage
-
-Bucket `horse-images`. Subida con `POST {supabaseUrl}/storage/v1/object/horse-images/{timestamp}.{ext}` y `Authorization: Bearer <access_token>`. Cuerpo: `FormData` con un campo de nombre vacío y `{ uri, name, type }`. URL pública vía `supabase.storage.from('horse-images').getPublicUrl(filePath)`.
-
-Si la URI ya es `http`, en edición no se vuelve a subir.
-
----
-
-## 7. Comportamiento por pantalla
-
-### Login
-
-Formulario email/contraseña, botones «Iniciar Sesión» y «Crear Cuenta», spinner mientras hay request. Estilo: fondo `#f5f5f5`, primario negro, secundario borde negro.
-
-### Buscar
-
-Carga caballos cuyo `owner_id` no es el usuario actual. Pull-to-refresh. Cards con imagen o placeholder, nombre, disciplina, precio. Vacío: mensaje de que no hay caballos de otros propietarios.
-
-### Detalle de caballo
-
-Params: `{ horse }` (objeto completo, no refetch). Foto, nombre, precio, nivel, disciplina, canon de pista. DateTimePicker nativo (fecha y hora, `minimumDate` hoy). En iOS el picker puede quedar visible (`showPicker` no se cierra en iOS). Confirmación inserta reserva y vuelve atrás.
-
-### Reservas
-
-Lista de reservas del usuario autenticado como rider. Badge de `status` en mayúsculas, fecha/hora, bloque estático «Pase de Acceso Digital Válido». Sin acciones. `useEffect` al montar; no recarga al enfocar el tab.
-
-### Perfil
-
-Email, atajos a registrar y gestionar caballos, logout rojo. Cualquier usuario autenticado ve las acciones de propietario (no hay rol).
-
-### Mis caballos
-
-`useFocusEffect` recarga al enfocar. Lista propia, editar (pasa `horse` por params), baja con confirmación. Pull-to-refresh.
-
-### Alta / edición de caballo
-
-Campos: nombre, disciplina, nivel, precio, máximo diario (default 2), canon (default 0), foto de galería. Validación mínima: nombre, precio y nivel. Tras guardar, `goBack`.
-
----
-
-## 8. Estilo y UX
-
-- Paleta: fondos gris claro / blanco, texto `#111` / `#666`, acento de precio verde `#2ecc71`, logout y baja `#ff3b30`, editar `#007AFF`.
-- Cards con `elevation` / sombra iOS.
-- Copy y placeholders en español.
-- Emojis en algunos botones y en el texto del pase digital.
-- Sin diseño system, theming ni componentes reutilizados entre pantallas (estilos duplicados en search/owner list).
-
----
-
-## 9. Datos y límites de diseño actuales
-
-- **Cliente gordo:** cada pantalla habla con Supabase; no hay repositorio ni tipos.
-- **Identidad:** un mismo usuario es rider (busca/reserva) y owner (CRUD caballos) a la vez.
-- **Catálogo:** el dueño no ve sus propios caballos en Buscar; el resto del mundo sí (salvo RLS en el proyecto remoto, no visible aquí).
-- **Reserva:** un timestamp único (`session_date`), no intervalo inicio/fin; estado fijo `'pendiente'` al crear; `max_daily_sessions` no se consulta al reservar.
-- **Multimedia:** una URL en la fila del caballo, no galería ni vídeo.
-- **Navegación de auth:** arranque siempre en Login; sesión persistida no restaura la ruta Home sola.
-- **Secretos:** anon key y URL en `supabase.js` (la anon key es pública por diseño de Supabase; el riesgo real depende de RLS en el proyecto).
-
----
-
-## 10. Dependencias declaradas y uso
-
-| Dependencia | Uso efectivo |
-| --- | --- |
-| `@react-navigation/native` + stack + tabs + `safe-area-context` + `screens` | Navegación |
-| `@supabase/supabase-js` | Auth, PostgREST, URL de storage |
-| `@react-native-async-storage/async-storage` | Persistencia de sesión Supabase |
-| `@react-native-community/datetimepicker` | Fecha/hora en detalle |
-| `expo-image-picker` | Galería en alta/edición |
-| `expo-status-bar` | No aparece importado en las pantallas leídas |
-| `react-native-web` / `react-dom` | Target web de Expo |
-
----
-
-## 11. Diagrama de runtime
-
-```
-┌─────────────┐     Auth / REST / Storage      ┌──────────────────┐
-│  Expo App   │ ─────────────────────────────► │  Supabase Cloud  │
-│  (JS only)  │                                │  Auth            │
-│             │ ◄── JWT en AsyncStorage        │  Postgres        │
-│  Screens    │                                │    horses        │
-│  + supabase │                                │    bookings      │
-│    client   │                                │  Storage         │
-└─────────────┘                                │    horse-images  │
-                                               └──────────────────┘
-```
-
-No hay workers, colas, pagos, notificaciones push ni geolocalización en el código actual.
+The repository may still contain legacy terms in historical reports, the
+remote schema dump, migration comments, and the retirement migration. Those
+references are documentation or migration evidence, not production runtime
+dependencies.

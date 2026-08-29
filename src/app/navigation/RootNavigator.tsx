@@ -3,12 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../../features/auth/useAuth';
-import HomeScreen from '../../screens/HomeScreen';
-import HorseDetailScreen from '../../screens/HorseDetailScreen';
-import LoginScreen from '../../screens/LoginScreen';
-import OwnerEditHorseScreen from '../../screens/OwnerEditHorseScreen';
-import OwnerHorsesScreen from '../../screens/OwnerHorsesScreen';
-import OwnerRegisterHorseScreen from '../../screens/OwnerRegisterHorseScreen';
+import BaselineScreen from '../../screens/BaselineScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,51 +20,12 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator key={session ? 'authenticated' : 'unauthenticated'}>
-        {session ? (
-          <>
-            <Stack.Screen
-              name="Home"
-              component={HomeScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="HorseDetail"
-              component={HorseDetailScreen}
-              options={{
-                title: 'Detalles del Caballo',
-                headerBackTitle: 'Volver',
-              }}
-            />
-            <Stack.Screen
-              name="RegisterHorse"
-              component={OwnerRegisterHorseScreen}
-              options={{ title: 'Nuevo Caballo', headerBackTitle: 'Volver' }}
-            />
-            <Stack.Screen
-              name="OwnerHorses"
-              component={OwnerHorsesScreen}
-              options={{
-                title: 'Mis Caballos Registrados',
-                headerBackTitle: 'Volver',
-              }}
-            />
-            <Stack.Screen
-              name="OwnerEditHorse"
-              component={OwnerEditHorseScreen}
-              options={{
-                title: 'Editar Caballo',
-                headerBackTitle: 'Volver',
-              }}
-            />
-          </>
-        ) : (
-          <Stack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
-        )}
+      <Stack.Navigator key={session ? 'authenticated-shell' : 'public-shell'}>
+        <Stack.Screen
+          name="Baseline"
+          component={BaselineScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

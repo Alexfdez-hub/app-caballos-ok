@@ -1,114 +1,128 @@
 # MIGRATION STATUS
 
-PHASE: 2B — Core Infrastructure + Markets + Persons/Accounts + Policies
-STATUS: COMPLETE — PENDING PRODUCT OWNER REVIEW AND REMOTE-APPLY AUTHORIZATION
+PHASE: 2C — Clean Baseline / Legacy Retirement
+STATUS: COMPLETE — PENDING PRODUCT OWNER REVIEW AND REMOTE DEPLOYMENT
 DATE: 2026-08-29
 
-PHASE 2A:
-- Reviewed and approved.
-- Checkpoint commit: `f088a18`.
-- `docs/REMOTE_DATABASE_INVENTORY.md` is authoritative for the legacy public schema.
-- Additional verified fact: `auth.users.on_auth_user_created` is an `AFTER INSERT`
-  trigger executing `public.handle_new_user()`.
+## Approved starting state
 
-FILES CREATED:
-- `supabase/.gitignore`
-- `supabase/config.toml`
-- `supabase/seed.sql` (intentionally no data)
-- `supabase/migrations/001_extensions_and_core.sql`
-- `supabase/migrations/002_markets.sql`
-- `supabase/migrations/003_persons_accounts.sql`
-- `supabase/migrations/004_policies.sql`
-- `docs/PHASE_2B_IMPLEMENTATION_REPORT.md`
+- Phase 2A/2B merged and deployed.
+- Remote migration history synchronized through `004_policies.sql`.
+- Architecture 2.1 tables from migrations 001–004 post-deployment verified.
+- Product decision: prototype compatibility and data retention are no longer
+  requirements.
 
-FILES MODIFIED:
-- `docs/REMOTE_DATABASE_INVENTORY.md` (recorded verified Auth trigger)
+## Files created
+
+- `supabase/migrations/005_legacy_retirement.sql`
+- `src/screens/BaselineScreen.tsx`
+- `docs/PHASE_2C_CLEAN_BASELINE_REPORT.md`
+
+## Files modified
+
+- `AI_INSTRUCTIONS.md`
+- `app.json`
+- `package.json`
+- `package-lock.json`
+- `src/app/navigation/RootNavigator.tsx`
+- `docs/DATA_ARCHITECTURE.md` (migration numbering only)
+- `docs/MIGRATION_PLAN.md`
+- `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_STATUS.md`
 
-DEPENDENCIES:
-- None added or removed.
-- Supabase CLI was used through `npx`; it was not added to `package.json`.
+## Files removed
 
-MIGRATIONS CREATED:
-- `001_extensions_and_core.sql` — records that no extension recreation is
-  required; makes no legacy changes.
-- `002_markets.sql` — creates `markets`.
-- `003_persons_accounts.sql` — creates separate `persons` and `user_accounts`.
-- `004_policies.sql` — creates versioned `policy_documents` and historical
-  `policy_acceptances`.
+- `src/screens/BookingsScreen.js`
+- `src/screens/HomeScreen.js`
+- `src/screens/HorseDetailScreen.js`
+- `src/screens/LoginScreen.js`
+- `src/screens/OwnerEditHorseScreen.js`
+- `src/screens/OwnerHorsesScreen.js`
+- `src/screens/OwnerRegisterHorseScreen.js`
+- `src/screens/ProfileScreen.js`
+- `src/screens/SearchScreen.js`
+- `ESTRUCTURA.md`
+- root duplicate `CURRENT_ARCHITECTURE_REPORT.md`
 
-NEW DATABASE OBJECTS:
-- Tables: `markets`, `persons`, `user_accounts`, `policy_documents`,
-  `policy_acceptances`.
-- PKs on all new tables.
-- Unique constraints on `user_accounts.auth_user_id`,
-  `user_accounts.person_id`, and policy document version identity.
-- FKs: account→Auth, account→person, policy document→market, and acceptance→
-  policy document/person/account.
-- Policy type CHECK for all frozen policy types.
-- Policy effective-period CHECK requires `effective_to > effective_from` when
-  an end timestamp is present.
-- `policy_acceptances.person_id` and `user_account_id` remain NOT NULL: MVP0
-  acceptance evidence identifies both the domain person and authenticated
-  accepting account. Guardian consent remains separate.
-- Custom indexes: one current-policy lookup and four acceptance lookup indexes.
+## Dependencies removed
 
-RLS / SECURITY:
-- RLS enabled on all five new tables.
-- Zero client RLS policies introduced: default posture is deny.
-- All table privileges revoked from `anon` and `authenticated` intentionally.
-- Later client-facing RLS policies will also require explicit table grants.
-- No permissive `USING (true)` / `WITH CHECK (true)` policies.
-- No client `service_role` usage.
-- Legacy RLS, grants, tables, function, and Auth trigger are unchanged.
+- `@react-native-community/datetimepicker`
+- `@react-navigation/bottom-tabs`
+- `expo-image-picker`
 
-TRANSITIONAL DEVIATIONS:
-- `persons.first_name`, `last_name`, and `date_of_birth` are temporarily
-  nullable. The frozen target remains NOT NULL, but real legacy values are
-  unavailable and were not fabricated.
-- `policy_acceptances.center_id` and `booking_id` have deferred FKs because
-  centers are not yet created and current `bookings` is the incompatible
-  legacy table.
-- No Auth/public-user backfill and no application cutover occurred.
-- Legacy `waiver_signed_at` was not interpreted or migrated.
+The datetime-picker Expo plugin was removed from `app.json`.
 
-LOCAL VALIDATION:
-- `npx supabase init` completed and generated local-only configuration.
-- `npx supabase start` did not start because the existing ignored root `.env`
-  has an invalid UTF-8 BOM for the CLI parser. The file was not read or changed.
-- An isolated local Supabase PostgreSQL 17.6 container was used instead.
-- All four migrations executed successfully from a clean local database.
-- All four also executed successfully over a local reconstruction of the
-  authoritative legacy schema plus verified Auth trigger.
-- Verified 5 new tables, 16 constraints, 13 indexes, RLS on every new table,
-  zero RLS policies, and no client DML privileges.
-- Verified a person can exist without an account.
-- Verified Auth insert still invokes `handle_new_user()` and creates the
-  legacy `public.users` row.
+## Migration created
 
-APPLICATION CHECKS:
+`005_legacy_retirement.sql` removes, without `CASCADE`:
+
+1. `auth.users.on_auth_user_created`
+2. `public.handle_new_user()`
+3. `public.bookings`
+4. `public.horses`
+5. `public.users`
+
+Dependency analysis found only the known legacy trigger and FK chain. No
+Architecture 2.1 table from migrations 001–004 references a legacy table.
+`auth.users` is not dropped or modified.
+
+## Application state
+
+- Legacy horse, booking, owner, profile, login, and registration paths removed.
+- Sole route is the TypeScript `BaselineScreen`.
+- Supabase client, AuthProvider, persisted session restoration, navigation, and
+  sign-out plumbing retained.
+- No new registration, identity provisioning, onboarding, or product domain
+  flow implemented.
+- Production source has no direct dependency on retired tables or role values.
+
+## Local database validation
+
+- Clean local migration chain 001→005: passed.
+- Same clean chain repeated in a second fresh local container: passed.
+- Reconstructed legacy schema + verified trigger + 001→005: passed.
+- Legacy trigger/function/tables absent after 005: verified.
+- `auth.users` remains: verified.
+- `markets`, `persons`, `user_accounts`, `policy_documents`, and
+  `policy_acceptances` remain: verified.
+- 16 Architecture 2.1 constraints remain: verified.
+- RLS remains enabled on all five Architecture 2.1 tables: verified.
+
+Execution used disposable local Supabase PostgreSQL 17.6 containers. No linked
+remote command or connection was used.
+
+## Application checks
+
 - `npm run typecheck` — passed.
-- `npx expo-doctor` — passed 18/18 checks.
-- `git diff --check` — passed after removing documentation trailing spaces.
-- npm continues to report the existing unknown `devdir` environment warning.
+- `npx expo-doctor` — passed 18/18.
+- `npx expo config --type public` — passed.
+- Expo web server — reached ready state.
+- Browser smoke test — clean shell rendered.
+- Production-source legacy reference search — zero matches.
+- `git diff --check` — passed after documentation whitespace correction.
 
-REMOTE DATABASE:
-- **NOT MODIFIED.**
-- No `db push`, remote migration apply, remote reset, remote seed, or remote SQL.
-- All SQL execution was against disposable local Docker databases only.
+## Known issues / unresolved risks
 
-KNOWN ISSUES / MANUAL STEPS:
-- Remove the UTF-8 BOM from the ignored root `.env` before using the normal
-  local Supabase CLI stack; preserve the existing variable values.
-- Product Owner/data collection must resolve real first name, last name, and
-  date of birth before enforcing frozen NOT NULL constraints.
-- Future phases must add FKs for acceptance `center_id` / frozen `booking_id`
-  when their correct target tables exist.
-- Do not apply these migrations remotely until separately authorized.
+- Prototype data is intentionally discarded when migration 005 is deployed.
+- The unverified `horse-images` Storage bucket is not changed by this migration;
+  no production app path references it.
+- Remote legacy objects remain until separately authorized deployment.
+- The ignored root `.env` UTF-8 BOM still prevents normal `supabase start`;
+  local database testing used direct containers.
+- npm reports 16 existing audit findings (7 moderate, 9 high).
 
-ARCHITECTURE CONFLICTS:
-- None unresolved.
+## Remote database
 
-NEXT PHASE:
-- Not authorized.
-- STOP after Product Owner review of Phase 2B.
+- **NOT MODIFIED during Phase 2C implementation/testing.**
+- No remote push, reset, repair, seed, migration apply, or SQL.
+
+## Architecture conflicts
+
+- None.
+
+## Next phase
+
+- Phase 3A Identity Integration is planned as migration
+  `006_identity_integration.sql`.
+- Guardians move to `007_guardians.sql`.
+- Phase 3A was **not started** and requires separate authorization.
