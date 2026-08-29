@@ -560,32 +560,37 @@ Código nuevo en TypeScript.
 
 ## 27. Orden de migrations
 
+The approved Phase 2C clean break changes implementation numbering only; it
+does not change the frozen domain model.
+
 ```text
 001_extensions_and_core
 002_markets
 003_persons_accounts
 004_policies
-005_guardians
-006_centers
-007_center_memberships
-008_equines
-009_equine_ownership_management
-010_equine_center_relations
-011_disciplines
-012_qualifications
-013_assessments
-014_equine_requirements
-015_services
-016_zero_sessions_authorizations
-017_calendar
-018_bookings
-019_booking_functions
-020_sessions
-021_activity
-022_reviews_incidents
-023_audit
-024_storage_policies
-025_rls_security_tests
+005_legacy_retirement
+006_identity_integration
+007_guardians
+008_centers
+009_center_memberships
+010_equines
+011_equine_ownership_management
+012_equine_center_relations
+013_disciplines
+014_qualifications
+015_assessments
+016_equine_requirements
+017_services
+018_zero_sessions_authorizations
+019_calendar
+020_bookings
+021_booking_functions
+022_sessions
+023_activity
+024_reviews_incidents
+025_audit
+026_storage_policies
+027_rls_security_tests
 ```
 
 ## 28. Migración del prototipo

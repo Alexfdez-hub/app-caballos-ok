@@ -125,7 +125,10 @@ Refactor gradually. Preserve working screens while replacing underlying architec
 
 ## Legacy model
 
-Current legacy surfaces include `horses`, `bookings`, `horse-images`, and Auth ids used as owner/rider ids. Do not extend these as long-term architecture; migrate progressively.
+The original `public.users` / `horses` / `bookings` prototype and its custom
+Auth trigger are retired by migration 005 under the approved clean-break
+decision. Do not reintroduce them or use Auth ids as domain owner/rider ids.
+`docs/REMOTE_DATABASE_INVENTORY.md` is historical evidence only.
 
 ## Internationalization
 
