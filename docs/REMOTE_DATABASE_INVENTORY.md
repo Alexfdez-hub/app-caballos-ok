@@ -43,7 +43,7 @@ The following cannot be confirmed from `supabase_remote_schema.sql`. Do not trea
 | --- | --- |
 | Auth configuration | Email confirmation, providers, MFA, JWT settings, redirects — not in dump |
 | `auth.users` table shape | Only referenced as FK target `auth.users(id)`; no `auth` schema dump |
-| Trigger attaching `handle_new_user` | Function exists and is written as a trigger function (`RETURNS trigger`, uses `NEW.id`); **no `CREATE TRIGGER` in the dump**. Likely lives on `auth.users` if it exists at all |
+| Other Auth triggers/hooks | The verified `on_auth_user_created` trigger is known, but the dump does not cover any other Auth triggers or hooks |
 | Storage buckets | Client uses `horse-images`; dump has no Storage objects or policies |
 | Storage RLS / bucket public flags | Not in dump |
 | Extensions catalog | No `CREATE EXTENSION`. Usage evidence only: `extensions.uuid_generate_v4()` and `gen_random_uuid()` |
@@ -92,7 +92,9 @@ No other functions.
 
 ### 1.5 Triggers
 
-None in the dump.
+None in the dump. **Separately verified after Phase 2A:** `auth.users` has an
+`AFTER INSERT` trigger named `on_auth_user_created` that executes
+`public.handle_new_user()`.
 
 ### 1.6 Views
 
@@ -248,7 +250,7 @@ Deleting a horse **cascades** all its bookings. Deleting a `public.users` row **
 
 ### 2.3 Identity model on remote
 
-A single `public.users` row, PK = Auth UUID, optional mutually exclusive `role` (`jinete` | `propietario`). Extra profile/compliance/payout-oriented columns exist on the same table. `handle_new_user` always inserts `role = 'jinete'` if the trigger is attached (attachment **unverified**).
+A single `public.users` row, PK = Auth UUID, optional mutually exclusive `role` (`jinete` | `propietario`). Extra profile/compliance/payout-oriented columns exist on the same table. The verified `on_auth_user_created` trigger executes `handle_new_user`, which inserts `role = 'jinete'`.
 
 This is **not** person ≠ user_account.
 
@@ -332,7 +334,7 @@ Legend: **KEEP** (remain as-is for MVP0), **ADAPT** (keep but change shape/polic
 | `users.stripe_account_id` | UNKNOWN / NEEDS PRODUCT OWNER DECISION | Stripe is deferred; do not build payouts |
 | `users.created_at` | MIGRATE | Map to account/person timestamps |
 | `users` SELECT/UPDATE RLS | LEGACY / CONTRACT LATER + ADAPT | Self-only; no INSERT policy in dump |
-| `handle_new_user()` | ADAPT | Must later create `persons` + `user_accounts` (and not a single role). Trigger attachment unverified |
+| `handle_new_user()` | LEGACY / CONTRACT LATER | Verified as the function executed by `auth.users.on_auth_user_created`; preserve unchanged during Phase 2B |
 | PK indexes | KEEP | Until tables are replaced |
 | `GRANT ALL` to `anon` on tables | ADAPT | Tighten in a later security phase; do not rely on grants instead of RLS |
 | Default privileges ALL to `anon` | ADAPT | Risk for **new** tables created without RLS in the same schema |
@@ -346,8 +348,7 @@ Legend: **KEEP** (remain as-is for MVP0), **ADAPT** (keep but change shape/polic
 
 - **Identity 1:1 with Auth:** `public.users.id = auth.users.id` blocks “person without account” unless new `persons.id` values are created and mapped.
 - **Mutually exclusive `role`:** contradicts simultaneous owner+rider (the app already treats every user as both).
-- **`handle_new_user`:** if still attached, new Auth users get a `public.users` row with `jinete` only; Phase 2 identity functions must not fight this without a planned replacement.
-- **Missing trigger in dump:** if the trigger is missing, `horses.owner_id` / `bookings.rider_id` inserts can fail FK to `public.users`.
+- **Verified legacy Auth trigger:** new Auth users get a `public.users` row with `jinete`; expand-only identity work must coexist with this path until a separately authorized cutover.
 - **Nullable `bookings.status`:** CHECK does not reject NULL.
 - **No occupancy constraint:** overlapping `session_date` allowed.
 - **CASCADE deletes:** horse delete removes bookings; user delete removes rider bookings.
