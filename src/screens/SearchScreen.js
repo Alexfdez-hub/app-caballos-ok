@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, TouchableOpacity, Image } from 'react-native';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function SearchScreen({ navigation }) {
   const [horses, setHorses] = useState([]);

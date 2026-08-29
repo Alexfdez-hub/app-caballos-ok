@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Image, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function OwnerHorsesScreen({ navigation }) {
   const [horses, setHorses] = useState([]);

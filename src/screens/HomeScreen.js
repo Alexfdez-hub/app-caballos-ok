@@ -1,19 +1,12 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text } from 'react-native';
 
-// Importamos las pantallas reales
 import SearchScreen from './SearchScreen';
 import ProfileScreen from './ProfileScreen';
 import BookingsScreen from './BookingsScreen';
 
 const Tab = createBottomTabNavigator();
-
-// Pantalla temporal para reservas (hasta que hagamos ese módulo)
-function BookingsDummy() {
-  return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><Text>Tus reservas activas</Text></View>;
-}
 
 export default function HomeScreen() {
   return (

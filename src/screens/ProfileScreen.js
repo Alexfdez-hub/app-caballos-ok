@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function ProfileScreen({ navigation }) {
   const [userEmail, setUserEmail] = useState('');
@@ -20,7 +20,6 @@ export default function ProfileScreen({ navigation }) {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    navigation.replace('Login');
   }
 
   if (loading) {

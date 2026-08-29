@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "HelloWorld",
-    "slug": "expo-template-blank",
+    "name": "App Caballos",
+    "slug": "app-caballos-ok",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

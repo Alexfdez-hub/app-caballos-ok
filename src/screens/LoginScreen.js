@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -15,7 +15,6 @@ export default function LoginScreen({ navigation }) {
       Alert.alert('Error al entrar', error.message);
     } else {
       Alert.alert('¡Bienvenido!', 'Sesión iniciada correctamente');
-      navigation.replace('Home');
     }
     
     setLoading(false);

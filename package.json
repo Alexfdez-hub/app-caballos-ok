@@ -1,19 +1,15 @@
 {
-  "name": "expo-template-blank",
-  "description": "The Blank project template includes the minimum dependencies to run and an empty root component.",
-  "license": "0BSD",
-  "version": "57.0.11",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/expo/expo.git",
-    "directory": "templates/expo-template-blank"
-  },
+  "name": "app-caballos-ok",
+  "description": "Aplicación Expo para la plataforma de alquiler ecuestre.",
+  "version": "1.0.0",
+  "private": true,
   "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -31,5 +27,9 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
   }
 }

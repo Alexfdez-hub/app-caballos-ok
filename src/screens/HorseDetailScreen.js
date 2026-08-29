@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert, Platform, Image, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function HorseDetailScreen({ route, navigation }) {
   const { horse } = route.params;
