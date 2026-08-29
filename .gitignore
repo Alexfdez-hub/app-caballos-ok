@@ -3,3 +3,8 @@ node_modules/
 dist/
 npm-debug.*
 *.env
+# Supabase CLI local temp
+supabase/.temp/
+
+# Remote schema dump (local audit artifact)
+supabase_remote_schema.sql

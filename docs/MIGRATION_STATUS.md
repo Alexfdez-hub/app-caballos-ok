@@ -1,102 +1,114 @@
 # MIGRATION STATUS
 
-PHASE: 1 — Technical Foundation  
-STATUS: COMPLETE — PENDING PRODUCT OWNER REVIEW  
+PHASE: 2B — Core Infrastructure + Markets + Persons/Accounts + Policies
+STATUS: COMPLETE — PENDING PRODUCT OWNER REVIEW AND REMOTE-APPLY AUTHORIZATION
 DATE: 2026-08-29
 
+PHASE 2A:
+- Reviewed and approved.
+- Checkpoint commit: `f088a18`.
+- `docs/REMOTE_DATABASE_INVENTORY.md` is authoritative for the legacy public schema.
+- Additional verified fact: `auth.users.on_auth_user_created` is an `AFTER INSERT`
+  trigger executing `public.handle_new_user()`.
+
 FILES CREATED:
-- `.env.example`
-- `App.tsx`
-- `tsconfig.json`
-- `src/app/navigation/RootNavigator.tsx`
-- `src/app/providers/AuthProvider.tsx`
-- `src/config/env.ts`
-- `src/features/auth/AuthContext.ts`
-- `src/features/auth/useAuth.ts`
-- `src/services/supabase/client.ts`
-- `src/types/index.ts`
-- `src/utils/index.ts`
+- `supabase/.gitignore`
+- `supabase/config.toml`
+- `supabase/seed.sql` (intentionally no data)
+- `supabase/migrations/001_extensions_and_core.sql`
+- `supabase/migrations/002_markets.sql`
+- `supabase/migrations/003_persons_accounts.sql`
+- `supabase/migrations/004_policies.sql`
+- `docs/PHASE_2B_IMPLEMENTATION_REPORT.md`
 
 FILES MODIFIED:
-- `app.json`
-- `package.json`
-- `package-lock.json`
-- `src/screens/BookingsScreen.js`
-- `src/screens/HomeScreen.js`
-- `src/screens/HorseDetailScreen.js`
-- `src/screens/LoginScreen.js`
-- `src/screens/OwnerEditHorseScreen.js`
-- `src/screens/OwnerHorsesScreen.js`
-- `src/screens/OwnerRegisterHorseScreen.js`
-- `src/screens/ProfileScreen.js`
-- `src/screens/SearchScreen.js`
+- `docs/REMOTE_DATABASE_INVENTORY.md` (recorded verified Auth trigger)
 - `docs/MIGRATION_STATUS.md`
 
-FILES MOVED/REMOVED:
-- `App.js` replaced by the TypeScript entry component `App.tsx`; navigation moved to `src/app/navigation/RootNavigator.tsx`.
-- `supabase.js` moved to `src/services/supabase/client.ts`.
-- Unused `BookingsDummy` removed from `src/screens/HomeScreen.js`; the live Reservas tab remains unchanged.
-
 DEPENDENCIES:
-- Added development dependency `typescript` (Expo SDK 54 compatible).
-- Added development dependency `@types/react` (Expo SDK 54 compatible).
-- No dependencies removed.
+- None added or removed.
+- Supabase CLI was used through `npx`; it was not added to `package.json`.
 
-TYPESCRIPT CONFIGURATION:
-- `tsconfig.json` extends `expo/tsconfig.base`.
-- Strict type checking and `noEmit` are enabled.
-- `allowJs: true` and `checkJs: false` preserve gradual migration of legacy JavaScript screens.
-- Added `npm run typecheck`.
+MIGRATIONS CREATED:
+- `001_extensions_and_core.sql` — records that no extension recreation is
+  required; makes no legacy changes.
+- `002_markets.sql` — creates `markets`.
+- `003_persons_accounts.sql` — creates separate `persons` and `user_accounts`.
+- `004_policies.sql` — creates versioned `policy_documents` and historical
+  `policy_acceptances`.
 
-ENVIRONMENT CONFIGURATION:
-- Supabase URL and public anon/publishable key now use `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-- Existing local public configuration was migrated to ignored `.env` for current-machine continuity.
-- `.env.example` documents required variable names without real values.
-- No `service_role` key was added or exposed.
+NEW DATABASE OBJECTS:
+- Tables: `markets`, `persons`, `user_accounts`, `policy_documents`,
+  `policy_acceptances`.
+- PKs on all new tables.
+- Unique constraints on `user_accounts.auth_user_id`,
+  `user_accounts.person_id`, and policy document version identity.
+- FKs: account→Auth, account→person, policy document→market, and acceptance→
+  policy document/person/account.
+- Policy type CHECK for all frozen policy types.
+- Policy effective-period CHECK requires `effective_to > effective_from` when
+  an end timestamp is present.
+- `policy_acceptances.person_id` and `user_account_id` remain NOT NULL: MVP0
+  acceptance evidence identifies both the domain person and authenticated
+  accepting account. Guardian consent remains separate.
+- Custom indexes: one current-policy lookup and four acceptance lookup indexes.
 
-AUTHENTICATION CHANGES:
-- Added `AuthProvider`.
-- Initial persisted session is restored with `supabase.auth.getSession()`.
-- Auth state is synchronized with `supabase.auth.onAuthStateChange()`.
-- Root navigation now gates authenticated and unauthenticated stacks.
-- Login, sign-up and sign-out continue to use Supabase Auth; navigation resets from auth state rather than imperative route replacement.
-- Startup displays a neutral loading indicator while session restoration completes.
+RLS / SECURITY:
+- RLS enabled on all five new tables.
+- Zero client RLS policies introduced: default posture is deny.
+- All table privileges revoked from `anon` and `authenticated` intentionally.
+- Later client-facing RLS policies will also require explicit table grants.
+- No permissive `USING (true)` / `WITH CHECK (true)` policies.
+- No client `service_role` usage.
+- Legacy RLS, grants, tables, function, and Auth trigger are unchanged.
 
-BUGBOT CORRECTION:
-- Sign-up now checks the session returned by Supabase: without a session it keeps the verification-email message; with a session it reports that the account is created and signed in while `AuthProvider` controls navigation to Home.
-- Validation rerun: `npm run typecheck` passed, `npx expo-doctor` passed 18/18 checks, and `git diff --check` passed.
+TRANSITIONAL DEVIATIONS:
+- `persons.first_name`, `last_name`, and `date_of_birth` are temporarily
+  nullable. The frozen target remains NOT NULL, but real legacy values are
+  unavailable and were not fabricated.
+- `policy_acceptances.center_id` and `booking_id` have deferred FKs because
+  centers are not yet created and current `bookings` is the incompatible
+  legacy table.
+- No Auth/public-user backfill and no application cutover occurred.
+- Legacy `waiver_signed_at` was not interpreted or migrated.
 
-METADATA:
-- Removed Expo blank-template package metadata.
-- Package name/version are now `app-caballos-ok` / `1.0.0`.
-- Expo display name/slug are now `App Caballos` / `app-caballos-ok`.
+LOCAL VALIDATION:
+- `npx supabase init` completed and generated local-only configuration.
+- `npx supabase start` did not start because the existing ignored root `.env`
+  has an invalid UTF-8 BOM for the CLI parser. The file was not read or changed.
+- An isolated local Supabase PostgreSQL 17.6 container was used instead.
+- All four migrations executed successfully from a clean local database.
+- All four also executed successfully over a local reconstruction of the
+  authoritative legacy schema plus verified Auth trigger.
+- Verified 5 new tables, 16 constraints, 13 indexes, RLS on every new table,
+  zero RLS policies, and no client DML privileges.
+- Verified a person can exist without an account.
+- Verified Auth insert still invokes `handle_new_user()` and creates the
+  legacy `public.users` row.
 
-MIGRATIONS:
-- None.
-
-DATABASE CHANGES:
-- None.
-- Legacy `horses`, `bookings`, Auth identity fields, table names and column names are unchanged.
-
-TESTS/CHECKS:
+APPLICATION CHECKS:
 - `npm run typecheck` — passed.
-- `npx expo-doctor` — 18/18 checks passed.
-- `npx expo config --type public` — passed; resolved metadata verified.
-- `npx expo install --check` — passed; dependencies are up to date.
-- IDE diagnostics for new TypeScript infrastructure — no errors.
-- `git diff --check` — passed.
+- `npx expo-doctor` — passed 18/18 checks.
+- `git diff --check` — passed after removing documentation trailing spaces.
+- npm continues to report the existing unknown `devdir` environment warning.
 
-KNOWN ISSUES/WARNINGS:
-- `npm install` reports 16 dependency audit findings (7 moderate, 9 high). No automatic or breaking dependency upgrades were made in this phase.
-- npm reports an existing unknown `devdir` environment configuration warning.
-- Native device/emulator authentication flows were not manually exercised in this automated check pass.
-- Git reports expected LF-to-CRLF normalization warnings on Windows for JSON files.
+REMOTE DATABASE:
+- **NOT MODIFIED.**
+- No `db push`, remote migration apply, remote reset, remote seed, or remote SQL.
+- All SQL execution was against disposable local Docker databases only.
 
-MANUAL STEPS:
-- On each new machine, copy `.env.example` to `.env` and set the public Supabase URL and anon/publishable key. Never use a `service_role` key.
-- Restart Expo after changing environment variables.
-- Product Owner should verify startup restoration, sign-in, sign-up and sign-out on a target device/emulator.
+KNOWN ISSUES / MANUAL STEPS:
+- Remove the UTF-8 BOM from the ignored root `.env` before using the normal
+  local Supabase CLI stack; preserve the existing variable values.
+- Product Owner/data collection must resolve real first name, last name, and
+  date of birth before enforcing frozen NOT NULL constraints.
+- Future phases must add FKs for acceptance `center_id` / frozen `booking_id`
+  when their correct target tables exist.
+- Do not apply these migrations remotely until separately authorized.
+
+ARCHITECTURE CONFLICTS:
+- None unresolved.
 
 NEXT PHASE:
-- Phase 2 has not been started.
-- No next phase is authorized until Product Owner review and approval.
+- Not authorized.
+- STOP after Product Owner review of Phase 2B.

@@ -1,0 +1,3 @@
+-- Phase 2B intentionally seeds no data.
+-- Markets, policy documents, and policy acceptances require Product Owner
+-- approved values and must not be fabricated.

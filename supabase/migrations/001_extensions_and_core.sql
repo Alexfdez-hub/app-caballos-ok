@@ -1,0 +1,10 @@
+-- Phase 2B: extensions and core prerequisites.
+--
+-- PostgreSQL in Supabase provides gen_random_uuid(), which is the only UUID
+-- prerequisite used by migrations 002-004. No extension is created here:
+-- the linked legacy schema already uses Supabase-managed extension objects,
+-- and these expand-only migrations must not recreate or relocate them.
+--
+-- This migration intentionally makes no changes to auth.users, public.users,
+-- public.horses, public.bookings, public.handle_new_user(), or the verified
+-- auth.users trigger on_auth_user_created.
