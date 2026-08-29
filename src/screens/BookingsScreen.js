@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function BookingsScreen() {
   const [bookings, setBookings] = useState([]);

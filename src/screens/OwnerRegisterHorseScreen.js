@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../../supabase';
+import { supabase } from '../services/supabase/client';
 
 export default function OwnerRegisterHorseScreen({ navigation }) {
   const [name, setName] = useState('');
