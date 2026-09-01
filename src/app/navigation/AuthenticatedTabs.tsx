@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react';
 
 import ActivityScreen from '../../screens/ActivityScreen';
 import EditIdentityScreen from '../../screens/EditIdentityScreen';
+import EditRiderProfileScreen from '../../screens/EditRiderProfileScreen';
 import EquestrianPassportScreen from '../../screens/EquestrianPassportScreen';
 import ExploreScreen from '../../screens/ExploreScreen';
 import GuardianRelationshipsScreen from '../../screens/GuardianRelationshipsScreen';
@@ -74,6 +75,16 @@ function PassportStack() {
         name="Passport"
         component={EquestrianPassportScreen}
         options={{ headerShown: false }}
+      />
+      <PassportStackNavigator.Screen
+        name="EditRiderProfile"
+        component={EditRiderProfileScreen}
+        options={{
+          title: 'Perfil de jinete',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
       />
     </PassportStackNavigator.Navigator>
   );
