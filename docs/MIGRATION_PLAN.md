@@ -3,7 +3,8 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3A implementada localmente, pendiente de revisión y despliegue; Phase 3B / guardians no iniciada
+**Estado:** Phase 3B guardians implementada localmente, pendiente de revisión;
+Phase 3A mergeada en `main`. Centros no iniciados.
 
 ## 1. Método
 
@@ -77,7 +78,7 @@ Migration: `005_legacy_retirement`.
 
 ## 7. Phase 3A — Identity integration
 
-**IMPLEMENTADA LOCALMENTE.** Migration `006_identity_integration`.
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #4).** Migration `006_identity_integration`.
 
 Construye directamente sobre `persons` + `user_accounts`. Provisioning,
 onboarding y perfil de identidad sin `users.role`. Guardians no forman parte
@@ -115,9 +116,14 @@ Secuencia de migrations actualizada:
 027_rls_security_tests
 ```
 
-## 8. Phase 3B — Centers
+## 8. Phase 3B — Guardians / minors
 
-Crear centers, languages, memberships. Onboarding de centro de piloto controlado. Roles: ADMIN/MANAGER/INSTRUCTOR/ASSESSOR.
+**IMPLEMENTADA LOCALMENTE, pendiente de revisión / merge.** Migration
+`007_guardians.sql`.
+
+Crear `guardian_relationships`, `guardian_consents`, reglas de edad por
+mercado y RPCs de consentimiento. No implementar centros, bookings ni
+autoridad de verificación.
 
 ## 9. Phase 4 — Equines
 
@@ -131,9 +137,10 @@ Crear rider profiles, disciplines/translations, qualification systems/levels, ri
 
 Crear assessments + discipline results + restrictions. Assessor debe tener membership válido y no puede autoevaluarse.
 
-## 12. Phase 7 — Guardians/minors
+## 12. Phase 7 — Guardians/minors (histórico de numeración)
 
-Crear guardian relationships/consents. Menor puede existir como person sin Auth. Implementar `grant_guardian_consent()`. P0: menor sin consentimiento requerido no confirma actividad.
+Cubierto por migration `007_guardians.sql` en Phase 3B. No crear una segunda
+migración de guardians. El heading histórico no cambia el orden frozen.
 
 ## 13. Phase 8 — Requirements/services/trust
 
@@ -231,4 +238,4 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras aprobar Phase 3A:** `007_guardians.sql`.
+**Siguiente fase prevista tras aprobar Phase 3B:** `008_centers.sql`.

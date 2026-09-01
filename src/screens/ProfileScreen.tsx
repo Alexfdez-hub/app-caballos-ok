@@ -94,10 +94,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           status="comingSoon"
         />
         <MenuRow
-          description="Se mostrará si hay menores o tutores vinculados."
+          description="Consulta relaciones y consentimientos reales. No se verifican desde la app."
           isLast
           label="Relaciones de tutor / menores"
-          status="comingSoon"
+          onPress={() => navigation.navigate('GuardianRelationships')}
         />
       </SectionCard>
 

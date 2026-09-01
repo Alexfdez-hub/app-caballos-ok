@@ -33,6 +33,7 @@ export type PassportStackParamList = {
 export type ProfileStackParamList = {
   Profile: undefined;
   EditIdentity: undefined;
+  GuardianRelationships: undefined;
 };
 
 export type AuthenticatedTabParamList = {
