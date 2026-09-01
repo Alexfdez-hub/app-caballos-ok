@@ -58,7 +58,7 @@ export default function EquestrianPassportScreen({
   navigation,
 }: PassportScreenProps) {
   const { identity } = useIdentity();
-  const { profile, isLoading, errorMessage } = useRiderProfile();
+  const { profile, isLoading, errorMessage, refresh } = useRiderProfile();
   const fullName = [identity?.firstName, identity?.lastName]
     .filter(Boolean)
     .join(' ');
@@ -112,8 +112,7 @@ export default function EquestrianPassportScreen({
               <Text style={styles.primaryButtonText}>Editar perfil de jinete</Text>
             </Pressable>
           </>
-        ) : (
-          !isLoading && (
+        ) : !isLoading && !errorMessage ? (
             <>
               <EmptyStateCard
                 description="Puedes crear tu perfil de jinete. Eso no acepta la política de jinete, no sustituye el consentimiento de tutor y no acredita nivel ni autorización."
@@ -132,8 +131,20 @@ export default function EquestrianPassportScreen({
                 </Text>
               </Pressable>
             </>
-          )
-        )}
+        ) : !isLoading && errorMessage ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              void refresh();
+            }}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>Reintentar</Text>
+          </Pressable>
+        ) : null}
       </SectionCard>
 
       <SectionCard title="Aún no implementado">

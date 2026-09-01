@@ -26,5 +26,5 @@ export function userFacingRiderMessage(error: unknown): string {
     return 'La biografía es demasiado larga.';
   }
 
-  return 'No se pudo guardar el perfil de jinete. Inténtalo de nuevo.';
+  return 'No se pudo completar la acción del perfil de jinete. Inténtalo de nuevo.';
 }

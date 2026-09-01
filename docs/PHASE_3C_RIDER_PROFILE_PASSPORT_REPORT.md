@@ -131,12 +131,15 @@ roadmap override of the historical `008_centers` filename, documented in
 
 ## Bugbot
 
-Cursor Bugbot (Manual Only, Autofix OFF) found two valid hydration issues:
+Cursor Bugbot (Manual Only, Autofix OFF) found valid issues that were
+corrected:
 
 1. The edit form re-synced from a focus refetch and could wipe unsaved input.
 2. A failed first fetch still locked hydration, so a later successful load
    could leave a blank form that might overwrite an existing profile.
+3. Passport treated a load error as “no profile” and offered create.
+4. Load errors reused save-failure copy.
 
-Hydration now waits for a successful load and runs once. The editor stays
-closed until that happens. GitHub Bugbot still needs to be run on the pull
-request after it is opened.
+Hydration now waits for a successful load and runs once. Passport shows
+retry instead of create on load failure. GitHub Bugbot still needs to be
+run on the pull request after it is opened.
