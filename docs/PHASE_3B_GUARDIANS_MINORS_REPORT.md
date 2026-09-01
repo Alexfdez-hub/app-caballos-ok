@@ -149,3 +149,6 @@ A second Bugbot pass found that `check_guardian_consent` compared expiry to
 UTC midnight of the reference date, so a same-day expired consent could still
 pass. Same-day checks now use `now()`; other dates fail closed at the end of
 that UTC day. `npm run test:guardians` was re-run (PASS).
+
+A third Cursor Bugbot pass found no remaining bugs. GitHub Bugbot still needs
+to be run on the pull request (Manual Only, Autofix OFF) after the PR is opened.
