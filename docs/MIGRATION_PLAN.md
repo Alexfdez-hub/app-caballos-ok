@@ -3,9 +3,9 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3D Centers foundation mergeada en `main` (PR #7);
-migration `009` desplegada en el proyecto linked `efkauegdlmfkonzwyyiv`.
-Memberships no iniciadas.
+**Estado:** Phase 3E Center memberships implementada localmente en
+`refactor/phase-3e-center-memberships`. Migration `010` no desplegada.
+Equines y fases posteriores no iniciadas.
 
 ## 1. Método
 
@@ -147,8 +147,19 @@ desplegada en el proyecto linked `efkauegdlmfkonzwyyiv`. Histories local y
 remota alineadas hasta `009`.
 
 Creates `equestrian_centers` and `center_languages`. No client creation,
-verification or public directory. `center_memberships` remains
-`010_center_memberships.sql`.
+verification or public directory.
+
+## 8d. Phase 3E — Center memberships
+
+**IMPLEMENTADA LOCALMENTE.** Migration `010_center_memberships.sql`.
+Pendiente de revisión, PR y aprobación de despliegue remoto.
+
+Creates `center_memberships` as PERSON + CENTER relationships with MVP0
+roles `ADMIN|MANAGER|INSTRUCTOR|ASSESSOR` and lifecycle `ACTIVE|ENDED`.
+Caller-context read via `list_my_center_memberships()`. Server-internal
+`has_active_center_role(...)`. No client grant/revoke/bootstrap RPC.
+Invitations, first-admin onboarding, Center Policy activation, assessments,
+equines, services and bookings remain deferred.
 
 ## 9. Phase 4 — Equines
 
@@ -266,4 +277,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras aprobar Phase 3D:** `010_center_memberships.sql`.
+**Siguiente fase prevista tras aprobar Phase 3E y desplegar 010:**
+equines / ownership according to the current roadmap (`011_equines.sql`).
+Do not start that phase in this memberships implementation.

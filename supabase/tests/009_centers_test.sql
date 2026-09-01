@@ -11,6 +11,13 @@ declare
   ];
   linked_person_ids uuid[];
 begin
+  if to_regclass('public.center_memberships') is not null then
+    delete from public.center_memberships
+     where center_id in (
+       select id from public.equestrian_centers where slug like 'phase3d-%'
+     );
+  end if;
+
   delete from public.center_languages
    where center_id in (
      select id from public.equestrian_centers where slug like 'phase3d-%'
@@ -88,7 +95,6 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'center_memberships',
          'rider_assessments',
          'equines',
          'center_services',
@@ -357,10 +363,16 @@ declare
   membership_count integer;
   assessment_exists boolean;
 begin
-  select count(*) into membership_count
-    from information_schema.tables
-   where table_schema = 'public'
-     and table_name = 'center_memberships';
+  if to_regclass('public.center_memberships') is not null then
+    select count(*) into membership_count
+      from public.center_memberships
+     where center_id in (
+       current_setting('app.center_id', true)::uuid,
+       current_setting('app.draft_center_id', true)::uuid
+     );
+  else
+    membership_count := 0;
+  end if;
 
   if membership_count <> 0 then
     raise exception 'Creating a center created memberships';
