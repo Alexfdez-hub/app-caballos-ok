@@ -135,3 +135,14 @@ domains.
 - Grant RPC exists; UI does not call it because no market is collected on the
   person.
 - Canonical audit coverage is not claimed.
+
+## Bugbot
+
+Cursor Bugbot (Manual Only, Autofix OFF) found two valid medium issues on the
+first review. Both were corrected in `grant_guardian_consent`:
+
+- time-expired `ACTIVE` consents are retired to `EXPIRED` before a new grant,
+  so renewal is not blocked by the unique active index;
+- `p_expires_at` in the past is rejected.
+
+`npm run test:guardians` was re-run after the correction (PASS).
