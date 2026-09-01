@@ -3,8 +3,9 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3D Centers foundation implementada localmente, pendiente de
-revisión; Phase 3C mergeada en `main`. Memberships no iniciadas.
+**Estado:** Phase 3D Centers foundation mergeada en `main` (PR #7);
+migration `009` desplegada en el proyecto linked `efkauegdlmfkonzwyyiv`.
+Memberships no iniciadas.
 
 ## 1. Método
 
@@ -141,8 +142,9 @@ record. Guardian-managed editing of a minor’s profile is deferred.
 
 ## 8c. Phase 3D — Centers foundation
 
-**IMPLEMENTADA LOCALMENTE, pendiente de revisión / merge.** Migration
-`009_centers.sql`.
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #7).** Migration `009_centers.sql`
+desplegada en el proyecto linked `efkauegdlmfkonzwyyiv`. Histories local y
+remota alineadas hasta `009`.
 
 Creates `equestrian_centers` and `center_languages`. No client creation,
 verification or public directory. `center_memberships` remains

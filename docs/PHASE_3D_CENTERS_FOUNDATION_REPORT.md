@@ -136,5 +136,14 @@ above).
 
 ## Remote
 
-Do not deploy 009 until Product Owner approval. Linked remote is aligned
-through 008.
+Linked development project: `efkauegdlmfkonzwyyiv`.
+
+Product Owner approved the linked push. `009_centers.sql` was applied.
+
+- Local and remote histories align through `009`.
+- `equestrian_centers` and `center_languages` exist remotely.
+- RLS is enabled on both tables.
+- `anon` / `authenticated` table privileges remain denied.
+- No client policies.
+- No Center mutation RPCs.
+- Migration 010 has not been started.
