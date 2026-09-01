@@ -139,7 +139,8 @@ corrected:
    could leave a blank form that might overwrite an existing profile.
 3. Passport treated a load error as “no profile” and offered create.
 4. Load errors reused save-failure copy.
+5. A failed refresh with a cached profile hid retry in the identity card.
 
-Hydration now waits for a successful load and runs once. Passport shows
-retry instead of create on load failure. GitHub Bugbot still needs to be
-run on the pull request after it is opened.
+Hydration now waits for a successful load and runs once. Passport shows a
+banner retry on any load failure. GitHub Bugbot still needs to be run on
+the pull request after it is opened.

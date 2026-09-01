@@ -73,9 +73,24 @@ export default function EquestrianPassportScreen({
       {isLoading ? <ActivityIndicator color={colors.text} /> : null}
 
       {errorMessage ? (
-        <Text accessibilityRole="alert" style={styles.message}>
-          {errorMessage}
-        </Text>
+        <>
+          <Text accessibilityRole="alert" style={styles.message}>
+            {errorMessage}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              void refresh();
+            }}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              styles.retryButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.primaryButtonText}>Reintentar</Text>
+          </Pressable>
+        </>
       ) : null}
 
       <SectionCard title={fullName || 'Identidad'}>
@@ -131,19 +146,6 @@ export default function EquestrianPassportScreen({
                 </Text>
               </Pressable>
             </>
-        ) : !isLoading && errorMessage ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              void refresh();
-            }}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>Reintentar</Text>
-          </Pressable>
         ) : null}
       </SectionCard>
 
@@ -167,6 +169,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: '#9d1c1c',
     fontSize: 14,
+  },
+  retryButton: {
+    marginBottom: 16,
   },
   primaryButton: {
     minHeight: 50,
