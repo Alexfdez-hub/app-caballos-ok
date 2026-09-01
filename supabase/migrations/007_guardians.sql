@@ -720,6 +720,41 @@ begin
       message = 'Required guardian policy has not been accepted';
   end if;
 
+  if p_expires_at is not null and p_expires_at <= now() then
+    raise exception using
+      errcode = '22023',
+      message = 'Consent expiry must be in the future';
+  end if;
+
+  update public.guardian_consents as consent
+     set status = 'EXPIRED',
+         updated_at = now()
+   where consent.guardian_relationship_id = relationship.id
+     and consent.consent_type = p_consent_type
+     and consent.scope_type = p_scope_type
+     and consent.status = 'ACTIVE'
+     and consent.revoked_at is null
+     and consent.expires_at is not null
+     and consent.expires_at <= now();
+
+  if exists (
+    select 1
+      from public.guardian_consents as consent
+     where consent.guardian_relationship_id = relationship.id
+       and consent.consent_type = p_consent_type
+       and consent.scope_type = p_scope_type
+       and consent.status = 'ACTIVE'
+       and consent.revoked_at is null
+       and (
+         consent.expires_at is null
+         or consent.expires_at > now()
+       )
+  ) then
+    raise exception using
+      errcode = '23505',
+      message = 'Active guardian consent already exists';
+  end if;
+
   insert into public.guardian_consents (
     guardian_relationship_id,
     guardian_person_id,

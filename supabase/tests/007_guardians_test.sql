@@ -757,7 +757,11 @@ select set_config(
 do $$
 declare
   minor_with_account_id uuid := current_setting('app.minor_account', true)::uuid;
+  verified_relationship_id uuid := current_setting('app.verified_rel', true)::uuid;
   check_result record;
+  grant_row record;
+  expired_count integer;
+  active_count integer;
 begin
   select * into check_result
   from public.check_guardian_consent(
@@ -767,6 +771,44 @@ begin
 
   if check_result.consent_valid then
     raise exception 'Expired consent remained valid';
+  end if;
+
+  begin
+    perform * from public.grant_guardian_consent(
+      verified_relationship_id,
+      'EQUESTRIAN_ACTIVITY',
+      'GENERAL',
+      'v-past',
+      'ZZ',
+      now() - interval '1 hour'
+    );
+    raise exception 'Grant accepted a past consent expiry';
+  exception
+    when invalid_parameter_value then null;
+  end;
+
+  select * into grant_row
+  from public.grant_guardian_consent(
+    verified_relationship_id, 'EQUESTRIAN_ACTIVITY', 'GENERAL', 'v-renew', 'ZZ', null
+  );
+
+  if grant_row.id is null or grant_row.status <> 'ACTIVE' then
+    raise exception 'Time-expired consent blocked a new grant';
+  end if;
+
+  select count(*) into expired_count
+    from public.list_my_guardian_consents()
+   where status = 'EXPIRED';
+  select count(*) into active_count
+    from public.list_my_guardian_consents()
+   where status = 'ACTIVE';
+
+  if expired_count < 1 then
+    raise exception 'Time-expired consent was not retained as historical evidence';
+  end if;
+
+  if active_count <> 1 then
+    raise exception 'Renewal did not leave exactly one active consent';
   end if;
 end;
 $$;

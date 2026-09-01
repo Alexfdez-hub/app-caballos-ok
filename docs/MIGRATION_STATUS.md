@@ -69,6 +69,9 @@ No `is_minor`, no identity-level `guardian_id`, no verification RPC.
 - `git diff --check` — PASS
 - Migrations `001–006` — unmodified
 
+Cursor Bugbot found two valid medium findings on grant expiry handling.
+Both were corrected and `npm run test:guardians` was re-run (PASS).
+
 ## Next phase
 
 Centers / memberships as frozen `008_centers.sql` after 007 is reviewed.
