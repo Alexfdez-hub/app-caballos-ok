@@ -23,6 +23,44 @@
   `authenticated`. ACTIVE/VERIFIED does not open a directory.
 - Center Policy activation requires membership, which is deferred.
 
+## Product Owner decision — Center lifecycle values
+
+**Date:** 2026-09-01  
+**Authority:** Product Owner, explicit approval after Phase 3D implementation.  
+**Architecture 2.1:** names `status` and `verification_status` on
+`equestrian_centers` without enumerating values. The lists below are the
+approved Center foundation enumerations. They are not a copy of qualification
+or guardian enums.
+
+### `equestrian_centers.status`
+
+`DRAFT` | `ACTIVE` | `INACTIVE` | `ARCHIVED`  
+Default: `DRAFT`.
+
+### `equestrian_centers.verification_status`
+
+`UNVERIFIED` | `PENDING` | `VERIFIED` | `REJECTED`  
+Default: `UNVERIFIED`.
+
+### Approved semantics
+
+1. `status` and `verification_status` are independent.
+2. `ACTIVE` does not mean publicly discoverable.
+3. `VERIFIED` does not create membership, management authority, Center Policy
+   acceptance, services, assessments or public listing.
+4. `ARCHIVED` preserves historical records.
+5. Migration 009 does not enforce transition paths because no authorized
+   Center onboarding/verification workflow exists yet.
+6. Ordinary clients cannot perform state transitions.
+7. Future tokens such as `SUSPENDED`, `EXPIRED` or `REVOKED` must be
+   introduced only through a new forward migration if later product
+   requirements need them.
+8. Never rewrite migration 009 after deployment.
+
+There is no `docs/07_DECISION_LOG.md` (or other current decision-log file) in
+this repository. This section and `docs/MIGRATION_STATUS.md` are the
+authoritative record of the decision.
+
 ## Migration contents
 
 `009_centers.sql` creates:
@@ -77,7 +115,9 @@ are not in the app. No fabricated Center list.
 ## Architecture conflicts
 
 None. Enumerating Center status values is a documented foundation constraint
-because Architecture 2.1 left the enumerations unspecified.
+because Architecture 2.1 left the enumerations unspecified. Product Owner
+later approved those exact values and semantics (see the decision section
+above).
 
 ## Tests and checks
 

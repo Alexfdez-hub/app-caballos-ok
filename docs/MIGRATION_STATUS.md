@@ -41,6 +41,23 @@ Migrations `001–008` were not modified.
 - RLS deny-by-default, no client table policies or grants;
 - no memberships, no creation/verification RPCs, no public directory.
 
+## Product Owner decision — Center lifecycle
+
+Approved 2026-09-01. No repository decision-log file exists; this is the
+current-status record (full text in
+`docs/PHASE_3D_CENTERS_FOUNDATION_REPORT.md`).
+
+- `status`: `DRAFT` | `ACTIVE` | `INACTIVE` | `ARCHIVED` (default `DRAFT`)
+- `verification_status`: `UNVERIFIED` | `PENDING` | `VERIFIED` | `REJECTED`
+  (default `UNVERIFIED`)
+- The two columns are independent.
+- `ACTIVE` is not public discovery. `VERIFIED` is not membership, authority,
+  policy, services, assessments or listing.
+- `ARCHIVED` retains history. 009 does not enforce transitions.
+- Ordinary clients cannot change either column.
+- Later tokens (`SUSPENDED`, `EXPIRED`, `REVOKED`, …) need a new forward
+  migration. Do not rewrite `009_centers.sql` after deployment.
+
 ## Application state
 
 - Explore → Hípicas remains coming-soon with truthful copy: domain exists,
