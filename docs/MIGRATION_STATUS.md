@@ -62,7 +62,7 @@ No `is_minor`, no identity-level `guardian_id`, no verification RPC.
 ## Checks
 
 - `npx supabase db reset --local` — PASS (replayed `001–007`)
-- `npm run test:guardians` — PASS (after clean reset)
+- `npm run test:guardians` — includes SQL/RLS/P0 and two-session concurrency
 - `npm run test:identity` — PASS (after clean reset)
 - `npm run typecheck` — PASS
 - `npm run test:auth` — PASS (18 tests)
@@ -71,9 +71,9 @@ No `is_minor`, no identity-level `guardian_id`, no verification RPC.
 - Migrations `001–006` — unmodified
 
 Grant expiry Bugbot findings were corrected in `007_guardians.sql`. Concurrent
-renewal is serialized with `FOR UPDATE` plus the unique ACTIVE index.
-`check_guardian_consent` stays STABLE and treats time-expired ACTIVE rows as
-invalid before status is normalized.
+renewal is serialized with `FOR UPDATE` plus the unique ACTIVE index and is
+exercised by two independent `psql` sessions in
+`scripts/run-guardians-concurrency-test.cjs`.
 
 ## Next phase
 

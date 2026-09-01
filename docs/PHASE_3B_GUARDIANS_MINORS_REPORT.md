@@ -105,7 +105,7 @@ Profile → Tutor y menores (`GuardianRelationshipsScreen`):
 |---|---|
 | `npx supabase migration up --local` | PASS — applied `007_guardians.sql` |
 | `npx supabase db reset --local` | PASS — replayed `001–007` on local Docker |
-| `npm run test:guardians` | PASS (after clean reset) |
+| `npm run test:guardians` | PASS — SQL/RLS/P0 plus two-session concurrency |
 | `npm run test:identity` | PASS (after clean reset) |
 | `npm run typecheck` | PASS |
 | `npm run test:auth` | PASS — 18 tests |
