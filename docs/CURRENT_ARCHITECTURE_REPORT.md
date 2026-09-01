@@ -1,15 +1,15 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 3A — Identity integration + authenticated application shell
+**Baseline:** Phase 3B — Guardians and minors
 **Date:** 2026-09-01
 
 ## Summary
 
-The repository is an Expo/React Native client backed by Supabase. Phase 2C
-retired the original horse-rental prototype. Phase 3A adds the first
-Architecture 2.1 identity flow on `auth.users`, `user_accounts`, and
-`persons`.
+The repository is an Expo/React Native client backed by Supabase. Phase 3A
+adds Auth → account → person identity. Phase 3B adds guardian relationships,
+guardian consents, and market-aware minority evaluation. The application
+shell remains a single authenticated app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -45,6 +45,7 @@ index.js
                     -> PassportTab / EquestrianPassportScreen
                     -> ProfileTab / ProfileScreen
                        -> EditIdentityScreen
+                       -> GuardianRelationshipsScreen
 ```
 
 `AuthProvider` remains generic session infrastructure. It does not store
@@ -55,7 +56,15 @@ and `complete_my_identity()` to update only that person’s basic fields.
 
 ## Database target
 
-Migrations 001–006 introduce or integrate:
+Migrations 001–006 introduce identity, markets and policies. Migration
+`007_guardians.sql` adds:
+
+- `public.market_age_rules`
+- `public.guardian_relationships`
+- `public.guardian_consents`
+- server-authoritative consent RPCs
+
+Identity objects retained from 001–006:
 
 - `public.markets`
 - `public.persons`
@@ -102,15 +111,16 @@ Tracked `*.example` files contain placeholders only.
 - Authenticated users with complete identity enter a single application shell
   (bottom tabs). There is no RiderApp / OwnerApp / CenterApp split and no
   role selector.
-- Home, Explore, Activity, Passport, and Profile are navigation and empty
-  states only. They do not load bookings, equines, centers, or passport data.
-- No rider, owner, center, or guardian business flows
+- Home, Explore, Activity, Passport, and Profile remain mostly empty-state
+  discovery chrome. Profile now includes a truthful guardian/minor list.
+- No rider, owner, or center business flows
+- No in-app relationship verification or minor creation
 - No equine, listing, search, map, booking, assessment, payment, or review UI
-- No guardian consent
+- Guardian consent grant RPC exists; the UI does not invent a market to call it
 - No single `users.role` model
 
-These are deliberate stop conditions. The next planned SQL migration remains
-`007_guardians.sql`. The application shell is frontend-only.
+These are deliberate stop conditions. The next planned SQL migration is
+`008_centers.sql`.
 
 ## Historical records
 

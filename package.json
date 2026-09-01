@@ -18,9 +18,10 @@
     "web:local": "npm run start:local -- --web",
     "web:remote": "npm run start:remote -- --web",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:auth && npm run test:identity",
-    "test:auth": "node --experimental-strip-types --test src/features/auth/*.test.ts src/features/identity/*.test.ts",
+    "test": "npm run test:auth && npm run test:identity && npm run test:guardians",
+    "test:auth": "node --experimental-strip-types --test src/features/auth/*.test.ts src/features/identity/*.test.ts src/features/guardians/*.test.ts",
     "test:identity": "node scripts/run-identity-sql-tests.cjs",
+    "test:guardians": "node scripts/run-guardians-sql-tests.cjs",
     "check:env": "node scripts/check-env-gitignore.cjs"
   },
   "dependencies": {

@@ -7,6 +7,7 @@ import ActivityScreen from '../../screens/ActivityScreen';
 import EditIdentityScreen from '../../screens/EditIdentityScreen';
 import EquestrianPassportScreen from '../../screens/EquestrianPassportScreen';
 import ExploreScreen from '../../screens/ExploreScreen';
+import GuardianRelationshipsScreen from '../../screens/GuardianRelationshipsScreen';
 import HomeScreen from '../../screens/HomeScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
 import { colors } from '../ui/theme';
@@ -91,6 +92,16 @@ function ProfileStack() {
         component={EditIdentityScreen}
         options={{
           title: 'Editar datos básicos',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
+      />
+      <ProfileStackNavigator.Screen
+        name="GuardianRelationships"
+        component={GuardianRelationshipsScreen}
+        options={{
+          title: 'Tutor y menores',
           headerTintColor: colors.text,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
