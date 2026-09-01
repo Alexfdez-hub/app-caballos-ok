@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -28,16 +28,16 @@ function visibilityLabel(value: ProfileVisibility) {
 export default function EditRiderProfileScreen({
   navigation,
 }: EditRiderProfileScreenProps) {
-  const { profile, isLoading, isSaving, errorMessage, saveProfile } =
+  const { profile, isLoading, isSaving, errorMessage, refresh, saveProfile } =
     useRiderProfile();
   const [bio, setBio] = useState('');
   const [experienceYear, setExperienceYear] = useState('');
   const [visibility, setVisibility] = useState<ProfileVisibility>('PRIVATE');
   const [message, setMessage] = useState<string | null>(null);
-  const hasHydrated = useRef(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    if (isLoading || hasHydrated.current) {
+    if (isLoading || hasHydrated || errorMessage) {
       return;
     }
 
@@ -47,10 +47,13 @@ export default function EditRiderProfileScreen({
       setVisibility(profile.profileVisibility);
     }
 
-    hasHydrated.current = true;
-  }, [isLoading, profile]);
+    setHasHydrated(true);
+  }, [errorMessage, hasHydrated, isLoading, profile]);
 
   async function handleSubmit() {
+    if (!hasHydrated) {
+      return;
+    }
     if (!isValidRiderBio(bio)) {
       setMessage('La biografía no puede superar 2000 caracteres.');
       return;
@@ -87,9 +90,31 @@ export default function EditRiderProfileScreen({
         subtitle="Datos básicos del pasaporte. No acreditan nivel, cualificación ni autorización."
       />
 
-      {isLoading ? <ActivityIndicator color={colors.text} /> : null}
+      {isLoading && !hasHydrated ? (
+        <ActivityIndicator color={colors.text} />
+      ) : null}
 
-      {!isLoading ? (
+      {!hasHydrated && errorMessage ? (
+        <>
+          <Text accessibilityRole="alert" style={styles.message}>
+            {errorMessage}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              void refresh();
+            }}
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.buttonText}>Reintentar</Text>
+          </Pressable>
+        </>
+      ) : null}
+
+      {hasHydrated ? (
         <>
       <Text style={styles.label}>Biografía</Text>
       <TextInput
