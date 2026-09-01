@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -34,16 +34,21 @@ export default function EditRiderProfileScreen({
   const [experienceYear, setExperienceYear] = useState('');
   const [visibility, setVisibility] = useState<ProfileVisibility>('PRIVATE');
   const [message, setMessage] = useState<string | null>(null);
+  const hasHydrated = useRef(false);
 
   useEffect(() => {
-    if (!profile) {
+    if (isLoading || hasHydrated.current) {
       return;
     }
 
-    setBio(profile.bio ?? '');
-    setExperienceYear(profile.experienceStartYear?.toString() ?? '');
-    setVisibility(profile.profileVisibility);
-  }, [profile]);
+    if (profile) {
+      setBio(profile.bio ?? '');
+      setExperienceYear(profile.experienceStartYear?.toString() ?? '');
+      setVisibility(profile.profileVisibility);
+    }
+
+    hasHydrated.current = true;
+  }, [isLoading, profile]);
 
   async function handleSubmit() {
     if (!isValidRiderBio(bio)) {

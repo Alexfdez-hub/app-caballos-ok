@@ -128,3 +128,10 @@ roadmap override of the historical `008_centers` filename, documented in
   the person record does not yet store. Guardian-managed editing remains
   unavailable.
 - PUBLIC visibility is not shown to other users.
+
+## Bugbot
+
+Cursor Bugbot (Manual Only, Autofix OFF) found one valid medium issue: the
+edit form re-synced from a focus refetch and could wipe unsaved input.
+Hydration now runs once after the first load. GitHub Bugbot still needs to
+be run on the pull request after it is opened.
