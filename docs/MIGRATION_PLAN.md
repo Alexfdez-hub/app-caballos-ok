@@ -3,8 +3,8 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3B guardians implementada localmente, pendiente de revisión;
-Phase 3A mergeada en `main`. Centros no iniciados.
+**Estado:** Phase 3C rider profile/passport foundations implementada localmente,
+pendiente de revisión; Phase 3B mergeada en `main`. Centros no iniciados.
 
 ## 1. Método
 
@@ -94,44 +94,61 @@ Secuencia de migrations actualizada:
 005_legacy_retirement
 006_identity_integration
 007_guardians
-008_centers
-009_center_memberships
-010_equines
-011_equine_ownership_management
-012_equine_center_relations
-013_disciplines
-014_qualifications
-015_assessments
-016_equine_requirements
-017_services
-018_zero_sessions_authorizations
-019_calendar
-020_bookings
-021_booking_functions
-022_sessions
-023_activity
-024_reviews_incidents
-025_audit
-026_storage_policies
-027_rls_security_tests
+008_rider_profiles
+009_centers
+010_center_memberships
+011_equines
+012_equine_ownership_management
+013_equine_center_relations
+014_disciplines
+015_qualifications
+016_assessments
+017_equine_requirements
+018_services
+019_zero_sessions_authorizations
+020_calendar
+021_bookings
+022_booking_functions
+023_sessions
+024_activity
+025_reviews_incidents
+026_audit
+027_storage_policies
+028_rls_security_tests
 ```
 
 ## 8. Phase 3B — Guardians / minors
 
-**IMPLEMENTADA LOCALMENTE, pendiente de revisión / merge.** Migration
-`007_guardians.sql`.
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #5).** Migration `007_guardians.sql`.
 
 Crear `guardian_relationships`, `guardian_consents`, reglas de edad por
 mercado y RPCs de consentimiento. No implementar centros, bookings ni
 autoridad de verificación.
 
+## 8b. Phase 3C — Rider profile / Passport foundations
+
+**IMPLEMENTADA LOCALMENTE, pendiente de revisión / merge.** Migration
+`008_rider_profiles.sql`.
+
+Product Owner authorized this phase before Centers. Occupies unused
+migration number `008`. Planned Centers moves to `009_centers.sql`.
+
+Creates person-owned `rider_profiles` (1:1 with `persons`) and self-service
+RPCs for the authenticated adult caller. Does not create disciplines,
+qualifications, assessments, centers, equines, Session Zero or
+authorizations. Does not require `RIDER_POLICY` to create the foundation
+record. Guardian-managed editing of a minor’s profile is deferred.
+
 ## 9. Phase 4 — Equines
 
 Crear equines/media/ownership/management/center assignments/permissions. Migrar horses progresivamente. No inventar datos ausentes.
 
-## 10. Phase 5 — Riders / disciplines / qualifications
+## 10. Phase 5 — Disciplines / qualifications
 
-Crear rider profiles, disciplines/translations, qualification systems/levels, rider qualifications. Activación Rider requiere `RIDER_POLICY`.
+`rider_profiles` foundations are implemented in Phase 3C. This later phase
+adds disciplines/translations, qualification systems/levels and rider
+qualifications. Sensitive Rider activation still requires `RIDER_POLICY`;
+profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
 
@@ -238,4 +255,4 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras aprobar Phase 3B:** `008_centers.sql`.
+**Siguiente fase prevista tras aprobar Phase 3C:** `009_centers.sql`.

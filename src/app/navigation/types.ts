@@ -28,6 +28,7 @@ export type ActivityStackParamList = {
 
 export type PassportStackParamList = {
   Passport: undefined;
+  EditRiderProfile: undefined;
 };
 
 export type ProfileStackParamList = {
@@ -62,6 +63,11 @@ export type ActivityScreenProps = CompositeScreenProps<
 export type PassportScreenProps = CompositeScreenProps<
   NativeStackScreenProps<PassportStackParamList, 'Passport'>,
   BottomTabScreenProps<AuthenticatedTabParamList>
+>;
+
+export type EditRiderProfileScreenProps = NativeStackScreenProps<
+  PassportStackParamList,
+  'EditRiderProfile'
 >;
 
 export type ProfileScreenProps = CompositeScreenProps<
