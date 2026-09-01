@@ -5,6 +5,11 @@ import { ScreenHeader } from '../app/ui/ScreenHeader';
 import { ScreenScaffold } from '../app/ui/ScreenScaffold';
 import { SectionCard } from '../app/ui/SectionCard';
 import { colors } from '../app/ui/theme';
+import {
+  consentDisplayStatus,
+  consentStatusLabel,
+  isConsentCurrentlyValid,
+} from '../features/guardians/consentStatus';
 import { useGuardians } from '../features/guardians/useGuardians';
 import type {
   GuardianConsent,
@@ -83,7 +88,7 @@ export default function GuardianRelationshipsScreen() {
         const relatedConsents = consentsFor(relationship, consents);
         const canRevoke =
           relationship.verificationStatus === 'VERIFIED' &&
-          relatedConsents.some((consent) => consent.status === 'ACTIVE');
+          relatedConsents.some((consent) => isConsentCurrentlyValid(consent));
 
         return (
           <SectionCard key={relationship.id} title={minorLabel(relationship)}>
@@ -107,7 +112,9 @@ export default function GuardianRelationshipsScreen() {
                   <Text style={styles.consentLabel}>
                     {consent.consentType} · {consent.scopeType}
                   </Text>
-                  <Text style={styles.meta}>{consent.status}</Text>
+                  <Text style={styles.meta}>
+                    {consentStatusLabel(consentDisplayStatus(consent))}
+                  </Text>
                 </View>
               ))
             )}
@@ -117,8 +124,8 @@ export default function GuardianRelationshipsScreen() {
                 accessibilityRole="button"
                 disabled={isMutating}
                 onPress={() => {
-                  const active = relatedConsents.find(
-                    (consent) => consent.status === 'ACTIVE',
+                  const active = relatedConsents.find((consent) =>
+                    isConsentCurrentlyValid(consent),
                   );
                   if (active) {
                     void revoke(active.id);

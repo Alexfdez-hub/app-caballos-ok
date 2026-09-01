@@ -52,7 +52,9 @@ No `is_minor`, no identity-level `guardian_id`, no verification RPC.
 
 - Profile → Tutor y menores lists real relationships/consents via RPC.
 - Empty/pending/verified/rejected/revoked/expired states are truthful.
-- Revoke is available for an active consent on a verified relationship.
+- Time-expired stored `ACTIVE` consents display as caducados and cannot be
+  revoked; validation does not wait for status normalization.
+- Revoke is available for a currently valid consent on a verified relationship.
 - Grant is not offered in UI: no market is collected on the person, and
   the client must not invent one. The grant RPC exists for server use/tests.
 - Verification cannot be performed in the app.
