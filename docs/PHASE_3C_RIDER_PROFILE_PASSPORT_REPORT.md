@@ -142,5 +142,6 @@ corrected:
 5. A failed refresh with a cached profile hid retry in the identity card.
 
 Hydration now waits for a successful load and runs once. Passport shows a
-banner retry on any load failure. GitHub Bugbot still needs to be run on
-the pull request after it is opened.
+banner retry on any load failure. A later Cursor Bugbot pass found no
+remaining bugs. GitHub Bugbot still needs to be run on the pull request
+after it is opened (Manual Only, Autofix OFF).
