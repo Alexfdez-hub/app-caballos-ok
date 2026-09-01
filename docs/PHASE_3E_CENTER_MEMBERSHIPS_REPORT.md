@@ -25,7 +25,13 @@
 **Architecture 2.1:** names `status`, `joined_at` and `ended_at` without
 enumerating status values.
 
-**Foundation set used in 010:**
+**Product Owner decision:** approved and frozen 2026-09-02 for migration 010.
+Do not add `INVITED`, `PENDING`, `SUSPENDED` or other lifecycle states.
+Invitation and onboarding workflows remain deferred. Any future lifecycle
+extension must use a new forward migration. Do not rewrite 010 after
+deployment.
+
+**Frozen foundation set:**
 
 | Value | Meaning |
 |---|---|
@@ -40,13 +46,10 @@ Intended transitions (not enforced by trigger; no client workflow):
 - A later `ACTIVE` row for the same Center/person/role may exist after an
   `ENDED` row because uniqueness applies only to active rows.
 
-Not included:
+Not included (frozen out of 010 by Product Owner):
 
-- `INVITED` — no invitation workflow in this phase.
+- `INVITED` / `PENDING` — no invitation workflow in this phase.
 - `SUSPENDED` / `REVOKED` — no management workflow in this phase.
-
-Later tokens require a new forward migration. Do not rewrite 010 after
-deployment.
 
 ## Roles
 

@@ -155,11 +155,13 @@ verification or public directory.
 Pendiente de revisión, PR y aprobación de despliegue remoto.
 
 Creates `center_memberships` as PERSON + CENTER relationships with MVP0
-roles `ADMIN|MANAGER|INSTRUCTOR|ASSESSOR` and lifecycle `ACTIVE|ENDED`.
-Caller-context read via `list_my_center_memberships()`. Server-internal
-`has_active_center_role(...)`. No client grant/revoke/bootstrap RPC.
-Invitations, first-admin onboarding, Center Policy activation, assessments,
-equines, services and bookings remain deferred.
+roles `ADMIN|MANAGER|INSTRUCTOR|ASSESSOR`. Product Owner froze lifecycle
+`ACTIVE|ENDED` for 010; `INVITED`/`PENDING`/`SUSPENDED` are not in this
+migration. Caller-context read via `list_my_center_memberships()`.
+Server-internal `has_active_center_role(...)`. No client
+grant/revoke/bootstrap RPC. Invitations, first-admin onboarding, Center
+Policy activation, assessments, equines, services and bookings remain
+deferred.
 
 ## 9. Phase 4 — Equines
 

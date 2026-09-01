@@ -53,16 +53,18 @@ is local only. Migrations `001–009` were not modified.
 
 ## Membership lifecycle decision
 
-Architecture 2.1 names `center_memberships.status` without enumerating
-values. This phase uses the smallest foundation set:
+**Product Owner, 2026-09-02.** Architecture 2.1 names
+`center_memberships.status` without enumerating values. The frozen 010
+tokens are:
 
 - `ACTIVE` (default): currently in force; `ended_at` must be null.
 - `ENDED`: historical; `ended_at` required and `>= joined_at`.
 
-Invitation (`INVITED`), suspension and reactivation tokens are not part of
-this foundation. Later tokens need a new forward migration. 010 does not
-enforce transition triggers. Ordinary clients cannot change status.
-Historical rows are retained; ending is not a physical DELETE.
+Do not add `INVITED`, `PENDING`, `SUSPENDED` or other lifecycle states.
+Invitation and onboarding workflows remain deferred. Later tokens need a
+new forward migration. 010 does not enforce transition triggers. Ordinary
+clients cannot change status. Historical rows are retained; ending is not
+a physical DELETE.
 
 ## Application state
 
