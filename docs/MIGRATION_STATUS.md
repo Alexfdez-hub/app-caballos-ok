@@ -1,11 +1,12 @@
 # MIGRATION STATUS
 
 PHASE: 3D — Centers foundation
-STATUS: IMPLEMENTADO — pending Product Owner review / merge / remote 009
+STATUS: IMPLEMENTADO — merged on `main` (PR #7); migration 009 deployed
+to linked development project `efkauegdlmfkonzwyyiv`
 DATE: 2026-09-01
 
-Phase 3C Rider Profile / Passport is merged on `main` (`1d94807`, PR #6).
-Migration `009_centers.sql` adds the Center domain foundation.
+Phase 3D Centers foundation is merged on `main` (`cddf3c0`, PR #7).
+Migration `009_centers.sql` is deployed on the linked development project.
 Migrations `001–008` were not modified.
 
 ## Approved starting state
@@ -66,10 +67,19 @@ current-status record (full text in
 
 ## Remote
 
-Do not push `009` until Product Owner approval. Linked remote is currently
-aligned through `008`.
+Linked development project: `efkauegdlmfkonzwyyiv`.
+
+- `npx supabase db push --linked` applied `009_centers.sql` after a dry run
+  that contained only that file (no 010, no seeds, no roles).
+- Local and remote migration histories align through `009`.
+- `equestrian_centers` and `center_languages` exist remotely.
+- RLS is enabled on both tables.
+- `anon` and `authenticated` have no table SELECT/INSERT/UPDATE/DELETE.
+- No client RLS policies.
+- No Center mutation RPCs.
+- Migration 010 has not been started.
 
 ## Next phase
 
-Center memberships as `010_center_memberships.sql` after this phase is
-reviewed and merged.
+Center memberships as `010_center_memberships.sql` after Product Owner
+authorizes that phase. Do not start 010 in this documentation update.
