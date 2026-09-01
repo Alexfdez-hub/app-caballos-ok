@@ -730,7 +730,7 @@ begin
   ) values (
     v_verified_relationship_id, v_guardian_person_id, v_minor_person_id,
     v_guardian_account_id, 'EQUESTRIAN_ACTIVITY', 'GENERAL', 'expired-fixture',
-    'ACTIVE', now() - interval '10 days', now() - interval '1 day'
+    'ACTIVE', now() - interval '10 days', now() - interval '1 minute'
   ) returning id into v_expired_consent_id;
 
   if v_expired_consent_id is null then

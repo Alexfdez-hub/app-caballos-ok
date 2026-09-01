@@ -913,6 +913,7 @@ declare
   minority record;
   active_consent public.guardian_consents%rowtype;
   related boolean := false;
+  expiry_cutoff timestamptz;
 begin
   if current_auth_user_id is null then
     raise exception using
@@ -972,6 +973,12 @@ begin
     return;
   end if;
 
+  if p_reference_date = (timezone('utc', now()))::date then
+    expiry_cutoff := now();
+  else
+    expiry_cutoff := timezone('utc', (p_reference_date + 1)::timestamp);
+  end if;
+
   select consent.*
     into active_consent
     from public.guardian_consents as consent
@@ -985,13 +992,13 @@ begin
      and consent.revoked_at is null
      and (
        consent.expires_at is null
-       or consent.expires_at > timezone('utc', p_reference_date::timestamp)
+       or consent.expires_at > expiry_cutoff
      )
      and relationship.verification_status = 'VERIFIED'
      and relationship.revoked_at is null
      and (
        relationship.expires_at is null
-       or relationship.expires_at > timezone('utc', p_reference_date::timestamp)
+       or relationship.expires_at > expiry_cutoff
      )
    order by consent.granted_at desc
    limit 1;
@@ -1009,7 +1016,7 @@ end;
 $$;
 
 comment on function public.check_guardian_consent(uuid, text, text, text, date) is
-  'Reusable consent validity check for a minor of the caller. Fails closed when evaluation data are missing or ambiguous. Does not confirm bookings.';
+  'Reusable consent validity check for a minor of the caller. Same-day expiry uses now(); other reference dates fail closed at the end of that UTC day. Does not confirm bookings.';
 
 revoke all on function public.check_guardian_consent(uuid, text, text, text, date)
   from public, anon, authenticated;

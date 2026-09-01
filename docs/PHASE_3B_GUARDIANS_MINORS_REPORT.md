@@ -145,4 +145,7 @@ first review. Both were corrected in `grant_guardian_consent`:
   so renewal is not blocked by the unique active index;
 - `p_expires_at` in the past is rejected.
 
-`npm run test:guardians` was re-run after the correction (PASS).
+A second Bugbot pass found that `check_guardian_consent` compared expiry to
+UTC midnight of the reference date, so a same-day expired consent could still
+pass. Same-day checks now use `now()`; other dates fail closed at the end of
+that UTC day. `npm run test:guardians` was re-run (PASS).
