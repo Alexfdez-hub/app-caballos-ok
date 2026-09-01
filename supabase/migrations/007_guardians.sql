@@ -245,6 +245,9 @@ create unique index guardian_consents_active_scope_uidx
   )
   where status = 'ACTIVE';
 
+comment on index public.guardian_consents_active_scope_uidx is
+  'Last-resort race barrier so concurrent grants cannot create two ACTIVE consents for the same scope.';
+
 create index guardian_consents_relationship_idx
   on public.guardian_consents (guardian_relationship_id);
 
@@ -675,15 +678,11 @@ begin
   select *
     into relationship
     from public.guardian_relationships as linked
-   where linked.id = p_guardian_relationship_id;
+   where linked.id = p_guardian_relationship_id
+     and linked.guardian_person_id = caller_account.person_id
+   for update;
 
   if relationship.id is null then
-    raise exception using
-      errcode = '42501',
-      message = 'Guardian relationship not found';
-  end if;
-
-  if relationship.guardian_person_id is distinct from caller_account.person_id then
     raise exception using
       errcode = '42501',
       message = 'Caller is not the guardian for this relationship';
@@ -726,6 +725,13 @@ begin
       message = 'Consent expiry must be in the future';
   end if;
 
+  perform 1
+    from public.guardian_consents as consent
+   where consent.guardian_relationship_id = relationship.id
+     and consent.consent_type = p_consent_type
+     and consent.scope_type = p_scope_type
+   for update;
+
   update public.guardian_consents as consent
      set status = 'EXPIRED',
          updated_at = now()
@@ -755,31 +761,38 @@ begin
       message = 'Active guardian consent already exists';
   end if;
 
-  insert into public.guardian_consents (
-    guardian_relationship_id,
-    guardian_person_id,
-    minor_person_id,
-    granted_by_account_id,
-    consent_type,
-    scope_type,
-    terms_version,
-    status,
-    granted_at,
-    expires_at
-  )
-  values (
-    relationship.id,
-    relationship.guardian_person_id,
-    relationship.minor_person_id,
-    caller_account.id,
-    p_consent_type,
-    p_scope_type,
-    normalized_terms,
-    'ACTIVE',
-    now(),
-    p_expires_at
-  )
-  returning * into created;
+  begin
+    insert into public.guardian_consents (
+      guardian_relationship_id,
+      guardian_person_id,
+      minor_person_id,
+      granted_by_account_id,
+      consent_type,
+      scope_type,
+      terms_version,
+      status,
+      granted_at,
+      expires_at
+    )
+    values (
+      relationship.id,
+      relationship.guardian_person_id,
+      relationship.minor_person_id,
+      caller_account.id,
+      p_consent_type,
+      p_scope_type,
+      normalized_terms,
+      'ACTIVE',
+      now(),
+      p_expires_at
+    )
+    returning * into created;
+  exception
+    when unique_violation then
+      raise exception using
+        errcode = '23505',
+        message = 'Active guardian consent already exists';
+  end;
 
   id := created.id;
   guardian_relationship_id := created.guardian_relationship_id;
@@ -795,7 +808,7 @@ end;
 $$;
 
 comment on function public.grant_guardian_consent(uuid, text, text, text, text, timestamptz) is
-  'Creates authoritative guardian consent for a verified relationship of the caller. Does not verify relationships or create policy acceptances.';
+  'Creates authoritative guardian consent for a verified relationship of the caller. Serializes renewal with row locks; unique ACTIVE index remains the last race barrier. Does not verify relationships or create policy acceptances.';
 
 revoke all on function public.grant_guardian_consent(uuid, text, text, text, text, timestamptz)
   from public, anon, authenticated;

@@ -104,9 +104,9 @@ Profile → Tutor y menores (`GuardianRelationshipsScreen`):
 | Command | Result |
 |---|---|
 | `npx supabase migration up --local` | PASS — applied `007_guardians.sql` |
-| `npx supabase db reset` | NOT RUN — local wipe was blocked by environment policy |
-| `npm run test:guardians` | PASS |
-| `npm run test:identity` | PASS |
+| `npx supabase db reset --local` | PASS — replayed `001–007` on local Docker |
+| `npm run test:guardians` | PASS (after clean reset) |
+| `npm run test:identity` | PASS (after clean reset) |
 | `npm run typecheck` | PASS |
 | `npm run test:auth` | PASS — 18 tests |
 | `npx expo-doctor` | PASS — 18/18 |
@@ -130,8 +130,6 @@ domains.
 
 ## Known issues
 
-- Local `db reset` was not executed; 007 was applied with `migration up --local`
-  onto the existing local database, then SQL tests ran against that schema.
 - Grant RPC exists; UI does not call it because no market is collected on the
   person.
 - Canonical audit coverage is not claimed.
@@ -150,5 +148,8 @@ UTC midnight of the reference date, so a same-day expired consent could still
 pass. Same-day checks now use `now()`; other dates fail closed at the end of
 that UTC day. `npm run test:guardians` was re-run (PASS).
 
-A third Cursor Bugbot pass found no remaining bugs. GitHub Bugbot still needs
-to be run on the pull request (Manual Only, Autofix OFF) after the PR is opened.
+A third Cursor Bugbot pass found no remaining bugs. This follow-up added
+row locks and unique-index handling for concurrent renewal, confirmed that
+time-expired `ACTIVE` rows fail `check_guardian_consent` without mutation,
+and replayed migrations with `npx supabase db reset --local`. GitHub Bugbot
+still needs to be run on the pull request (Manual Only, Autofix OFF).

@@ -59,18 +59,19 @@ No `is_minor`, no identity-level `guardian_id`, no verification RPC.
 
 ## Checks
 
-- `npx supabase migration up --local` — PASS (`007_guardians.sql` applied)
-- `npx supabase db reset` — NOT RUN (local wipe blocked by environment policy)
-- `npm run test:guardians` — PASS
-- `npm run test:identity` — PASS
+- `npx supabase db reset --local` — PASS (replayed `001–007`)
+- `npm run test:guardians` — PASS (after clean reset)
+- `npm run test:identity` — PASS (after clean reset)
 - `npm run typecheck` — PASS
 - `npm run test:auth` — PASS (18 tests)
 - `npx expo-doctor` — PASS (18/18)
 - `git diff --check` — PASS
 - Migrations `001–006` — unmodified
 
-Cursor Bugbot found two valid medium findings on grant expiry handling.
-Both were corrected and `npm run test:guardians` was re-run (PASS).
+Grant expiry Bugbot findings were corrected in `007_guardians.sql`. Concurrent
+renewal is serialized with `FOR UPDATE` plus the unique ACTIVE index.
+`check_guardian_consent` stays STABLE and treats time-expired ACTIVE rows as
+invalid before status is normalized.
 
 ## Next phase
 

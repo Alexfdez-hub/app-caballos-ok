@@ -738,6 +738,16 @@ begin
   end if;
 
   if (
+    select consent.status
+      from public.guardian_consents as consent
+     where consent.id = v_expired_consent_id
+  ) is distinct from 'ACTIVE' then
+    raise exception 'Time-expired fixture must remain ACTIVE until grant normalizes it';
+  end if;
+
+  perform set_config('app.expired_consent', v_expired_consent_id::text, true);
+
+  if (
     select count(*) from public.policy_acceptances as acceptance
      where acceptance.person_id = v_guardian_person_id
   ) <> 1 then
@@ -772,7 +782,44 @@ begin
   if check_result.consent_valid then
     raise exception 'Expired consent remained valid';
   end if;
+end;
+$$;
 
+reset role;
+
+do $$
+declare
+  fixture_id uuid := current_setting('app.expired_consent', true)::uuid;
+  fixture_status text;
+begin
+  select consent.status
+    into fixture_status
+    from public.guardian_consents as consent
+   where consent.id = fixture_id;
+
+  if fixture_status is distinct from 'ACTIVE' then
+    raise exception
+      'check_guardian_consent mutated time-expired ACTIVE status to %',
+      fixture_status;
+  end if;
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"20000000-0000-0000-0000-000000000001"}',
+  true
+);
+
+do $$
+declare
+  verified_relationship_id uuid := current_setting('app.verified_rel', true)::uuid;
+  grant_row record;
+  expired_count integer;
+  active_count integer;
+begin
   begin
     perform * from public.grant_guardian_consent(
       verified_relationship_id,
@@ -935,6 +982,37 @@ begin
        pg_get_functiondef('public.evaluate_person_minority(uuid,text,date)'::regprocedure)
      ) = 0 then
     raise exception 'Minority evaluation does not use the market legal_adult_age';
+  end if;
+
+  if position(
+       'for update' in
+       lower(pg_get_functiondef(
+         'public.grant_guardian_consent(uuid,text,text,text,text,timestamp with time zone)'::regprocedure
+       ))
+     ) = 0 then
+    raise exception 'grant_guardian_consent does not lock rows for concurrent renewal';
+  end if;
+
+  if not exists (
+    select 1
+      from pg_catalog.pg_index as idx
+      join pg_catalog.pg_class as cls on cls.oid = idx.indexrelid
+     where idx.indrelid = 'public.guardian_consents'::regclass
+       and cls.relname = 'guardian_consents_active_scope_uidx'
+       and idx.indisunique
+  ) then
+    raise exception 'Unique active consent index is missing';
+  end if;
+
+  if (
+    select procedure.provolatile
+      from pg_catalog.pg_proc as procedure
+      join pg_catalog.pg_namespace as namespace
+        on namespace.oid = procedure.pronamespace
+     where namespace.nspname = 'public'
+       and procedure.proname = 'check_guardian_consent'
+  ) is distinct from 's' then
+    raise exception 'check_guardian_consent must remain STABLE so validation does not mutate rows';
   end if;
 end;
 $$;
