@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "app-caballos-ok",
     "ios": {
       "supportsTablet": true
     },
@@ -19,6 +20,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-web-browser",
+      "@react-native-community/datetimepicker",
+      "expo-font"
+    ]
   }
 }

@@ -3,7 +3,7 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 2C en implementación; Phase 3A requiere aprobación posterior
+**Estado:** Phase 3A implementada localmente, pendiente de revisión y despliegue; Phase 3B / guardians no iniciada
 
 ## 1. Método
 
@@ -77,10 +77,11 @@ Migration: `005_legacy_retirement`.
 
 ## 7. Phase 3A — Identity integration
 
-Construir directamente sobre `persons` + `user_accounts`. Crear provisioning,
-onboarding y perfil de identidad sin reintroducir `users.role`.
+**IMPLEMENTADA LOCALMENTE.** Migration `006_identity_integration`.
 
-Migration prevista: `006_identity_integration`.
+Construye directamente sobre `persons` + `user_accounts`. Provisioning,
+onboarding y perfil de identidad sin `users.role`. Guardians no forman parte
+de esta fase.
 
 Secuencia de migrations actualizada:
 
@@ -230,4 +231,4 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras aprobar Phase 2C:** Phase 3A — Identity integration.
+**Siguiente fase prevista tras aprobar Phase 3A:** `007_guardians.sql`.
