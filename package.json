@@ -18,11 +18,12 @@
     "web:local": "npm run start:local -- --web",
     "web:remote": "npm run start:remote -- --web",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:auth && npm run test:identity && npm run test:guardians && npm run test:riders",
+    "test": "npm run test:auth && npm run test:identity && npm run test:guardians && npm run test:riders && npm run test:centers",
     "test:auth": "node --experimental-strip-types --test src/features/auth/*.test.ts src/features/identity/*.test.ts src/features/guardians/*.test.ts src/features/riders/*.test.ts",
     "test:identity": "node scripts/run-identity-sql-tests.cjs",
     "test:guardians": "node scripts/run-guardians-sql-tests.cjs && node scripts/run-guardians-concurrency-test.cjs",
     "test:riders": "node scripts/run-riders-sql-tests.cjs",
+    "test:centers": "node scripts/run-centers-sql-tests.cjs",
     "check:env": "node scripts/check-env-gitignore.cjs"
   },
   "dependencies": {
