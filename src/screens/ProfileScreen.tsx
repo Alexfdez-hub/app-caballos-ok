@@ -89,7 +89,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           status="comingSoon"
         />
         <MenuRow
-          description="Cuando pertenezcas a una hípica u organización aparecerá aquí."
+          description="Las membresías de centro aún no existen. Un centro no te asigna un rol por existir."
           label="Mis centros / organizaciones"
           status="comingSoon"
         />

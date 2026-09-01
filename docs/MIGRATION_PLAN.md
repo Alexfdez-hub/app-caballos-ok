@@ -3,8 +3,8 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3C rider profile/passport foundations implementada localmente,
-pendiente de revisión; Phase 3B mergeada en `main`. Centros no iniciados.
+**Estado:** Phase 3D Centers foundation implementada localmente, pendiente de
+revisión; Phase 3C mergeada en `main`. Memberships no iniciadas.
 
 ## 1. Método
 
@@ -127,7 +127,7 @@ autoridad de verificación.
 
 ## 8b. Phase 3C — Rider profile / Passport foundations
 
-**IMPLEMENTADA LOCALMENTE, pendiente de revisión / merge.** Migration
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #6).** Migration
 `008_rider_profiles.sql`.
 
 Product Owner authorized this phase before Centers. Occupies unused
@@ -138,6 +138,15 @@ RPCs for the authenticated adult caller. Does not create disciplines,
 qualifications, assessments, centers, equines, Session Zero or
 authorizations. Does not require `RIDER_POLICY` to create the foundation
 record. Guardian-managed editing of a minor’s profile is deferred.
+
+## 8c. Phase 3D — Centers foundation
+
+**IMPLEMENTADA LOCALMENTE, pendiente de revisión / merge.** Migration
+`009_centers.sql`.
+
+Creates `equestrian_centers` and `center_languages`. No client creation,
+verification or public directory. `center_memberships` remains
+`010_center_memberships.sql`.
 
 ## 9. Phase 4 — Equines
 
@@ -255,4 +264,4 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras aprobar Phase 3C:** `009_centers.sql`.
+**Siguiente fase prevista tras aprobar Phase 3D:** `010_center_memberships.sql`.

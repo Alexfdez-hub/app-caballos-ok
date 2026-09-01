@@ -1,67 +1,75 @@
 # MIGRATION STATUS
 
-PHASE: 3C — Rider profile / Passport foundations
-STATUS: IMPLEMENTADO — pending Product Owner review / merge
+PHASE: 3D — Centers foundation
+STATUS: IMPLEMENTADO — pending Product Owner review / merge / remote 009
 DATE: 2026-09-01
 
-Phase 3B Guardians/Minors is merged on `main` (`2ade001`, PR #5).
-Migration `008_rider_profiles.sql` adds the rider-profile foundation.
-Migrations `001–007` were not modified.
+Phase 3C Rider Profile / Passport is merged on `main` (`1d94807`, PR #6).
+Migration `009_centers.sql` adds the Center domain foundation.
+Migrations `001–008` were not modified.
 
 ## Approved starting state
 
-- Remote `main` includes Phase 3B.
-- Migrations 001–007 exist; `007_guardians.sql` is immutable.
-- Next unused local migration number was `008`.
-- Product Owner authorized Rider profile / Passport foundations next,
-  not Centers. Planned `008_centers` is shifted to `009_centers`.
+- Remote `main` includes Phase 3C.
+- Migrations 001–008 exist locally and on the linked development project.
+- Next unused migration number was `009`.
+- Roadmap assigns `009_centers.sql` to Centers and `010_center_memberships`
+  to memberships.
 
 ## Files created
 
-- `supabase/migrations/008_rider_profiles.sql`
-- `supabase/tests/008_rider_profiles_test.sql`
-- `scripts/run-riders-sql-tests.cjs`
-- `src/features/riders/`
-- `src/screens/EditRiderProfileScreen.tsx`
-- `docs/PHASE_3C_RIDER_PROFILE_PASSPORT_REPORT.md`
+- `supabase/migrations/009_centers.sql`
+- `supabase/tests/009_centers_test.sql`
+- `scripts/run-centers-sql-tests.cjs`
+- `docs/PHASE_3D_CENTERS_FOUNDATION_REPORT.md`
 
 ## Files modified
 
 - `package.json`
-- `src/app/navigation/types.ts`
-- `src/app/navigation/AuthenticatedTabs.tsx`
-- `src/screens/EquestrianPassportScreen.tsx`
+- `src/screens/ExploreScreen.tsx`
+- `src/screens/ProfileScreen.tsx`
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
 ## Migration created
 
-`008_rider_profiles.sql`:
+`009_centers.sql`:
 
-- `rider_profiles` 1:1 with `persons` (`person_id` PK/FK);
-- `bio`, `experience_start_year`, `profile_visibility`, timestamps;
-- visibility constrained to `PRIVATE` | `PUBLIC` (default PRIVATE);
-- RPCs `get_my_rider_profile` and `upsert_my_rider_profile`.
+- `equestrian_centers` with Architecture 2.1 foundation fields;
+- `center_languages` (`center_id`, `locale` composite PK);
+- RLS deny-by-default, no client table policies or grants;
+- no memberships, no creation/verification RPCs, no public directory.
 
-No disciplines, qualifications, assessments, centers, equines, Session Zero,
-authorizations, `users.role`, or account-level rider flag.
+## Product Owner decision — Center lifecycle
+
+Approved 2026-09-01. No repository decision-log file exists; this is the
+current-status record (full text in
+`docs/PHASE_3D_CENTERS_FOUNDATION_REPORT.md`).
+
+- `status`: `DRAFT` | `ACTIVE` | `INACTIVE` | `ARCHIVED` (default `DRAFT`)
+- `verification_status`: `UNVERIFIED` | `PENDING` | `VERIFIED` | `REJECTED`
+  (default `UNVERIFIED`)
+- The two columns are independent.
+- `ACTIVE` is not public discovery. `VERIFIED` is not membership, authority,
+  policy, services, assessments or listing.
+- `ARCHIVED` retains history. 009 does not enforce transitions.
+- Ordinary clients cannot change either column.
+- Later tokens (`SUSPENDED`, `EXPIRED`, `REVOKED`, …) need a new forward
+  migration. Do not rewrite `009_centers.sql` after deployment.
 
 ## Application state
 
-- Passport loads the authenticated person's real rider profile via RPC.
-- The person can create/edit their own bio, experience start year and
-  visibility.
-- PUBLIC visibility is stored intent only; there is no public directory.
-- Deferred passport sections stay truthful empty/coming-soon copy.
-- Guardian-managed minor profile editing is not offered.
+- Explore → Hípicas remains coming-soon with truthful copy: domain exists,
+  onboarding/verification/directory are not in the app.
+- Profile → Mis centros remains coming-soon: memberships are deferred.
 
-## Checks
+## Remote
 
-Recorded in `docs/PHASE_3C_RIDER_PROFILE_PASSPORT_REPORT.md`.
+Do not push `009` until Product Owner approval. Linked remote is currently
+aligned through `008`.
 
 ## Next phase
 
-Centers / memberships as `009_centers.sql` after this phase is reviewed
-and merged. Do not start disciplines, qualifications, or Centers until
-then.
+Center memberships as `010_center_memberships.sql` after this phase is
+reviewed and merged.

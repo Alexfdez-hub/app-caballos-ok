@@ -19,7 +19,7 @@ export default function ExploreScreen() {
         />
         <MenuRow
           label="Hípicas"
-          description="Centros y organizaciones cerca de ti."
+          description="Los centros existen como dominio, pero el alta, la verificación y el directorio público aún no están en la app."
           status="comingSoon"
         />
         <MenuRow
