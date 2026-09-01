@@ -1,128 +1,167 @@
 # MIGRATION STATUS
 
-PHASE: 2C — Clean Baseline / Legacy Retirement
-STATUS: COMPLETE — PENDING PRODUCT OWNER REVIEW AND REMOTE DEPLOYMENT
+PHASE: 3A — Identity Integration
+STATUS: INCOMPLETE — FRONTEND READY; REMOTE EMAIL E2E BLOCKED BY TEST SMTP
 DATE: 2026-08-29
+
+Phase 3A application and database work is implemented. No new migration is
+needed. The phase is **not COMPLETE** until a production SMTP/Resend sender
+can deliver confirmation and recovery emails and one Expo Go deep-link test
+succeeds.
 
 ## Approved starting state
 
-- Phase 2A/2B merged and deployed.
-- Remote migration history synchronized through `004_policies.sql`.
-- Architecture 2.1 tables from migrations 001–004 post-deployment verified.
-- Product decision: prototype compatibility and data retention are no longer
-  requirements.
+- Phase 2C merged.
+- Architecture 2.1 tables from migrations 001–004 remain in place.
+- Migration `005_legacy_retirement.sql` retires the prototype trigger,
+  `handle_new_user()`, `public.bookings`, `public.horses`, and `public.users`.
+- Product decision: the original prototype is not a compatibility target.
 
 ## Files created
 
-- `supabase/migrations/005_legacy_retirement.sql`
-- `src/screens/BaselineScreen.tsx`
-- `docs/PHASE_2C_CLEAN_BASELINE_REPORT.md`
+- `supabase/migrations/006_identity_integration.sql`
+- `supabase/tests/006_identity_integration_test.sql`
+- `supabase/tests/local_auth_stub.sql`
+- `src/app/navigation/types.ts`
+- `src/features/auth/` (service, errors, callback parsing, links, context)
+- `src/features/identity/` (types, validation, service, context, provider, hook, date field)
+- `src/screens/AuthScreen.tsx`
+- `src/screens/ForgotPasswordScreen.tsx`
+- `src/screens/UpdatePasswordScreen.tsx`
+- `src/screens/AuthLinkErrorScreen.tsx`
+- `src/screens/IdentityOnboardingScreen.tsx`
+- `src/screens/IdentityErrorScreen.tsx`
+- `src/screens/EditIdentityScreen.tsx`
+- `src/screens/HomeScreen.tsx`
+- `src/screens/ExploreScreen.tsx`
+- `src/screens/ActivityScreen.tsx`
+- `src/screens/EquestrianPassportScreen.tsx`
+- `src/screens/ProfileScreen.tsx`
+- `src/app/navigation/AuthenticatedTabs.tsx`
+- `src/app/ui/` (`ScreenScaffold`, `ScreenHeader`, `SectionCard`, `EmptyStateCard`, `MenuRow`, `theme`)
+- `docs/PHASE_3A_IDENTITY_INTEGRATION_REPORT.md`
 
 ## Files modified
 
-- `AI_INSTRUCTIONS.md`
-- `app.json`
-- `package.json`
-- `package-lock.json`
+- `App.tsx`
 - `src/app/navigation/RootNavigator.tsx`
-- `docs/DATA_ARCHITECTURE.md` (migration numbering only)
-- `docs/MIGRATION_PLAN.md`
+- `src/config/env.ts`
+- `.env.example`
+- `.env.supabase.local.example`
+- `.env.supabase.remote.example`
+- `package.json`
+- `.gitignore`
+- `supabase/config.toml` (local redirect allow-list only; SMTP remains commented)
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
+- `docs/MIGRATION_PLAN.md`
 - `docs/MIGRATION_STATUS.md`
 
 ## Files removed
 
-- `src/screens/BookingsScreen.js`
-- `src/screens/HomeScreen.js`
-- `src/screens/HorseDetailScreen.js`
-- `src/screens/LoginScreen.js`
-- `src/screens/OwnerEditHorseScreen.js`
-- `src/screens/OwnerHorsesScreen.js`
-- `src/screens/OwnerRegisterHorseScreen.js`
-- `src/screens/ProfileScreen.js`
-- `src/screens/SearchScreen.js`
-- `ESTRUCTURA.md`
-- root duplicate `CURRENT_ARCHITECTURE_REPORT.md`
-
-## Dependencies removed
-
-- `@react-native-community/datetimepicker`
-- `@react-navigation/bottom-tabs`
-- `expo-image-picker`
-
-The datetime-picker Expo plugin was removed from `app.json`.
+- `src/screens/BaselineScreen.tsx`
+- `src/screens/AuthenticatedHomeScreen.tsx`
 
 ## Migration created
 
-`005_legacy_retirement.sql` removes, without `CASCADE`:
+`006_identity_integration.sql` adds Auth → account → person provisioning and
+server-authoritative identity completion on top of the existing 003 tables:
 
-1. `auth.users.on_auth_user_created`
-2. `public.handle_new_user()`
-3. `public.bookings`
-4. `public.horses`
-5. `public.users`
+- trigger `on_auth_user_identity_created` on `auth.users`;
+- `handle_new_identity_account()`;
+- `ensure_my_identity()`;
+- `complete_my_identity(text, text, date)`.
 
-Dependency analysis found only the known legacy trigger and FK chain. No
-Architecture 2.1 table from migrations 001–004 references a legacy table.
-`auth.users` is not dropped or modified.
+No new identity tables. No `role` column. No `onboarding_complete` flag.
+No recreation of `public.users`.
 
 ## Application state
 
-- Legacy horse, booking, owner, profile, login, and registration paths removed.
-- Sole route is the TypeScript `BaselineScreen`.
-- Supabase client, AuthProvider, persisted session restoration, navigation, and
-  sign-out plumbing retained.
-- No new registration, identity provisioning, onboarding, or product domain
-  flow implemented.
-- Production source has no direct dependency on retired tables or role values.
+- Unauthenticated users see email/password sign-in and sign-up, pending
+  confirmation with resend, and forgot-password.
+- Invalid, expired, or Auth-error deep links show `AuthLinkErrorScreen`.
+- `PASSWORD_RECOVERY` opens `UpdatePasswordScreen`.
+- Known Auth connectivity failures show a UI message and do not LogBox.
+- Authenticated users with incomplete person fields see identity onboarding.
+- Authenticated users with first name, last name, and date of birth enter a
+  single application shell with five tabs: Inicio, Explorar, Actividad,
+  Pasaporte, and Perfil. Domain screens are empty states / coming soon.
+  Basic identity editing and sign-out live under Perfil. Incomplete identity
+  cannot reach the shell.
+- `AuthProvider` remains session-only, plus recovery and callback-error state.
+- Identity state lives in `IdentityProvider` / `identityService`.
+- Navigation is selected from session + identity completeness.
+
+Usual development: `npm run start:local` (also `npm start`). Remote /
+physical Android checkpoint: `npm run start:remote`. A physical Android
+device cannot reach `127.0.0.1` on the PC without extra network setup.
+Real credentials stay in gitignored `.env.supabase.local` and
+`.env.supabase.remote`; tracked examples are placeholders only.
 
 ## Local database validation
 
-- Clean local migration chain 001→005: passed.
-- Same clean chain repeated in a second fresh local container: passed.
-- Reconstructed legacy schema + verified trigger + 001→005: passed.
-- Legacy trigger/function/tables absent after 005: verified.
-- `auth.users` remains: verified.
-- `markets`, `persons`, `user_accounts`, `policy_documents`, and
-  `policy_acceptances` remain: verified.
-- 16 Architecture 2.1 constraints remain: verified.
-- RLS remains enabled on all five Architecture 2.1 tables: verified.
-
-Execution used disposable local Supabase PostgreSQL 17.6 containers. No linked
-remote command or connection was used.
+- Migrations 001–006 are applied on local Supabase.
+- `npx supabase start` works normally.
+- Clean local migration chain 001→006: passed.
+- SQL identity/RLS/provisioning tests: `npm run test:identity` (no psql `\set`).
+- End-to-end app flow against local Auth + Postgres: passed (local
+  autoconfirm is on).
 
 ## Application checks
 
-- `npm run typecheck` — passed.
-- `npx expo-doctor` — passed 18/18.
-- `npx expo config --type public` — passed.
-- Expo web server — reached ready state.
-- Browser smoke test — clean shell rendered.
-- Production-source legacy reference search — zero matches.
-- `git diff --check` — passed after documentation whitespace correction.
+- `npm run typecheck`
+- `npx expo-doctor`
+- `git diff --check`
+- `npm run test:auth` (callback + network error handling)
+- `npm run check:env`
+
+## Remote Android / Expo Go checkpoint
+
+- Android/Expo Go **connects** to remote Supabase after the placeholder URL
+  fix.
+- Remote **signup works**. A 200 without session is expected while email
+  confirmation is enabled.
+- Remote **login `invalid_credentials`** on the test account was
+  `user_repeated_signup`: the email already existed; the new password was
+  not the existing account’s password.
+- Remote **email confirmation is enabled**. Do not disable it.
+- Remote **password reset reaches Auth**. The 500 is external: Resend/SMTP
+  is still in test mode and cannot send to arbitrary recipients. This is
+  not a client network failure.
+- Pre-006 Auth users may lack `persons` / `user_accounts`.
+  `ensure_my_identity()` covers that catch-up. No new migration.
 
 ## Known issues / unresolved risks
 
-- Prototype data is intentionally discarded when migration 005 is deployed.
-- The unverified `horse-images` Storage bucket is not changed by this migration;
-  no production app path references it.
-- Remote legacy objects remain until separately authorized deployment.
-- The ignored root `.env` UTF-8 BOM still prevents normal `supabase start`;
-  local database testing used direct containers.
+- Password reset and confirmation **email delivery** remain blocked by
+  the remote test SMTP/Resend restriction. Frontend is ready.
+- Expo Go confirmation/recovery deep-link E2E is still unproven until a
+  real email arrives.
+- Person name and date-of-birth columns remain nullable at the table level.
 - npm reports 16 existing audit findings (7 moderate, 9 high).
 
 ## Remote database
 
-- **NOT MODIFIED during Phase 2C implementation/testing.**
-- No remote push, reset, repair, seed, migration apply, or SQL.
+- Migration 006 **is applied** to the linked remote project.
+- Local and remote schemas are synchronized through 001–006.
+- Schema sync is not the same as phase completion. Email delivery and
+  deep-link redirects remain open.
 
 ## Architecture conflicts
 
-- None.
+- None. The continued nullability of required person fields is the documented
+  Phase 2B transitional deviation, now also required for incomplete onboarding
+  and future persons without accounts.
+
+## Application shell
+
+Frontend-only navigation skeleton on top of Phase 3A. No SQL. No migration
+007. `AuthenticatedHomeScreen` was replaced by `HomeScreen` plus the tab
+shell. `@react-navigation/bottom-tabs` and `@expo/vector-icons` were added
+because Expo already ships vector icons and bottom tabs are required for
+the authenticated product chrome.
 
 ## Next phase
 
-- Phase 3A Identity Integration is planned as migration
-  `006_identity_integration.sql`.
-- Guardians move to `007_guardians.sql`.
-- Phase 3A was **not started** and requires separate authorization.
+- Phase 3B / guardians is planned as `007_guardians.sql`.
+- Phase 3B must **not** start until Phase 3A is actually complete (SMTP +
+  redirect/deep-link E2E), not merely because migration 006 is applied.
