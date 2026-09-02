@@ -29,6 +29,11 @@ Do not merge this PR before #17 (and #16, #15). Do not deploy 018.
 
 Inherited migrations including `017` are unchanged versus parent HEAD.
 
+Product Owner (2026-09-02) approved `ACTIVE|INACTIVE` for
+`center_services.status` and `service_equines.status`. Those CHECKs are
+in `018` only. 015/017 already used the same catalog pair. Do not
+rewrite 001–017.
+
 ## Next phase
 
 Do not start 019. Do not merge. Do not deploy.

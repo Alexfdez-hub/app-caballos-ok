@@ -165,9 +165,11 @@ Migration `018_center_services.sql` (stacked on 017, not deployed) adds
 `EQUINE_SESSION|RIDER_ASSESSMENT|ZERO_SESSION`. `ZERO_SESSION` is a
 service kind, not a Zero Session record. Linking an equine requires
 effective `MANAGE_REQUIREMENTS` at the service Center. Membership and
-assignment are not sufficient. Architecture 2.1 names `status` and
-`authorization_policy` without tokens; this foundation does not invent
-enums. No client create/link RPC.
+assignment are not sufficient. Product Owner (2026-09-02) approved
+`center_services.status` and `service_equines.status` as
+`ACTIVE|INACTIVE` (catalog pair reuse). `authorization_policy` stays
+optional trimmed non-empty free text; no policy enum in 018. No client
+create/link RPC.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center

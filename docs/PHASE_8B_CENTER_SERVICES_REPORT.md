@@ -22,6 +22,15 @@ not deployed.
   `duration_limit_minutes` are null or `> 0`. `now()` is not in a CHECK.
 - `enabled` default true. `supervision_required` default false.
   `requirements` must be a JSON object, default `{}`.
+- `center_services.status` and `service_equines.status` are exactly
+  `ACTIVE | INACTIVE`, default `ACTIVE`. Product Owner approved this
+  catalog pair on 2026-09-02 for the 015–018 train (same tokens as
+  `qualification_systems`, `qualification_levels` and
+  `equine_requirements`). Not `DRAFT`, `ARCHIVED` or `REVOKED`.
+- `authorization_policy` remains optional trimmed non-empty free text
+  when present. No enum and no authorization engine in 018. Vocabulary
+  belongs to the later authorization / Zero Session / booking train
+  (Product Owner, 2026-09-02).
 - `service_equines.service_id` is `ON DELETE CASCADE`.
 - Linking authority is explicit: trigger
   `enforce_service_equine_manage_requirements()` requires
@@ -39,18 +48,17 @@ not deployed.
 
 ## Architecture conflicts
 
-Architecture 2.1 names `status` on both tables and
-`authorization_policy` on `service_equines` without enumerating tokens.
-This foundation does **not** invent `DRAFT` / `ARCHIVED` / `REVOKED` or
-policy enums. Default `status = 'ACTIVE'` is a stored string only.
+**Closed (status):** Product Owner decision 2026-09-02. Both 018 status
+columns use `ACTIVE | INACTIVE`. The earlier unnamed-token conflict
+does not remain.
 
-Architecture 2.1 also does not name who may create or mutate
+**Open:** Architecture 2.1 does not name who may create or mutate
 `center_services`. This phase does **not** invent ADMIN/MANAGER create
 authority. Client writes stay denied. Server-side inserts used by tests
 and controlled provisioning are unconstrained by a new trigger.
 
-Do not treat these omissions as approval to add tokens or a create RPC
-later without Product Owner decision.
+`authorization_policy` is intentionally not an enum. That is a deferred
+vocabulary, not an unresolved status-lifecycle conflict.
 
 ## Frontend
 
@@ -59,8 +67,9 @@ None. No fabricated services catalog in Expo. No Zero Session records.
 ## Tests
 
 `npm run test:center-services` is appended to `npm run test:sql`.
+Coverage includes invalid status rejection and both approved values on
+`center_services` and `service_equines`.
 
 ## Next phase
 
-`019` is **not** started. After this PR is Ready and Bugbot-clean, post
-the multi-phase handoff on the latest PR. Do not merge. Do not deploy.
+`019` is **not** started. Do not merge. Do not deploy.

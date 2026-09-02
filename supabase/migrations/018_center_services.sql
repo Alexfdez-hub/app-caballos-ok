@@ -9,10 +9,12 @@
 -- Membership, ownership and assignment do not permit linking any equine.
 -- The service row itself does not grant equine authority.
 --
--- Architecture 2.1 names status and authorization_policy without
--- enumerating tokens. This migration does not invent lifecycle or
--- policy enums. See docs/PHASE_8B_CENTER_SERVICES_REPORT.md
--- ARCHITECTURE_CONFLICT. Service type tokens are frozen:
+-- Product Owner approved catalog lifecycle ACTIVE | INACTIVE for
+-- center_services.status and service_equines.status (2026-09-02),
+-- reusing the disciplines/qualifications/equine_requirements pair.
+-- authorization_policy remains optional trimmed non-empty free text.
+-- Do not invent a policy enum or authorization engine in 018.
+-- Service type tokens are frozen:
 -- EQUINE_SESSION, RIDER_ASSESSMENT, ZERO_SESSION.
 --
 -- Access model follows migrations 006–017:
@@ -45,7 +47,9 @@ create table public.center_services (
     check (
       default_duration_minutes is null
       or default_duration_minutes > 0
-    )
+    ),
+  constraint center_services_status_check
+    check (status in ('ACTIVE', 'INACTIVE'))
 );
 
 create index center_services_center_id_idx
@@ -56,7 +60,7 @@ comment on table public.center_services is
 comment on column public.center_services.service_type is
   'Frozen Architecture 2.1 MVP0 types: EQUINE_SESSION, RIDER_ASSESSMENT or ZERO_SESSION. ZERO_SESSION here is a service kind, not a zero_sessions row.';
 comment on column public.center_services.status is
-  'Stored status text. Architecture 2.1 names this column without enumerating tokens. This foundation does not invent DRAFT/ARCHIVED/REVOKED. Default ACTIVE is a stored string only.';
+  'Product Owner approved lifecycle (2026-09-02): ACTIVE or INACTIVE. Reuses the catalog pair. Not DRAFT, ARCHIVED or REVOKED. Default ACTIVE.';
 comment on column public.center_services.default_duration_minutes is
   'Optional positive duration in minutes. Null is allowed. now() is not used in a CHECK.';
 
@@ -86,7 +90,9 @@ create table public.service_equines (
         authorization_policy = btrim(authorization_policy)
         and char_length(authorization_policy) > 0
       )
-    )
+    ),
+  constraint service_equines_status_check
+    check (status in ('ACTIVE', 'INACTIVE'))
 );
 
 create unique index service_equines_service_equine_key
@@ -98,11 +104,11 @@ create index service_equines_equine_id_idx
 comment on table public.service_equines is
   'Link between an existing center_services row and an existing equine. Duplicate service+equine is rejected. Deleting the service cascades. Linking requires effective MANAGE_REQUIREMENTS at the service Center. The link does not grant equine authority.';
 comment on column public.service_equines.enabled is
-  'Whether this link is currently offered. Distinct from Architecture-unnamed status tokens.';
+  'Whether this link is currently offered. Distinct from catalog status ACTIVE|INACTIVE.';
 comment on column public.service_equines.authorization_policy is
-  'Optional stored policy label. Tokens are not enumerated in Architecture 2.1 and are not invented here.';
+  'Optional trimmed non-empty free text when present. Product Owner (2026-09-02): no enum and no authorization engine in 018. Vocabulary belongs to the later authorization / Zero Session / booking train.';
 comment on column public.service_equines.status is
-  'Stored status text without an invented enum. See ARCHITECTURE_CONFLICT in the Phase 8B report.';
+  'Product Owner approved lifecycle (2026-09-02): ACTIVE or INACTIVE. Reuses the catalog pair. Not DRAFT, ARCHIVED or REVOKED. Default ACTIVE.';
 
 create function public.enforce_service_equine_manage_requirements()
 returns trigger

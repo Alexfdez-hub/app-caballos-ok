@@ -75,6 +75,7 @@ declare
   service_a_id uuid;
   service_b_id uuid;
   zero_service_id uuid;
+  inactive_service_id uuid;
   kept_link_id uuid;
   cascade_link_id uuid;
   remaining_id uuid;
@@ -194,6 +195,32 @@ begin
     center_a_id, 'EQUINE_SESSION', 'Phase8B session', 45
   )
   returning id into service_a_id;
+
+  if (
+    select service.status
+      from public.center_services as service
+     where service.id = service_a_id
+  ) is distinct from 'ACTIVE' then
+    raise exception 'Default center_services status is not ACTIVE';
+  end if;
+
+  begin
+    insert into public.center_services (
+      center_id, service_type, name, status
+    ) values (
+      center_a_id, 'EQUINE_SESSION', 'Draft service', 'DRAFT'
+    );
+    raise exception 'Invalid center service status was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  insert into public.center_services (
+    center_id, service_type, name, status
+  ) values (
+    center_a_id, 'EQUINE_SESSION', 'Phase8B inactive', 'INACTIVE'
+  )
+  returning id into inactive_service_id;
 
   insert into public.center_services (
     center_id, service_type, name
@@ -325,6 +352,47 @@ begin
     service_a_id, fixture_equine_id, 30, null
   )
   returning id into kept_link_id;
+
+  if (
+    select link.status
+      from public.service_equines as link
+     where link.id = kept_link_id
+  ) is distinct from 'ACTIVE' then
+    raise exception 'Default service_equines status is not ACTIVE';
+  end if;
+
+  update public.service_equines
+     set status = 'INACTIVE'
+   where id = kept_link_id;
+  update public.service_equines
+     set status = 'ACTIVE'
+   where id = kept_link_id;
+
+  begin
+    update public.service_equines
+       set status = 'DRAFT'
+     where id = kept_link_id;
+    raise exception 'Invalid service-equine status was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.service_equines (
+      service_id, equine_id, status
+    ) values (
+      inactive_service_id, fixture_equine_id, 'ARCHIVED'
+    );
+    raise exception 'Invalid service-equine insert status was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  insert into public.service_equines (
+    service_id, equine_id, status
+  ) values (
+    inactive_service_id, fixture_equine_id, 'INACTIVE'
+  );
 
   update public.service_equines
      set enabled = false
