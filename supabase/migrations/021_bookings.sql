@@ -15,9 +15,12 @@
 --   POLICY_ACCEPTANCE;
 --   requirement source types OWNER | CENTER | MARKET | EQUINE |
 --   SERVICE | GUARDIAN | POLICY;
---   WAIVED is stored but there is no waive path in this train;
+--   WAIVED is a stored frozen status; there is no waive RPC or client
+--   waiver path in this train;
 --   client CRUD cannot force CONFIRMED | ACTIVE | COMPLETED.
--- now() is not used in a table CHECK.
+-- confirmed_at / cancelled_at / completed_at are nullable without
+-- invented status pairing. 022 will set them when those transitions
+-- are named. now() is not used in a table CHECK.
 --
 -- Access model follows migrations 006–020:
 --   - RLS enabled, deny-by-default, no client table policies.
@@ -75,41 +78,7 @@ create table public.bookings (
       )
     ),
   constraint bookings_policy_snapshot_check
-    check (jsonb_typeof(booking_policy_snapshot) = 'object'),
-  constraint bookings_confirmed_lifecycle_check
-    check (
-      (
-        status <> 'CONFIRMED'
-        and confirmed_at is null
-      )
-      or (
-        status in ('CONFIRMED', 'ACTIVE', 'COMPLETED', 'DISPUTED')
-        and confirmed_at is not null
-      )
-    ),
-  constraint bookings_cancelled_lifecycle_check
-    check (
-      (
-        status <> 'CANCELLED'
-        and cancelled_at is null
-      )
-      or (
-        status = 'CANCELLED'
-        and cancelled_at is not null
-      )
-    ),
-  constraint bookings_completed_lifecycle_check
-    check (
-      (
-        status <> 'COMPLETED'
-        and completed_at is null
-      )
-      or (
-        status = 'COMPLETED'
-        and completed_at is not null
-        and confirmed_at is not null
-      )
-    )
+    check (jsonb_typeof(booking_policy_snapshot) = 'object')
 );
 
 create index bookings_participant_person_id_idx
@@ -136,6 +105,12 @@ comment on column public.bookings.eligibility_status is
   'Optional frozen Architecture 2.1 eligibility token. Multiple unmet requirements live on booking_requirements.';
 comment on column public.bookings.booking_policy_snapshot is
   'Policy snapshot for this booking. Ordinary later policy edits must not rewrite a confirmed snapshot.';
+comment on column public.bookings.confirmed_at is
+  'Set by 022 confirm. Nullable. No invented pairing with status in 021.';
+comment on column public.bookings.cancelled_at is
+  'Nullable cancellation timestamp. No invented pairing with status in 021.';
+comment on column public.bookings.completed_at is
+  'Nullable completion timestamp. No invented pairing with status in 021.';
 
 create table public.booking_requirements (
   id uuid primary key default gen_random_uuid(),
@@ -265,13 +240,18 @@ begin
   end if;
 
   if TG_OP = 'UPDATE' then
+    if new.participant_person_id is distinct from old.participant_person_id
+       or new.booked_by_account_id is distinct from old.booked_by_account_id
+       or new.equine_id is distinct from old.equine_id
+       or new.center_id is distinct from old.center_id
+       or new.service_id is distinct from old.service_id then
+      raise exception using
+        errcode = '42501',
+        message = 'Historical booking identity cannot be rewritten';
+    end if;
+
     if old.status = any(critical_states) then
-      if new.participant_person_id is distinct from old.participant_person_id
-         or new.booked_by_account_id is distinct from old.booked_by_account_id
-         or new.equine_id is distinct from old.equine_id
-         or new.center_id is distinct from old.center_id
-         or new.service_id is distinct from old.service_id
-         or new.starts_at is distinct from old.starts_at
+      if new.starts_at is distinct from old.starts_at
          or new.ends_at is distinct from old.ends_at
          or new.booking_policy_snapshot is distinct from old.booking_policy_snapshot
          or new.confirmed_at is distinct from old.confirmed_at then
@@ -338,7 +318,7 @@ end;
 $$;
 
 comment on function public.enforce_booking_request_authority() is
-  'BEFORE INSERT OR UPDATE OR DELETE: booker is own PERSON or current VERIFIED guardian. Service must belong to center_id. CONFIRMED/ACTIVE/COMPLETED cannot be forced in 021. Confirmed history cannot be rewritten. Not executable by anon or authenticated.';
+  'BEFORE INSERT OR UPDATE OR DELETE: booker is own PERSON or current VERIFIED guardian. Service must belong to center_id. Identity cannot be retargeted. CONFIRMED/ACTIVE/COMPLETED cannot be forced in 021. Confirmed history cannot be rewritten. 022 may replace this trigger to confirm. Not executable by anon or authenticated.';
 
 revoke all on function public.enforce_booking_request_authority()
   from public, anon, authenticated;
@@ -370,12 +350,6 @@ begin
     return old;
   end if;
 
-  if new.status = 'WAIVED' then
-    raise exception using
-      errcode = '42501',
-      message = 'There is no waive path in this train';
-  end if;
-
   if TG_OP = 'UPDATE'
      and old.booking_id is distinct from new.booking_id then
     raise exception using
@@ -399,7 +373,7 @@ end;
 $$;
 
 comment on function public.enforce_booking_requirement_rules() is
-  'BEFORE INSERT OR UPDATE OR DELETE: WAIVED cannot be set. Confirmed booking requirement rows cannot be rewritten. Not executable by anon or authenticated.';
+  'BEFORE INSERT OR UPDATE OR DELETE: booking_id cannot be retargeted. Confirmed booking requirement rows cannot be rewritten. WAIVED may be stored; there is no waive RPC. Not executable by anon or authenticated.';
 
 revoke all on function public.enforce_booking_requirement_rules()
   from public, anon, authenticated;
