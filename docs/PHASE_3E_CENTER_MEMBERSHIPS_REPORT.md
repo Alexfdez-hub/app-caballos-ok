@@ -166,9 +166,11 @@ unspecified. Invitation and suspension states were not invented.
 | Working tree | PASS — clean |
 | Authenticated Expo Go smoke (remote) | PASS — Profile → Mis centros; empty state truthful; no PGRST202 or generic load failure; no create/join/invite/assign-role/membership-edit UI |
 
-Final Phase 3E HEAD verification above is recorded as already passed on
-`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`. Not re-run in this
-documentation update.
+The complete local runtime gate was executed successfully on pre-merge
+Phase 3E HEAD `0973a609176c77f87d2682644a6b8e57fe4794d4`. Merge commit
+`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2` contains the identical source
+tree (GitHub comparison: zero changed files). The tests were not re-run
+after merge.
 
 ## Remote
 

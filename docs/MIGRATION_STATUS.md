@@ -114,8 +114,11 @@ Product Owner approved the linked push. `010_center_memberships.sql` was applied
 
 ## Local / app verification (final Phase 3E HEAD)
 
-Recorded as already passed on `84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`.
-Not re-run in this documentation update.
+The complete local runtime gate was executed successfully on pre-merge
+Phase 3E HEAD `0973a609176c77f87d2682644a6b8e57fe4794d4`. Merge commit
+`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2` contains the identical source
+tree (GitHub comparison: zero changed files). The tests were not re-run
+after merge.
 
 - clean local replay `001–010`
 - `test:memberships`, `test:centers`, `test:riders`, `test:identity`
