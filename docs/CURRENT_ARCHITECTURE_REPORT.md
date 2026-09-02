@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 6A — Rider assessments foundation (stacked on 5B)
+**Baseline:** Phase 8A — Equine requirements foundation (stacked on 6A)
 **Date:** 2026-09-02
 
 ## Summary
@@ -155,6 +155,11 @@ Migration `016_rider_assessments.sql` (stacked on 015, not deployed) adds
 themselves. Creating/validating requires active `ASSESSOR` membership at
 that Center. Historical rows remain after membership end. No client RPC.
 
+Migration `017_equine_requirements.sql` (stacked on 016, not deployed) adds
+`equine_requirements` attached to an equine. Types and sources follow
+Architecture 2.1. Typed value columns are mapped per type. No client CRUD,
+no eligibility evaluation, no stored rider age.
+
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
 membership does not grant equine authority.
@@ -190,8 +195,8 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No booking, assessment mutation, payment, or review UI
 - No single `users.role` model
 
-The next planned SQL migration is `017_equine_requirements.sql` stacked on
-this branch. Do not merge. Do not deploy `015`/`016`. Do not start 019.
+The next planned SQL migration is `018_center_services.sql` stacked on
+this branch. Do not merge. Do not deploy `015`/`016`/`017`. Do not start 019.
 Remote remains aligned through `014`; this agent does not deploy.
 
 ## Historical records
