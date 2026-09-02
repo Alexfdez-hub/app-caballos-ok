@@ -95,13 +95,10 @@ begin
         on namespace.oid = procedure.pronamespace
      where namespace.nspname = 'public'
        and procedure.proname in (
-         'approve_zero_session',
-         'check_booking_eligibility',
-         'create_booking_request',
-         'confirm_booking'
+         'approve_zero_session'
        )
   ) then
-    raise exception '020 must not add eligibility or booking RPCs';
+    raise exception '020 must not add approve_zero_session';
   end if;
 
   if (

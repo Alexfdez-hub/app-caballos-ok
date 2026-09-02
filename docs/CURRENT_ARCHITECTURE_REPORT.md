@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 9A — Zero Sessions and authorizations (on `main` through 018)
+**Baseline:** Phase 11B — Booking functions (stacked; `main` still through 018)
 **Date:** 2026-09-02
 
 ## Summary
@@ -207,12 +207,13 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No services catalog or eligibility UI
 - No single `users.role` model
 
-Migration `019_zero_sessions_authorizations.sql` is on Ready PR #20.
-020 calendar is Ready on PR #21. This branch adds `021_bookings.sql`:
-`bookings` and `booking_requirements`. Booker is own PERSON or a
-current VERIFIED guardian. CONFIRMED/ACTIVE/COMPLETED cannot be forced.
-No eligibility or confirm RPC. Remote remains aligned through `018`.
-The next planned SQL migration is `022` and is **not** started.
+Migration `019_zero_sessions_authorizations.sql` is Ready on PR #20.
+020 calendar is Ready on PR #21. 021 bookings is Ready on PR #22.
+This branch adds `022_booking_functions.sql`: the three P0 RPCs
+`check_booking_eligibility`, `create_booking_request` and
+`confirm_booking`. Confirm occupies the equine with a BOOKING calendar
+block. No `approve_zero_session`. No `sessions`. Remote remains aligned
+through `018`. Do not start 023.
 
 ## Historical records
 

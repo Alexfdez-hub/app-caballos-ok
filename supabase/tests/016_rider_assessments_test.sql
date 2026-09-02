@@ -107,8 +107,7 @@ begin
          'create_rider_assessment',
          'validate_rider_assessment',
          'list_my_assessments',
-         'approve_zero_session',
-         'check_booking_eligibility'
+         'approve_zero_session'
        )
   ) then
     raise exception 'Assessment mutation or later-domain RPC must not exist';
