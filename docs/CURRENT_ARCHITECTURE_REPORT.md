@@ -160,6 +160,15 @@ Migration `017_equine_requirements.sql` (stacked on 016, not deployed) adds
 Architecture 2.1. Typed value columns are mapped per type. No client CRUD,
 no eligibility evaluation, no stored rider age.
 
+Migration `018_center_services.sql` (stacked on 017, not deployed) adds
+`center_services` and `service_equines`. Types are
+`EQUINE_SESSION|RIDER_ASSESSMENT|ZERO_SESSION`. `ZERO_SESSION` is a
+service kind, not a Zero Session record. Linking an equine requires
+effective `MANAGE_REQUIREMENTS` at the service Center. Membership and
+assignment are not sufficient. Architecture 2.1 names `status` and
+`authorization_policy` without tokens; this foundation does not invent
+enums. No client create/link RPC.
+
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
 membership does not grant equine authority.
@@ -193,11 +202,12 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No discipline catalog UI, selector or seeded codes
 - No qualification catalog UI, selector, seed or equivalences
 - No booking, assessment mutation, payment, or review UI
+- No services catalog, Zero Session records or eligibility UI
 - No single `users.role` model
 
-The next planned SQL migration is `018_center_services.sql` stacked on
-this branch. Do not merge. Do not deploy `015`/`016`/`017`. Do not start 019.
-Remote remains aligned through `014`; this agent does not deploy.
+The next planned SQL migration is `019` and is **not** started. Do not
+merge. Do not deploy `015`/`016`/`017`/`018`. Remote remains aligned
+through `014`; this agent does not deploy.
 
 ## Historical records
 
