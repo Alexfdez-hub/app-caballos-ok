@@ -196,10 +196,25 @@ tables through PostgREST.
 
 ## Tests and checks
 
-See the pull request and `docs/MIGRATION_STATUS.md` for commands actually
-executed in this environment. Local PostgreSQL execution of SQL tests
-requires Docker, which this cloud clone does not provide and must not
-install.
+| Command | Result |
+|---|---|
+| `node --version` | PASS — `v22.14.0` |
+| `npm ci` | PASS |
+| `npm run test:auth` | PASS — 38/38 |
+| `npm run typecheck` | PASS |
+| `npx expo-doctor` | PASS — 18/18 |
+| `git diff --check` | PASS |
+| `001–010` vs `origin/main` | PASS — empty; only `011_equines.sql` added |
+| `npx supabase db reset --local` | NOT RUN — `docker: command not found` |
+| `npm run test:equines` | NOT EXECUTED against PostgreSQL — runner stopped: no local db container / `docker: command not found` |
+| `npm run test:memberships` | NOT EXECUTED against PostgreSQL — Docker unavailable |
+| `npm run test:centers` | NOT EXECUTED against PostgreSQL — Docker unavailable |
+| `npm run test:riders` | NOT EXECUTED against PostgreSQL — Docker unavailable |
+| `npm run test:identity` | NOT EXECUTED against PostgreSQL — Docker unavailable |
+| `npm run test:guardians` | NOT EXECUTED against PostgreSQL — Docker unavailable |
+| local advisors | NOT RUN — no local Supabase |
+
+**LOCAL_RUNTIME_GATE_PENDING.** SQL/RLS P0 tests exist in source (`supabase/tests/011_equines_test.sql`) and are wired as `npm run test:equines`. They were not executed against PostgreSQL in this cloud clone. Do not treat them as passed. Docker was not installed (out of scope).
 
 ## Remote
 

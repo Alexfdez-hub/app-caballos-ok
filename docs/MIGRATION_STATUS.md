@@ -96,8 +96,18 @@ config.
 
 ## Local / app verification
 
-See the draft PR test plan. This cloud clone has no Docker; SQL tests were
-not executed against PostgreSQL here. Flag: `LOCAL_RUNTIME_GATE_PENDING`.
+**LOCAL_RUNTIME_GATE_PENDING.** This cloud clone has no Docker; SQL tests
+were not executed against PostgreSQL. Docker was not installed.
+
+Executed here:
+
+- `npm ci` PASS
+- `npm run test:auth` PASS — 38/38
+- `npm run typecheck` PASS
+- `npx expo-doctor` PASS — 18/18
+- `git diff --check` PASS
+- `001–010` vs `origin/main` PASS — unchanged
+- `npm run test:equines` did not reach PostgreSQL (`docker: command not found`)
 
 ## Next phase
 
