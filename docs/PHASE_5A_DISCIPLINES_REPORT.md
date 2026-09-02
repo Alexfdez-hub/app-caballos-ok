@@ -15,9 +15,12 @@ not retarget or merge. Migration `014` is local only and is not deployed.
 ## Design selected
 
 - Tables: `disciplines`, `discipline_translations`, `equine_disciplines`.
-- Lifecycle `ACTIVE | INACTIVE`. Not ARCHIVED, not a qualification state.
+- Lifecycle `ACTIVE | INACTIVE`. Product Owner approved (2026-09-02).
+  Not ARCHIVED, not a qualification state.
 - Unique `disciplines.code`. Unique translation locale per discipline.
-- Unique active association is equine+discipline (one row per pair).
+- Unique association is equine+discipline (one row per pair).
+- `sort_order >= 0` (`disciplines_sort_order_check`). Duplicate
+  non-negative values are allowed.
 - No seed. Architecture forbids hardcoded Galopes and automatic
   international equivalences. There is no Product Owner-approved catalog
   in this repository (`supabase/seed.sql` is empty by design).
@@ -31,7 +34,7 @@ not retarget or merge. Migration `014` is local only and is not deployed.
 
 ### `disciplines`
 
-`id`, unique `code`, `status`, `sort_order`, `created_at`.
+`id`, unique `code`, `status`, non-negative `sort_order`, `created_at`.
 
 ### `discipline_translations`
 
@@ -57,6 +60,14 @@ None in this phase. Passport and Explore do not gain a discipline picker.
 migrations at the parent SHA must remain unchanged; 014 is a new file.
 008/012/013 SQL tests allow 014 tables and still forbid qualifications
 and bookings.
+
+P0 coverage includes: negative `sort_order` rejected; duplicate
+non-negative `sort_order` allowed; blank translation name rejected;
+invalid discipline FK in translations; invalid discipline FK in
+`equine_disciplines`; invalid equine FK; authenticated UPDATE/DELETE
+denied on disciplines, translations and equine_disciplines; no
+qualification systems/levels/rider qualifications/assessments/bookings;
+catalog unseeded; no Galope/international equivalence tables.
 
 ## Next phase
 

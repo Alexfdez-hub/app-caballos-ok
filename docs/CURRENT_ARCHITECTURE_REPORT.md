@@ -119,10 +119,11 @@ requires `granted_at <= now()`, and is not executable by `anon` or
 
 Migration `014_disciplines.sql` (stacked, not on `main`) adds
 `disciplines`, `discipline_translations` and `equine_disciplines`.
-Lifecycle is `ACTIVE|INACTIVE`. Codes are unique and unseeded. Translations
-use BCP 47 locales. `experience_level` is optional free text, not a
-qualification. There is no client catalog or assign RPC and no Expo
-selector.
+Lifecycle is Product Owner approved `ACTIVE|INACTIVE`. Codes are unique
+and unseeded. `sort_order` is a non-negative display hint (duplicates
+allowed). Translations use BCP 47 locales. `experience_level` is optional
+free text, not a qualification. There is no client catalog or assign RPC
+and no Expo selector.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center

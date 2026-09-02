@@ -11,7 +11,10 @@
 -- experience_level on equine_disciplines is optional free text; it is not
 -- a qualification and is not constrained to invented tokens.
 --
--- Access model follows migrations 006–013:
+-- Product Owner approved discipline lifecycle ACTIVE | INACTIVE
+-- (2026-09-02). sort_order is a non-negative display hint; duplicates of
+-- non-negative values are allowed. Do not seed Galopes or international
+-- equivalences. Access model follows migrations 006–013:
 --   - RLS enabled, deny-by-default, no client table policies.
 --   - No table INSERT/UPDATE/DELETE/SELECT for anon or authenticated.
 --   - No client list/create/assign RPC.
@@ -26,7 +29,9 @@ create table public.disciplines (
   constraint disciplines_code_check
     check (code = btrim(code) and char_length(code) > 0),
   constraint disciplines_status_check
-    check (status in ('ACTIVE', 'INACTIVE'))
+    check (status in ('ACTIVE', 'INACTIVE')),
+  constraint disciplines_sort_order_check
+    check (sort_order >= 0)
 );
 
 create unique index disciplines_code_key
@@ -37,9 +42,9 @@ comment on table public.disciplines is
 comment on column public.disciplines.code is
   'Unique trimmed non-empty catalog code. Not a translated label and not a riding-level token.';
 comment on column public.disciplines.status is
-  'ACTIVE (in the catalog) or INACTIVE (retained, not operational). Not ARCHIVED and not a qualification verification state.';
+  'Product Owner approved lifecycle: ACTIVE (in the catalog) or INACTIVE (retained, not operational). Not ARCHIVED and not a qualification verification state.';
 comment on column public.disciplines.sort_order is
-  'Display ordering hint. Duplicates are allowed. Not an access rule.';
+  'Non-negative display ordering hint. Duplicate values are allowed. Not an access rule and not a qualification rank.';
 
 create table public.discipline_translations (
   id uuid primary key default gen_random_uuid(),

@@ -55,6 +55,7 @@ declare
   caller_person_id uuid;
   fixture_equine_id uuid;
   fixture_discipline_id uuid;
+  duplicate_sort_discipline_id uuid;
   catalog_count integer;
 begin
   if exists (
@@ -112,6 +113,14 @@ begin
     raise exception '014 must not seed a discipline catalog';
   end if;
 
+  if exists (
+    select 1 from information_schema.tables
+     where table_schema = 'public'
+       and table_name ~* 'galope|equivalence'
+  ) then
+    raise exception '014 must not create Galope or equivalence tables';
+  end if;
+
   select person_id into caller_person_id
     from public.user_accounts
    where auth_user_id = '91000000-0000-0000-0000-000000000001';
@@ -136,9 +145,25 @@ begin
     when check_violation then null;
   end;
 
+  begin
+    insert into public.disciplines (code, sort_order)
+    values ('phase5a-negative', -1);
+    raise exception 'Negative sort_order was allowed';
+  exception
+    when check_violation then null;
+  end;
+
   insert into public.disciplines (code, sort_order)
   values ('phase5a-fixture', 10)
   returning id into fixture_discipline_id;
+
+  insert into public.disciplines (code, sort_order)
+  values ('phase5a-duplicate-sort', 10)
+  returning id into duplicate_sort_discipline_id;
+
+  if duplicate_sort_discipline_id is null then
+    raise exception 'Duplicate non-negative sort_order was rejected';
+  end if;
 
   begin
     insert into public.disciplines (code)
@@ -157,6 +182,33 @@ begin
     when check_violation then null;
   end;
 
+  begin
+    insert into public.discipline_translations (
+      discipline_id, locale, name
+    ) values (fixture_discipline_id, 'es', '');
+    raise exception 'Blank translation name was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.discipline_translations (
+      discipline_id, locale, name
+    ) values (fixture_discipline_id, 'es', '  ');
+    raise exception 'Whitespace translation name was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.discipline_translations (
+      discipline_id, locale, name
+    ) values ('91000000-0000-0000-0000-000000000099'::uuid, 'es', 'Huérfano');
+    raise exception 'Translation with invalid discipline FK was allowed';
+  exception
+    when foreign_key_violation then null;
+  end;
+
   insert into public.discipline_translations (
     discipline_id, locale, name
   ) values (fixture_discipline_id, 'es', 'Nombre de prueba');
@@ -168,6 +220,30 @@ begin
     raise exception 'Duplicate translation locale was allowed';
   exception
     when unique_violation then null;
+  end;
+
+  begin
+    insert into public.equine_disciplines (
+      equine_id, discipline_id
+    ) values (
+      fixture_equine_id,
+      '91000000-0000-0000-0000-000000000098'::uuid
+    );
+    raise exception 'Equine discipline with invalid discipline FK was allowed';
+  exception
+    when foreign_key_violation then null;
+  end;
+
+  begin
+    insert into public.equine_disciplines (
+      equine_id, discipline_id
+    ) values (
+      '91000000-0000-0000-0000-000000000097'::uuid,
+      fixture_discipline_id
+    );
+    raise exception 'Equine discipline with invalid equine FK was allowed';
+  exception
+    when foreign_key_violation then null;
   end;
 
   begin
@@ -228,6 +304,51 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    update public.disciplines
+       set status = 'INACTIVE';
+    raise exception 'Authenticated role updated disciplines';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.disciplines;
+    raise exception 'Authenticated role deleted disciplines';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.discipline_translations
+       set name = 'x';
+    raise exception 'Authenticated role updated translations';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.discipline_translations;
+    raise exception 'Authenticated role deleted translations';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.equine_disciplines
+       set notes = 'x';
+    raise exception 'Authenticated role updated equine disciplines';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_disciplines;
+    raise exception 'Authenticated role deleted equine disciplines';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -252,10 +373,16 @@ do $$
 begin
   if has_table_privilege('anon', 'public.disciplines', 'select')
      or has_table_privilege('authenticated', 'public.disciplines', 'insert')
+     or has_table_privilege('authenticated', 'public.disciplines', 'update')
+     or has_table_privilege('authenticated', 'public.disciplines', 'delete')
      or has_table_privilege('anon', 'public.discipline_translations', 'select')
      or has_table_privilege('authenticated', 'public.discipline_translations', 'insert')
+     or has_table_privilege('authenticated', 'public.discipline_translations', 'update')
+     or has_table_privilege('authenticated', 'public.discipline_translations', 'delete')
      or has_table_privilege('anon', 'public.equine_disciplines', 'select')
      or has_table_privilege('authenticated', 'public.equine_disciplines', 'insert')
+     or has_table_privilege('authenticated', 'public.equine_disciplines', 'update')
+     or has_table_privilege('authenticated', 'public.equine_disciplines', 'delete')
   then
     raise exception '014 privileges are not deny-by-default';
   end if;
