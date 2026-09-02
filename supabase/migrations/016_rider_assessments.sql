@@ -152,6 +152,16 @@ security definer
 set search_path = pg_catalog, public
 as $$
 begin
+  if TG_OP = 'UPDATE' then
+    if new.rider_person_id is distinct from old.rider_person_id
+       or new.center_id is distinct from old.center_id
+       or new.assessor_person_id is distinct from old.assessor_person_id then
+      raise exception using
+        errcode = '42501',
+        message = 'Historical assessment identity cannot be rewritten';
+    end if;
+  end if;
+
   if new.rider_person_id = new.assessor_person_id then
     raise exception using
       errcode = '23514',
@@ -173,7 +183,7 @@ end;
 $$;
 
 comment on function public.enforce_rider_assessment_assessor_authority() is
-  'BEFORE INSERT OR UPDATE: recorded assessor_person_id must have an active ASSESSOR membership at center_id. ADMIN/MANAGER/INSTRUCTOR are not inferred. Equine ASSESS_RIDERS is not sufficient. Not executable by anon or authenticated.';
+  'BEFORE INSERT OR UPDATE: recorded assessor_person_id must have an active ASSESSOR membership at center_id. UPDATE cannot retarget rider, center or assessor. ADMIN/MANAGER/INSTRUCTOR are not inferred. Equine ASSESS_RIDERS is not sufficient. Not executable by anon or authenticated.';
 
 revoke all on function public.enforce_rider_assessment_assessor_authority()
   from public, anon, authenticated;
@@ -181,6 +191,66 @@ revoke all on function public.enforce_rider_assessment_assessor_authority()
 create trigger rider_assessments_assessor_authority
 before insert or update on public.rider_assessments
 for each row execute function public.enforce_rider_assessment_assessor_authority();
+
+create function public.enforce_rider_assessment_child_authority()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  parent_assessor uuid;
+  parent_center uuid;
+  target_assessment uuid;
+begin
+  if TG_OP = 'DELETE' then
+    target_assessment := old.assessment_id;
+  else
+    target_assessment := new.assessment_id;
+  end if;
+
+  select assessment.assessor_person_id, assessment.center_id
+    into parent_assessor, parent_center
+    from public.rider_assessments as assessment
+   where assessment.id = target_assessment;
+
+  if parent_assessor is null then
+    raise exception using
+      errcode = '23503',
+      message = 'Assessment does not exist';
+  end if;
+
+  if not public.has_active_center_role(
+    parent_assessor,
+    parent_center,
+    'ASSESSOR'
+  ) then
+    raise exception using
+      errcode = '42501',
+      message = 'Mutating assessment observations requires an active ASSESSOR membership at the assessment Center';
+  end if;
+
+  if TG_OP = 'DELETE' then
+    return old;
+  end if;
+
+  return new;
+end;
+$$;
+
+comment on function public.enforce_rider_assessment_child_authority() is
+  'BEFORE INSERT OR UPDATE OR DELETE on assessment children: the parent assessment''s assessor must currently hold ASSESSOR at that Center. Not executable by anon or authenticated.';
+
+revoke all on function public.enforce_rider_assessment_child_authority()
+  from public, anon, authenticated;
+
+create trigger rider_assessment_disciplines_assessor_authority
+before insert or update or delete on public.rider_assessment_disciplines
+for each row execute function public.enforce_rider_assessment_child_authority();
+
+create trigger rider_assessment_restrictions_assessor_authority
+before insert or update or delete on public.rider_assessment_restrictions
+for each row execute function public.enforce_rider_assessment_child_authority();
 
 alter table public.rider_assessments enable row level security;
 alter table public.rider_assessment_disciplines enable row level security;

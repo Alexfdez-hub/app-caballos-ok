@@ -410,6 +410,24 @@ begin
     raise exception 'Restriction rows did not cascade on assessment delete';
   end if;
 
+  begin
+    update public.rider_assessments
+       set rider_person_id = other_person_id
+     where id = assessment_id;
+    raise exception 'Historical rider identity rewrite was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.rider_assessments
+       set center_id = center_b_id
+     where id = assessment_id;
+    raise exception 'Historical center identity rewrite was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
+
   update public.center_memberships
      set status = 'ENDED',
          ended_at = now()
@@ -431,6 +449,36 @@ begin
        set status = 'REVOKED'
      where id = assessment_id;
     raise exception 'Assessment mutation after membership end was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    insert into public.rider_assessment_disciplines (
+      assessment_id, discipline_id
+    ) values (
+      assessment_id, fixture_discipline_id
+    );
+    raise exception 'Child discipline insert after membership end was allowed';
+  exception
+    when unique_violation then
+      raise exception 'Child discipline insert after membership end hit uniqueness instead of authority';
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.rider_assessment_restrictions as restriction
+       set notes = 'rewritten after leave'
+     where restriction.assessment_id = assessment_id;
+    raise exception 'Child restriction update after membership end was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.rider_assessment_restrictions as restriction
+     where restriction.assessment_id = assessment_id;
+    raise exception 'Child restriction delete after membership end was allowed';
   exception
     when insufficient_privilege then null;
   end;
@@ -582,6 +630,16 @@ begin
      or has_function_privilege(
        'anon',
        'public.enforce_rider_assessment_assessor_authority()',
+       'execute'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.enforce_rider_assessment_child_authority()',
+       'execute'
+     )
+     or has_function_privilege(
+       'anon',
+       'public.enforce_rider_assessment_child_authority()',
        'execute'
      )
   then

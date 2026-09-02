@@ -61,6 +61,10 @@ RLS on, no client policies, `REVOKE ALL` from `anon`/`authenticated`.
   trigger function, fixed `search_path`, execute revoked from
   PUBLIC/anon/authenticated. Uses `has_active_center_role(..., 'ASSESSOR')`.
   Identity is the recorded `assessor_person_id`, not a caller-supplied actor.
+  UPDATE cannot retarget `rider_person_id`, `center_id` or
+  `assessor_person_id`.
+- `enforce_rider_assessment_child_authority()` — same authority on
+  discipline and restriction INSERT/UPDATE/DELETE.
 
 ## Frontend
 
