@@ -62,9 +62,6 @@ begin
     select 1 from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'qualification_systems',
-         'qualification_levels',
-         'rider_qualifications',
          'rider_assessments',
          'bookings'
        )

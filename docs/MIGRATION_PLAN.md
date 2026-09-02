@@ -3,14 +3,26 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 5A Disciplines foundation implemented on
-`refactor/phase-5a-disciplines` (stacked PR #14 on #13 / #12 / #11).
-Migrations `011`–`014` are local only and are not deployed. Phase 3E
-remains merged on `main`; remote history is aligned through `010`. Product
-Owner approved ownership/management `ACTIVE|ENDED`, assignment
+**Estado:** Phase 5B Qualifications foundation implemented on
+`refactor/phase-5b-qualifications` (PR targeting `main`). Do not merge.
+Do not deploy `015`.
+
+**Current baseline (verified 2026-09-02):** `origin/main` HEAD is
+`6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
+#11–#14 are merged. Migrations `001`–`014` exist on `main`. Product
+Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
+`014`; remote schema/RLS verification passed; Android/Expo Go smoke
+PASS. `015` was not previously started. This agent does not deploy and
+does not modify remote.
+
+**Historical (Phase 5A branch time):** earlier text described `011`–`014`
+as stacked/not deployed and remote aligned through `010`. That was true
+then. It is superseded by the merge of #11–#14 and remote alignment
+through `014`. Phase 5A report is not rewritten.
+
+Product Owner approved ownership/management `ACTIVE|ENDED`, assignment
 `ACTIVE|ENDED`, permission `ACTIVE|REVOKED`, and discipline
-`ACTIVE|INACTIVE` (2026-09-02). Qualifications and later equine phases
-are not started. Do not start 015.
+`ACTIVE|INACTIVE` (2026-09-02). Do not start 019.
 
 ## 1. Método
 
@@ -171,8 +183,8 @@ Equines foundation is implemented separately as Phase 3F / migration `011`.
 
 ## 8e. Phase 3F — Equines foundation
 
-**IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (Ready PR #11).**
-Migration `011_equines.sql` is local only and has not been deployed.
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #11).** Migration `011_equines.sql`
+is on `main`. Product Owner states remote is aligned through `014`.
 
 Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Product
 Owner confirmed lifecycle `ACTIVE|INACTIVE|ARCHIVED|DECEASED`
@@ -189,11 +201,11 @@ booking and media upload remain deferred.
 Architecture Phase 4 grouped equines + ownership + management + center
 relations. Implementation numbering splits them:
 
-- `011_equines` — foundation (PR #11)
-- `012_equine_ownership_management` — stacked PR #12 on #11. Product Owner
+- `011_equines` — foundation (merged PR #11)
+- `012_equine_ownership_management` — merged PR #12. Product Owner
   approved stored lifecycle `ACTIVE|ENDED` (2026-09-02). Effective
   management also requires `valid_from <= now()`; `now()` is not in a CHECK.
-- `013_equine_center_relations` — stacked PR #13 on #12. Product Owner
+- `013_equine_center_relations` — merged PR #13. Product Owner
   approved assignment `ACTIVE|ENDED` and permission `ACTIVE|REVOKED`.
   Effective permission also requires `granted_at <= now()`; `now()` is
   not in a CHECK.
@@ -206,12 +218,14 @@ owner/manager/center columns. Do not migrate legacy `horses` (retired in
 
 `rider_profiles` foundations are implemented in Phase 3C.
 `014_disciplines.sql` (`disciplines`, `discipline_translations`,
-`equine_disciplines`) is stacked on Phase 4B and does not seed a catalog.
+`equine_disciplines`) is merged (PR #14) and does not seed a catalog.
 Product Owner approved stored lifecycle `ACTIVE|INACTIVE` (2026-09-02).
 `sort_order` must be `>= 0`; duplicate non-negative values are allowed.
-Qualification systems/levels and rider qualifications remain later
-(`015_qualifications.sql`). Sensitive Rider activation still
-requires `RIDER_POLICY`; profile existence is not that activation.
+`015_qualifications.sql` (`qualification_systems`, `qualification_levels`,
+`rider_qualifications`) is implemented on `refactor/phase-5b-qualifications`.
+No seed. No equivalences. Rider verification states are frozen
+`DECLARED|PENDING|VERIFIED|REJECTED|EXPIRED`. Sensitive Rider activation
+still requires `RIDER_POLICY`; profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
 
@@ -318,8 +332,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 5A:**
-qualifications according to the current roadmap
-(`015_qualifications.sql`).
-Do not start 015. Migrations `011`–`014` have not been deployed remotely.
+**Siguiente fase prevista tras Phase 5B:**
+`016_rider_assessments.sql` on `refactor/phase-6a-rider-assessments`,
+stacked on `refactor/phase-5b-qualifications`.
+Do not merge. Do not deploy. Do not start 019.
 Do not merge or retarget stacked PRs until Product Owner review.
