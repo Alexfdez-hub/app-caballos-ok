@@ -15,9 +15,11 @@
 --     public or authenticated SELECT in this phase.
 --
 -- Architecture 2.1 freezes equine_type as HORSE | PONY and names status,
--- visibility_status and media_type without enumerating values. This
--- migration constrains those columns so invalid strings are rejected.
--- The values do not authorize discovery, ownership, management or upload.
+-- visibility_status and media_type without enumerating values. Product
+-- Owner confirmed equine lifecycle as ACTIVE | INACTIVE | ARCHIVED |
+-- DECEASED. Visibility PRIVATE | PUBLIC and media_type PHOTO remain the
+-- Phase 3F foundation set. These values do not authorize discovery,
+-- ownership, management or upload.
 
 create table public.equines (
   id uuid primary key default gen_random_uuid(),
@@ -44,8 +46,10 @@ create table public.equines (
     ),
   constraint equines_height_cm_check
     check (height_cm is null or height_cm > 0),
+  constraint equines_birth_date_check
+    check (birth_date is null or birth_date <= created_at::date),
   constraint equines_status_check
-    check (status in ('ACTIVE', 'INACTIVE', 'ARCHIVED')),
+    check (status in ('ACTIVE', 'INACTIVE', 'ARCHIVED', 'DECEASED')),
   constraint equines_visibility_status_check
     check (visibility_status in ('PRIVATE', 'PUBLIC'))
 );
@@ -66,8 +70,10 @@ comment on column public.equines.equine_type is
   'Frozen Architecture 2.1 type: HORSE or PONY. Not a translated label and not an access rule.';
 comment on column public.equines.height_cm is
   'Optional height in centimetres. When present it must be strictly positive. Not a horse/pony classifier.';
+comment on column public.equines.birth_date is
+  'Optional calendar date of birth. Null is allowed. Must not be after created_at::date. Age is not stored and this column is not an access rule.';
 comment on column public.equines.status is
-  'Phase 3F foundation lifecycle: ACTIVE (default, operational record), INACTIVE (temporarily not operational) or ARCHIVED (retained historical record). Not calendar occupancy and not availability. DRAFT is not copied from Centers.';
+  'Product Owner confirmed lifecycle: ACTIVE (default, operational record), INACTIVE (temporarily not operational), ARCHIVED (retained historical record of a living equine withdrawn from operational use) or DECEASED (the equine has died). DECEASED is distinct from ARCHIVED. RETIRED is not a token. Not calendar occupancy and not availability. DRAFT is not copied from Centers.';
 comment on column public.equines.visibility_status is
   'PRIVATE (default) or PUBLIC. PUBLIC is stored publication intent only; it does not grant public or authenticated SELECT, directory listing or edit authority in this phase.';
 
@@ -84,6 +90,7 @@ create table public.equine_media (
       storage_path = btrim(storage_path)
       and char_length(storage_path) > 0
     ),
+  constraint equine_media_storage_path_key unique (storage_path),
   constraint equine_media_type_check
     check (media_type in ('PHOTO')),
   constraint equine_media_sort_order_check
@@ -104,7 +111,7 @@ comment on column public.equine_media.id is
 comment on column public.equine_media.equine_id is
   'Equine this metadata belongs to. Media does not grant ownership, management or public visibility.';
 comment on column public.equine_media.storage_path is
-  'Non-empty trimmed object path. Not a public URL and not proof that a Storage object exists.';
+  'Non-empty trimmed object path, unique across equine_media. Not a public URL, not proof that a Storage object exists, and not a Storage bucket, object or policy.';
 comment on column public.equine_media.media_type is
   'Phase 3F foundation type: PHOTO. Architecture 2.1 does not mention VIDEO for equine_media; VIDEO is not invented here.';
 comment on column public.equine_media.sort_order is

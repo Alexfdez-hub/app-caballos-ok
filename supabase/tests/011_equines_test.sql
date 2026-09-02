@@ -21,7 +21,10 @@ begin
         'Pilot Horse',
         'Pilot Pony',
         'Archived Equine',
-        'Public Intent Horse'
+        'Deceased Equine',
+        'Public Intent Horse',
+        'Boundary Birth',
+        'Null Birth'
       );
 
   delete from public.equine_media
@@ -96,6 +99,7 @@ declare
   equine_id uuid;
   pony_id uuid;
   archived_id uuid;
+  deceased_id uuid;
   public_intent_id uuid;
   media_id uuid;
   second_media_id uuid;
@@ -123,6 +127,16 @@ begin
        )
   ) then
     raise exception 'Equines must not carry person, account, owner, manager or center authority shortcuts';
+  end if;
+
+  if exists (
+    select 1
+      from information_schema.columns
+     where table_schema = 'public'
+       and table_name = 'equines'
+       and column_name in ('age', 'age_years', 'age_months')
+  ) then
+    raise exception 'Equines must not store age';
   end if;
 
   if exists (
@@ -199,6 +213,16 @@ begin
     raise exception 'Equine tables unexpectedly gained client RLS policies';
   end if;
 
+  if not exists (
+    select 1
+      from pg_catalog.pg_constraint
+     where conrelid = 'public.equine_media'::regclass
+       and conname = 'equine_media_storage_path_key'
+       and contype = 'u'
+  ) then
+    raise exception 'equine_media.storage_path unique constraint is missing';
+  end if;
+
   select person_id into caller_person_id
     from public.user_accounts
    where auth_user_id = '70000000-0000-0000-0000-000000000001';
@@ -238,6 +262,29 @@ begin
     raise exception 'Equine defaults were not ACTIVE and PRIVATE';
   end if;
 
+  if (
+    select birth_date
+      from public.equines
+     where id = equine_id
+  ) is not null then
+    raise exception 'Null birth_date was not accepted';
+  end if;
+
+  insert into public.equines (
+    name, equine_type, birth_date
+  ) values (
+    'Null Birth', 'HORSE', null
+  );
+
+  insert into public.equines (
+    name, equine_type, birth_date, created_at
+  ) values (
+    'Boundary Birth',
+    'HORSE',
+    date '2018-06-01',
+    timestamptz '2018-06-01 23:59:59+00'
+  );
+
   insert into public.equines (
     name, equine_type, status, visibility_status
   ) values (
@@ -249,6 +296,32 @@ begin
   ) values (
     'Archived Equine', 'HORSE', 'ARCHIVED'
   ) returning id into archived_id;
+
+  insert into public.equines (
+    name, equine_type, status
+  ) values (
+    'Deceased Equine', 'HORSE', 'DECEASED'
+  ) returning id into deceased_id;
+
+  if deceased_id is not distinct from archived_id then
+    raise exception 'DECEASED must be a distinct row from ARCHIVED';
+  end if;
+
+  if (
+    select status
+      from public.equines
+     where id = deceased_id
+  ) is distinct from 'DECEASED' then
+    raise exception 'DECEASED status was not stored';
+  end if;
+
+  if (
+    select status
+      from public.equines
+     where id = archived_id
+  ) is distinct from 'ARCHIVED' then
+    raise exception 'ARCHIVED status was not stored';
+  end if;
 
   insert into public.equines (
     name, equine_type, visibility_status
@@ -322,8 +395,38 @@ begin
 
   begin
     insert into public.equines (name, equine_type, status)
+    values ('Retired equine', 'HORSE', 'RETIRED');
+    raise exception 'RETIRED equine status was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equines (name, equine_type, status)
     values ('Suspended equine', 'HORSE', 'SUSPENDED');
     raise exception 'Invalid equine lifecycle status was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equines (
+      name, equine_type, birth_date, created_at
+    ) values (
+      'Future Birth',
+      'HORSE',
+      date '2020-01-02',
+      timestamptz '2020-01-01 12:00:00+00'
+    );
+    raise exception 'birth_date after created_at was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equines (name, equine_type, birth_date)
+    values ('Tomorrow Birth', 'HORSE', (current_date + 1));
+    raise exception 'Future birth_date was allowed';
   exception
     when check_violation then null;
   end;
@@ -350,6 +453,10 @@ begin
     equine_id, 'equine-media/pilot-horse/front.jpg', 'PHOTO', 0, true
   ) returning id into media_id;
 
+  if pg_typeof(media_id) is distinct from 'uuid'::regtype then
+    raise exception 'Equine media primary key is not uuid';
+  end if;
+
   insert into public.equine_media (
     equine_id, storage_path, media_type, sort_order, is_primary
   ) values (
@@ -363,6 +470,17 @@ begin
       equine_id, 'equine-media/pilot-horse/other.jpg', 'PHOTO', true
     );
     raise exception 'Second primary media row was allowed';
+  exception
+    when unique_violation then null;
+  end;
+
+  begin
+    insert into public.equine_media (
+      equine_id, storage_path, media_type
+    ) values (
+      pony_id, 'equine-media/pilot-horse/front.jpg', 'PHOTO'
+    );
+    raise exception 'Duplicate storage_path was allowed';
   exception
     when unique_violation then null;
   end;
@@ -452,6 +570,7 @@ begin
   perform set_config('app.equine_id', equine_id::text, true);
   perform set_config('app.pony_id', pony_id::text, true);
   perform set_config('app.archived_id', archived_id::text, true);
+  perform set_config('app.deceased_id', deceased_id::text, true);
   perform set_config('app.public_intent_id', public_intent_id::text, true);
   perform set_config('app.media_id', media_id::text, true);
   perform set_config('app.second_media_id', second_media_id::text, true);
@@ -609,6 +728,21 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    update public.equine_media
+       set is_primary = true;
+    raise exception 'Anonymous role updated equine media';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_media;
+    raise exception 'Anonymous role deleted equine media';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -638,18 +772,69 @@ begin
     raise exception 'Equine workflow created guardian consent';
   end if;
 
-  if has_table_privilege('authenticated', 'public.equines', 'select')
+  if has_table_privilege('anon', 'public.equines', 'select')
+     or has_table_privilege('anon', 'public.equines', 'insert')
+     or has_table_privilege('anon', 'public.equines', 'update')
+     or has_table_privilege('anon', 'public.equines', 'delete')
+     or has_table_privilege('authenticated', 'public.equines', 'select')
      or has_table_privilege('authenticated', 'public.equines', 'insert')
      or has_table_privilege('authenticated', 'public.equines', 'update')
      or has_table_privilege('authenticated', 'public.equines', 'delete')
-     or has_table_privilege('anon', 'public.equines', 'select')
-     or has_table_privilege('anon', 'public.equines', 'insert')
+     or has_table_privilege('anon', 'public.equine_media', 'select')
+     or has_table_privilege('anon', 'public.equine_media', 'insert')
+     or has_table_privilege('anon', 'public.equine_media', 'update')
+     or has_table_privilege('anon', 'public.equine_media', 'delete')
      or has_table_privilege('authenticated', 'public.equine_media', 'select')
      or has_table_privilege('authenticated', 'public.equine_media', 'insert')
      or has_table_privilege('authenticated', 'public.equine_media', 'update')
-     or has_table_privilege('authenticated', 'public.equine_media', 'delete')
-     or has_table_privilege('anon', 'public.equine_media', 'select') then
+     or has_table_privilege('authenticated', 'public.equine_media', 'delete') then
     raise exception 'Equine tables expose forbidden client privileges';
+  end if;
+
+  if to_regnamespace('storage') is not null then
+    if to_regclass('storage.buckets') is not null
+       and exists (
+         select 1
+           from storage.buckets
+          where id = 'equine-media'
+             or name = 'equine-media'
+       ) then
+      raise exception '011 must not create Storage bucket equine-media';
+    end if;
+
+    if to_regclass('storage.objects') is not null
+       and exists (
+         select 1
+           from storage.objects
+          where bucket_id = 'equine-media'
+       ) then
+      raise exception '011 must not create Storage objects in equine-media';
+    end if;
+
+    if to_regclass('storage.policies') is not null
+       and exists (
+         select 1
+           from storage.policies as policy
+          where to_jsonb(policy)->>'bucket_id' = 'equine-media'
+             or coalesce(to_jsonb(policy)->>'name', '') ilike '%equine-media%'
+             or to_jsonb(policy)::text ilike '%equine-media%'
+       ) then
+      raise exception '011 must not create Storage policies for equine-media';
+    end if;
+
+    if to_regclass('storage.objects') is not null
+       and exists (
+         select 1
+           from pg_catalog.pg_policy
+          where polrelid = 'storage.objects'::regclass
+            and (
+              polname ilike '%equine-media%'
+              or pg_catalog.pg_get_expr(polqual, polrelid) ilike '%equine-media%'
+              or pg_catalog.pg_get_expr(polwithcheck, polrelid) ilike '%equine-media%'
+            )
+       ) then
+      raise exception '011 must not create Storage RLS policies for equine-media';
+    end if;
   end if;
 
   if exists (

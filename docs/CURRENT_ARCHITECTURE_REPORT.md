@@ -79,11 +79,14 @@ Centers and Center memberships. Migration `011_equines.sql` adds:
 - `public.equines`
 - `public.equine_media`
 
-An equine row is a domain identity with type `HORSE` or `PONY`. It is not
+An equine row is a domain identity with type `HORSE` or `PONY`. Lifecycle is
+`ACTIVE|INACTIVE|ARCHIVED|DECEASED` (Product Owner confirmed). It is not
 ownership, management, center assignment, availability or booking rights.
-Clients have no table privileges. There is no client RPC. PUBLIC visibility
-is stored intent only and does not grant SELECT. Provisioning remains
-controlled outside the app.
+`birth_date` is optional and cannot be after record creation; age is not
+stored. Clients have no table privileges. There is no client RPC. PUBLIC
+visibility is stored intent only and does not grant SELECT. `equine_media`
+stores unique `storage_path` metadata only; 011 does not create a Storage
+bucket. Provisioning remains controlled outside the app.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center

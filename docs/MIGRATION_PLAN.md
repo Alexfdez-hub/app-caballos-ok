@@ -171,13 +171,15 @@ Equines foundation is implemented separately as Phase 3F / migration `011`.
 **IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (draft PR).**
 Migration `011_equines.sql` is local only and has not been deployed.
 
-Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Lifecycle
-`ACTIVE|INACTIVE|ARCHIVED` and visibility `PRIVATE|PUBLIC` are Phase 3F
-implementation decisions pending Product Owner confirmation before remote
-deployment. Media type `PHOTO` only. RLS deny-by-default; no client table
-grants; no client RPC. PUBLIC visibility is stored intent only. Ownership,
-management, center assignment, public directory, availability, booking and
-media upload remain deferred.
+Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Product
+Owner confirmed lifecycle `ACTIVE|INACTIVE|ARCHIVED|DECEASED`
+(`DECEASED ≠ ARCHIVED`; `RETIRED` is not a token). Visibility
+`PRIVATE|PUBLIC` (PUBLIC is stored intent only). Media type `PHOTO` only.
+`birth_date` is optional and must not be after `created_at::date`. Age is
+not stored. `storage_path` is unique metadata only; 011 does not create a
+Storage bucket. RLS deny-by-default; no client table grants; no client RPC.
+Ownership, management, center assignment, public directory, availability,
+booking and media upload remain deferred.
 
 ## 9. Phase 4 — Equines ownership / center relations (histórico)
 

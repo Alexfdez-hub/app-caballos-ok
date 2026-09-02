@@ -21,48 +21,44 @@
 - Provisioning remains a controlled process outside Expo.
 - Center membership and rider profile do not grant equine authority.
 
-## Phase 3F implementation decision — enumerations
+## Equine enumerations
 
 **Architecture 2.1:** freezes `equine_type` as `HORSE | PONY`. It names
 `status`, `visibility_status` and `media_type` without enumerating values.
 
-**Authority of this list:** Phase 3F implementation decision, recorded here
-and in `docs/MIGRATION_STATUS.md`. **Product Owner confirmation is required
-before remote deployment.** There is no `docs/07_DECISION_LOG.md` in this
-repository.
+There is no `docs/07_DECISION_LOG.md` in this repository. This section and
+`docs/MIGRATION_STATUS.md` are the authoritative record. Later tokens need a
+new forward migration. Do not rewrite 011 after deployment.
 
-These values are not copied from another domain enum without justification.
-They are CHECK-constrained. Later tokens need a new forward migration. Do
-not rewrite 011 after deployment.
+### `equines.status` — lifecycle (Product Owner confirmed)
 
-### `equines.status` — lifecycle
+**Product Owner, 2026-09-02.** Confirmed tokens:
 
-`ACTIVE` | `INACTIVE` | `ARCHIVED`  
+`ACTIVE` | `INACTIVE` | `ARCHIVED` | `DECEASED`
 Default: `ACTIVE`.
 
 | Value | Meaning |
 |---|---|
 | `ACTIVE` | Operational catalog record currently in force. Default for a provisioned equine. |
 | `INACTIVE` | Temporarily not operational. The row is retained. This is not calendar occupancy and not availability. |
-| `ARCHIVED` | Retained historical record. Not operational. |
+| `ARCHIVED` | Retained historical record of a living equine withdrawn from operational use. Distinct from `DECEASED`. |
+| `DECEASED` | The equine has died. Distinct from `ARCHIVED`. |
 
 **Why this set, not Center `DRAFT\|ACTIVE\|INACTIVE\|ARCHIVED`:** Center
 `DRAFT` models unpublished organization onboarding (default `DRAFT` in 009).
 Architecture 2.1 does not name `DRAFT` for equines. Publication intent for
-equines is `visibility_status`. “Equino publicable” in Architecture §7
-depends on later ownership + `PRIMARY_MANAGER`, which 011 must not invent.
-An equine row is a living catalog identity, provisioned outside the app;
-the operational default is therefore `ACTIVE`, not an unpublished Center
-draft.
+equines is `visibility_status`. An equine row is a catalog identity,
+provisioned outside the app; the operational default is `ACTIVE`.
 
 Not included:
 
 - `DRAFT` — Center onboarding semantics; not supported by equine architecture.
+- `RETIRED` — rejected. Not a Product Owner token.
 - `SUSPENDED` / `EXPIRED` / `REVOKED` — no management workflow in this phase.
 
 Migration 011 does not enforce transition triggers. Ordinary clients cannot
-change status. Historical rows are retained; archiving is not a physical
-DELETE.
+change status. Historical rows are retained; archiving or recording death is
+not a physical DELETE.
 
 ### `equines.visibility_status`
 
@@ -76,10 +72,7 @@ Default: `PRIVATE`.
 
 **Justification:** Architecture §22 says equine public read is only for
 publishable rows. Publishability cannot be evaluated until ownership and
-`PRIMARY_MANAGER` exist (012). The same stored-intent pattern was used for
-`rider_profiles.profile_visibility` in 008 (`PRIVATE|PUBLIC`, public read
-not implemented). That is a publication-intent pattern, not a Rider-domain
-enum copied onto equines. `UNLISTED` / `DISCOVERABLE` were not invented.
+`PRIMARY_MANAGER` exist (012). Codex review confirmed this pair stays.
 
 ### `equine_media.media_type`
 
@@ -87,9 +80,8 @@ enum copied onto equines. `UNLISTED` / `DISCOVERABLE` were not invented.
 No default other than the column being `NOT NULL` (callers must supply it).
 
 **Justification:** Architecture 2.1 names `media_type` without values.
-Session evidence uses photo types. Architecture does not mention `VIDEO`
-for `equine_media`. `VIDEO` is not added. Storage buckets and policies
-remain a later phase.
+Architecture does not mention `VIDEO` for `equine_media`. Codex review
+confirmed `PHOTO` only. Storage buckets and policies remain a later phase.
 
 ## Migration contents
 
@@ -100,12 +92,15 @@ remain a later phase.
 - `id uuid pk`
 - trimmed non-empty `name`
 - `equine_type` `HORSE|PONY`
-- optional `birth_date`, `sex`, `breed`, `height_cm`, `description`,
+- optional `birth_date` (`NULL` or `<= created_at::date`; age is not stored
+  and is not an access rule)
+- optional `sex`, `breed`, `height_cm`, `description`,
   `temperament_description`
 - `height_cm` strictly positive when present
 - `sex`, when present, must be trimmed and non-empty (not an enumerated
   sex vocabulary)
-- `status` default `ACTIVE` (`ACTIVE|INACTIVE|ARCHIVED`)
+- `status` default `ACTIVE` (`ACTIVE|INACTIVE|ARCHIVED|DECEASED`, Product
+  Owner confirmed)
 - `visibility_status` default `PRIVATE` (`PRIVATE|PUBLIC`)
 - `created_at`, `updated_at`
 - indexes on `equine_type` and `status`
@@ -115,13 +110,14 @@ remain a later phase.
 
 - `id uuid pk`
 - `equine_id` FK → `equines` (no `ON DELETE CASCADE`)
-- trimmed non-empty `storage_path` (path string only)
+- trimmed non-empty `storage_path` (path string only; UNIQUE via
+  `equine_media_storage_path_key`)
 - `media_type` `PHOTO`
 - non-negative `sort_order` default 0
 - `is_primary` default false; at most one primary row per equine
 - `created_at`
 - index on `equine_id`
-- no upload workflow, bucket or storage policy
+- no upload workflow, bucket, Storage objects or storage policy
 
 ### RLS and privileges
 
@@ -184,10 +180,14 @@ or upload UI.
 
 None. Enumerating equine lifecycle, visibility and media type is a documented
 foundation constraint because Architecture 2.1 left those enumerations
-unspecified. Center `DRAFT` was not copied. Ownership/management were not
-collapsed onto `equines`. Architecture §22 public-read-if-publishable is not
-implemented in 011 because publishability requires 012; deny-by-default
-preserves a later secure read path.
+unspecified. Product Owner confirmed `ACTIVE|INACTIVE|ARCHIVED|DECEASED`
+with `DECEASED ≠ ARCHIVED` and without `RETIRED`. Center `DRAFT` was not
+copied. Ownership/management were not collapsed onto `equines`. Architecture
+§22 public-read-if-publishable is not implemented in 011 because
+publishability requires 012; deny-by-default preserves a later secure read
+path. `birth_date` is optional and must not be after record creation; age is
+not stored. Unique `storage_path` is metadata uniqueness only and does not
+create a Storage bucket.
 
 Official Supabase RLS / Data API (CLI 2.116.0; docs and changelog 45329):
 RLS with no policies denies rows; `REVOKE ALL` from `anon`/`authenticated`
@@ -221,5 +221,6 @@ tables through PostgREST.
 Linked development project: `efkauegdlmfkonzwyyiv`.
 
 Migration `011_equines.sql` has **not** been deployed remotely. Product
-Owner confirmation of the Phase 3F enumerations is required before any
-linked push. Do not apply 011 without that confirmation.
+Owner confirmed the lifecycle tokens. Do not apply 011 from this correction
+pass. A linked push still requires an explicit Product Owner deploy
+authorization.

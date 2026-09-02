@@ -42,21 +42,26 @@ only. Migrations `001–010` were not modified.
 `011_equines.sql`:
 
 - `equines` as UUID equine identity; `HORSE | PONY` types;
-- lifecycle `ACTIVE | INACTIVE | ARCHIVED`;
+- lifecycle `ACTIVE | INACTIVE | ARCHIVED | DECEASED` (Product Owner
+  confirmed; `DECEASED ≠ ARCHIVED`; `RETIRED` rejected);
+- `birth_date` null or `<= created_at::date`; age is not stored;
 - visibility `PRIVATE | PUBLIC` as stored intent only;
-- `equine_media` metadata with `PHOTO` only;
+- `equine_media` metadata with `PHOTO` only and unique `storage_path`;
 - RLS deny-by-default, no client table policies or grants;
-- no client RPC.
+- no client RPC; no Storage bucket, objects or policies.
 
 ## Equine enumeration decision
 
-**Phase 3F implementation decision, 2026-09-02.** Architecture 2.1 freezes
-`HORSE|PONY` and names `status`, `visibility_status` and `media_type`
-without enumerating values. Product Owner confirmation is required before
-remote deployment.
+**Product Owner, 2026-09-02.** Confirmed `equines.status`:
 
-- Lifecycle: `ACTIVE` (default), `INACTIVE`, `ARCHIVED`. Center `DRAFT` is
-  not copied. Not occupancy or availability.
+- `ACTIVE` (default)
+- `INACTIVE`
+- `ARCHIVED` — living equine withdrawn from operational use
+- `DECEASED` — the equine has died; distinct from `ARCHIVED`
+
+Do not add `RETIRED`. Architecture 2.1 still names `visibility_status` and
+`media_type` without enumerating values. The 011 foundation set remains:
+
 - Visibility: `PRIVATE` (default), `PUBLIC`. PUBLIC does not grant SELECT.
 - Media: `PHOTO` only. Architecture does not mention VIDEO for equine_media.
 
@@ -80,8 +85,8 @@ are retained.
 Linked development project: `efkauegdlmfkonzwyyiv`.
 
 Migration `011` was **not** created on the remote project and was **not**
-deployed. Local and remote histories remain aligned through `010` until
-Product Owner confirms enumerations and authorizes a linked push.
+deployed. Local and remote histories remain aligned through `010`. Do not
+deploy 011 from this correction pass.
 
 ## Security Advisor (record only — do not fix)
 
@@ -112,5 +117,4 @@ Executed here:
 ## Next phase
 
 Do not start 012 equine ownership/management until Product Owner authorizes
-it. Do not merge this draft. Do not deploy 011 remotely without Product
-Owner confirmation of the enumerations.
+it. Do not merge this draft. Do not deploy 011 remotely.
