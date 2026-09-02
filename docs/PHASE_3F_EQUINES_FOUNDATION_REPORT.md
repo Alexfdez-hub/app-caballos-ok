@@ -62,7 +62,7 @@ not a physical DELETE.
 
 ### `equines.visibility_status`
 
-`PRIVATE` | `PUBLIC`  
+`PRIVATE` | `PUBLIC`.
 Default: `PRIVATE`.
 
 | Value | Meaning |
@@ -76,7 +76,7 @@ publishable rows. Publishability cannot be evaluated until ownership and
 
 ### `equine_media.media_type`
 
-`PHOTO`  
+`PHOTO`.
 No default other than the column being `NOT NULL` (callers must supply it).
 
 **Justification:** Architecture 2.1 names `media_type` without values.

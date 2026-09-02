@@ -794,6 +794,7 @@ do $$
 declare
   acceptance_count integer;
   consent_count integer;
+  storage_policies_present boolean := false;
 begin
   select count(*) into acceptance_count
     from public.policy_acceptances
@@ -853,15 +854,24 @@ begin
       raise exception '011 must not create Storage objects in equine-media';
     end if;
 
-    if to_regclass('storage.policies') is not null
-       and exists (
-         select 1
-           from storage.policies as policy
-          where to_jsonb(policy)->>'bucket_id' = 'equine-media'
-             or coalesce(to_jsonb(policy)->>'name', '') ilike '%equine-media%'
-             or to_jsonb(policy)::text ilike '%equine-media%'
-       ) then
-      raise exception '011 must not create Storage policies for equine-media';
+    -- storage.policies is absent on current local Supabase (RLS on
+    -- storage.objects instead). Do not reference it in a static query:
+    -- PostgreSQL still parses FROM storage.policies when it is AND-ed with
+    -- to_regclass(...). Look it up via EXECUTE only if the catalog has it.
+    if to_regclass('storage.policies') is not null then
+      execute $storage_policies$
+        select exists (
+          select 1
+            from storage.policies as policy
+           where to_jsonb(policy)->>'bucket_id' = 'equine-media'
+              or coalesce(to_jsonb(policy)->>'name', '') ilike '%equine-media%'
+              or to_jsonb(policy)::text ilike '%equine-media%'
+        )
+      $storage_policies$ into storage_policies_present;
+
+      if storage_policies_present then
+        raise exception '011 must not create Storage policies for equine-media';
+      end if;
     end if;
 
     if to_regclass('storage.objects') is not null
