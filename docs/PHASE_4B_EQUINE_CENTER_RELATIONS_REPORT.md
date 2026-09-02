@@ -32,12 +32,19 @@ rejected. The same equine may hold different types at the same center
 
 ## Lifecycles
 
+Product Owner approved these stored lifecycles (2026-09-02). They are
+not provisional.
+
 | Relation | Values | Meaning |
 |---|---|---|
 | Assignment | `ACTIVE \| ENDED` | ACTIVE requires `ended_at` null. ENDED requires `ended_at >= started_at`. Assignment end does not revoke permissions. |
-| Permission | `ACTIVE \| REVOKED` | ACTIVE requires `revoked_at` null. REVOKED requires `revoked_at >= granted_at`. Distinct from assignment ENDED. |
+| Permission | `ACTIVE \| REVOKED` | ACTIVE requires `revoked_at` null. REVOKED requires `revoked_at >= granted_at`. Distinct from assignment ENDED. Stored ACTIVE is currently effective only when `granted_at <= now()`. |
 
-Invitation, suspension and verification tokens are not invented here.
+`now()` is not placed in a table CHECK. Invitation, suspension and
+verification tokens are not invented here.
+
+`has_active_equine_center_permission(...)` requires stored `ACTIVE`,
+`revoked_at` null, and `granted_at <= now()`.
 
 ## Permission codes
 
@@ -80,6 +87,14 @@ Phase 4A caller-scoped RPCs.
 Inherited migrations at the parent SHA must remain unchanged; 013 is a
 new file. 009/010/011/012 SQL tests allow 013 tables and still forbid
 `disciplines`/`bookings` and later equine domains.
+
+P0 coverage includes: future permission not effective; assignment
+`ended_at < started_at` and permission `revoked_at < granted_at`
+rejected; historical ENDED assignment and REVOKED permission preserved;
+helper false for revoked, another equine, and another Center;
+authenticated UPDATE/DELETE denied on both tables; assignment,
+membership and ownership alone do not create a permission; helper
+inaccessible to PUBLIC/anon/authenticated; no `now()` in a table CHECK.
 
 ## Next phase
 

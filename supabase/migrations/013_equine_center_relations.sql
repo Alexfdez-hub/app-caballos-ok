@@ -8,6 +8,13 @@
 -- An assignment or membership or ownership row does not create a permission.
 -- Permission is explicit. Helpers are not executable by PUBLIC/anon/authenticated.
 --
+-- Product Owner approved assignment lifecycle ACTIVE | ENDED and
+-- permission lifecycle ACTIVE | REVOKED (2026-09-02). Stored status is
+-- not the same as effective-at-time authority: a stored ACTIVE permission
+-- is effective only when granted_at <= now() and revoked_at is null.
+-- Do not put now() in a CHECK. Invitation, suspension and verification
+-- tokens are not invented.
+--
 -- Access model follows migrations 006–012:
 --   - RLS enabled, deny-by-default, no client table policies.
 --   - No table INSERT/UPDATE/DELETE/SELECT for anon or authenticated.
@@ -64,7 +71,7 @@ comment on table public.equine_center_assignments is
 comment on column public.equine_center_assignments.assignment_type is
   'BOARDING, CENTER_OWNED, SCHOOL, TEMPORARY or OTHER. Not an access rule.';
 comment on column public.equine_center_assignments.status is
-  'ACTIVE (in force, ended_at null) or ENDED (historical). Assignment end does not revoke permissions automatically.';
+  'Product Owner approved lifecycle: ACTIVE (stored in force, ended_at null) or ENDED (historical, ended_at required). Assignment end does not revoke permissions automatically. Stored ACTIVE is currently in force only when started_at <= now().';
 
 create table public.equine_center_permissions (
   id uuid primary key default gen_random_uuid(),
@@ -118,7 +125,9 @@ comment on table public.equine_center_permissions is
 comment on column public.equine_center_permissions.permission_code is
   'MANAGE_AVAILABILITY, MANAGE_BOOKINGS, ASSESS_RIDERS, APPROVE_RIDERS, MANAGE_REQUIREMENTS or VIEW_ACTIVITY. Not implied by assignment or membership.';
 comment on column public.equine_center_permissions.status is
-  'ACTIVE (in force, revoked_at null) or REVOKED (historical, revoked_at required). Distinct from assignment ENDED.';
+  'Product Owner approved lifecycle: ACTIVE (stored in force, revoked_at null) or REVOKED (historical, revoked_at required). Distinct from assignment ENDED. Stored ACTIVE is not sufficient for current authority.';
+comment on column public.equine_center_permissions.granted_at is
+  'Start of stored validity. Effective authority also requires granted_at <= now(). This timestamp is not constrained against now() by a CHECK.';
 
 alter table public.equine_center_assignments enable row level security;
 alter table public.equine_center_permissions enable row level security;
@@ -144,11 +153,12 @@ as $$
        and permission.permission_code = p_permission_code
        and permission.status = 'ACTIVE'
        and permission.revoked_at is null
+       and permission.granted_at <= now()
   );
 $$;
 
 comment on function public.has_active_equine_center_permission(uuid, uuid, text) is
-  'Server-internal equine + center + permission check. Not executable by PUBLIC, anon or authenticated. Assignment and membership do not imply this result.';
+  'Server-internal equine + center + permission check. Effective only for stored ACTIVE with granted_at <= now() and revoked_at null. Stored lifecycle and effective-at-time authority stay separate. Not executable by PUBLIC, anon or authenticated. Assignment and membership do not imply this result.';
 
 revoke all on function public.has_active_equine_center_permission(uuid, uuid, text)
   from public, anon, authenticated;

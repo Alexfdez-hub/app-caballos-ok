@@ -111,8 +111,9 @@ with lifecycle `ACTIVE|ENDED`. Permissions are explicit codes with
 lifecycle `ACTIVE|REVOKED`. Duplicate active exact assignment type and
 duplicate active permission code are rejected. Assignment, membership
 and ownership do not create a permission. There is no client list or
-mutation RPC. `has_active_equine_center_permission` is server-internal
-and is not executable by `anon` or `authenticated`.
+mutation RPC. `has_active_equine_center_permission` is server-internal,
+requires `granted_at <= now()`, and is not executable by `anon` or
+`authenticated`.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center

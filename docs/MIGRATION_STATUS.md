@@ -8,7 +8,8 @@ Phase 4B is stacked on Ready PR #12 (`012_equine_ownership_management.sql`).
 Do not merge this PR before #12 (and #11). Do not deploy 013. Product Owner
 will retarget later. This agent will not retarget or merge.
 
-Parent HEAD at branch creation: `71955494db243063889b56e4e1f4bc31c57f359d`.
+Parent HEAD after merging corrected 012: `f86cfb259fc5f22ede613c12d8ae950e992c5d22`.
+Original parent at branch creation: `71955494db243063889b56e4e1f4bc31c57f359d`.
 Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 
 ## Files created
@@ -45,8 +46,9 @@ lifecycle is distinct from effective-at-time authority
 RLS on both tables, no client policies, no grant/revoke/assign RPC, no
 caller-scoped list RPC (the relation is equine+center, not the caller's
 person). `has_active_equine_center_permission` execute is revoked from
-PUBLIC/anon/authenticated. Assignment, membership and ownership do not
-create a permission.
+PUBLIC/anon/authenticated. The helper is effective only for stored
+`ACTIVE` with `granted_at <= now()` and `revoked_at` null. Assignment,
+membership and ownership do not create a permission.
 
 ## Next phase
 

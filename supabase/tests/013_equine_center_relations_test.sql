@@ -51,7 +51,9 @@ do $$
 declare
   caller_person_id uuid;
   fixture_equine_id uuid;
+  second_equine_id uuid;
   fixture_center_id uuid;
+  second_center_id uuid;
   permission_count integer;
 begin
   if exists (
@@ -105,9 +107,17 @@ begin
   insert into public.center_memberships (center_id, person_id, role_code)
   values (fixture_center_id, caller_person_id, 'ADMIN');
 
+  insert into public.equestrian_centers (name, slug, country_code)
+  values ('Phase4B Other Yard', 'phase4b-other-yard', 'ZG')
+  returning id into second_center_id;
+
   insert into public.equines (name, equine_type)
   values ('phase4b-horse', 'HORSE')
   returning id into fixture_equine_id;
+
+  insert into public.equines (name, equine_type)
+  values ('phase4b-other', 'PONY')
+  returning id into second_equine_id;
 
   insert into public.equine_ownerships (
     equine_id, owner_type, owner_person_id, ownership_percentage
@@ -181,12 +191,125 @@ begin
     raise exception 'Ungranted permission was treated as active';
   end if;
 
-  update public.equine_center_assignments
+  if public.has_active_equine_center_permission(
+    second_equine_id, fixture_center_id, 'VIEW_ACTIVITY'
+  ) then
+    raise exception 'Permission applied to another equine';
+  end if;
+
+  if public.has_active_equine_center_permission(
+    fixture_equine_id, second_center_id, 'VIEW_ACTIVITY'
+  ) then
+    raise exception 'Permission applied to another Center';
+  end if;
+
+  begin
+    insert into public.equine_center_assignments (
+      equine_id, center_id, assignment_type, status, started_at, ended_at
+    ) values (
+      second_equine_id, fixture_center_id, 'TEMPORARY', 'ENDED',
+      timestamptz '2026-01-02 00:00:00+00',
+      timestamptz '2026-01-01 00:00:00+00'
+    );
+    raise exception 'Assignment with ended_at before started_at was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equine_center_permissions (
+      equine_id, center_id, granted_by_person_id, permission_code,
+      status, granted_at, revoked_at
+    ) values (
+      second_equine_id, fixture_center_id, caller_person_id, 'MANAGE_BOOKINGS',
+      'REVOKED',
+      timestamptz '2026-01-02 00:00:00+00',
+      timestamptz '2026-01-01 00:00:00+00'
+    );
+    raise exception 'Permission with revoked_at before granted_at was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  insert into public.equine_center_assignments (
+    equine_id, center_id, assignment_type, status, started_at, ended_at
+  ) values (
+    second_equine_id, fixture_center_id, 'TEMPORARY', 'ENDED',
+    timestamptz '2025-01-01 00:00:00+00',
+    timestamptz '2025-06-01 00:00:00+00'
+  );
+
+  if not exists (
+    select 1
+      from public.equine_center_assignments as assignment
+     where assignment.equine_id = second_equine_id
+       and assignment.center_id = fixture_center_id
+       and assignment.assignment_type = 'TEMPORARY'
+       and assignment.status = 'ENDED'
+       and assignment.ended_at is not null
+  ) then
+    raise exception 'Valid historical ENDED assignment was not preserved';
+  end if;
+
+  insert into public.equine_center_permissions (
+    equine_id, center_id, granted_by_person_id, permission_code,
+    status, granted_at, revoked_at
+  ) values (
+    second_equine_id, fixture_center_id, caller_person_id, 'MANAGE_BOOKINGS',
+    'REVOKED',
+    timestamptz '2025-01-01 00:00:00+00',
+    timestamptz '2025-06-01 00:00:00+00'
+  );
+
+  if not exists (
+    select 1
+      from public.equine_center_permissions as permission
+     where permission.equine_id = second_equine_id
+       and permission.center_id = fixture_center_id
+       and permission.permission_code = 'MANAGE_BOOKINGS'
+       and permission.status = 'REVOKED'
+       and permission.revoked_at is not null
+  ) then
+    raise exception 'Valid historical REVOKED permission was not preserved';
+  end if;
+
+  if public.has_active_equine_center_permission(
+    second_equine_id, fixture_center_id, 'MANAGE_BOOKINGS'
+  ) then
+    raise exception 'Revoked permission was treated as effective';
+  end if;
+
+  insert into public.equine_center_permissions (
+    equine_id, center_id, granted_by_person_id, permission_code, granted_at
+  ) values (
+    second_equine_id, second_center_id, caller_person_id, 'VIEW_ACTIVITY',
+    now() + interval '7 days'
+  );
+
+  if public.has_active_equine_center_permission(
+    second_equine_id, second_center_id, 'VIEW_ACTIVITY'
+  ) then
+    raise exception 'Future permission was treated as effective';
+  end if;
+
+  if exists (
+    select 1
+      from pg_catalog.pg_constraint as constraint_row
+     where constraint_row.conrelid in (
+       'public.equine_center_assignments'::regclass,
+       'public.equine_center_permissions'::regclass
+     )
+       and pg_catalog.pg_get_constraintdef(constraint_row.oid) ~* 'now\s*\('
+  ) then
+    raise exception 'Center-relation CHECK used now()';
+  end if;
+
+  update public.equine_center_assignments as assignment
      set status = 'ENDED',
          ended_at = now()
-   where equine_id = fixture_equine_id
-     and center_id = fixture_center_id
-     and assignment_type = 'BOARDING';
+   where assignment.equine_id = fixture_equine_id
+     and assignment.center_id = fixture_center_id
+     and assignment.assignment_type = 'BOARDING';
 
   if not public.has_active_equine_center_permission(
     fixture_equine_id, fixture_center_id, 'VIEW_ACTIVITY'
@@ -248,6 +371,38 @@ begin
   end;
 
   begin
+    update public.equine_center_assignments
+       set status = 'ENDED',
+           ended_at = now();
+    raise exception 'Authenticated role updated assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_center_assignments;
+    raise exception 'Authenticated role deleted assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.equine_center_permissions
+       set status = 'REVOKED',
+           revoked_at = now();
+    raise exception 'Authenticated role updated permissions';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_center_permissions;
+    raise exception 'Authenticated role deleted permissions';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
     perform public.has_active_equine_center_permission(
       current_setting('app.equine_id', true)::uuid,
       current_setting('app.center_id', true)::uuid,
@@ -272,6 +427,33 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    update public.equine_center_assignments
+       set status = 'ENDED',
+           ended_at = now();
+    raise exception 'Anonymous role updated assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_center_permissions;
+    raise exception 'Anonymous role deleted permissions';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform public.has_active_equine_center_permission(
+      current_setting('app.equine_id', true)::uuid,
+      current_setting('app.center_id', true)::uuid,
+      'VIEW_ACTIVITY'
+    );
+    raise exception 'Anonymous role executed internal permission helper';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -283,8 +465,12 @@ begin
      or has_table_privilege('anon', 'public.equine_center_assignments', 'insert')
      or has_table_privilege('authenticated', 'public.equine_center_assignments', 'select')
      or has_table_privilege('authenticated', 'public.equine_center_assignments', 'insert')
+     or has_table_privilege('authenticated', 'public.equine_center_assignments', 'update')
+     or has_table_privilege('authenticated', 'public.equine_center_assignments', 'delete')
      or has_table_privilege('anon', 'public.equine_center_permissions', 'select')
      or has_table_privilege('authenticated', 'public.equine_center_permissions', 'insert')
+     or has_table_privilege('authenticated', 'public.equine_center_permissions', 'update')
+     or has_table_privilege('authenticated', 'public.equine_center_permissions', 'delete')
      or has_function_privilege(
           'anon',
           'public.has_active_equine_center_permission(uuid,uuid,text)',
@@ -294,6 +480,22 @@ begin
           'authenticated',
           'public.has_active_equine_center_permission(uuid,uuid,text)',
           'execute'
+        )
+     or exists (
+          select 1
+            from pg_catalog.pg_proc as procedure
+            join pg_catalog.pg_namespace as namespace
+              on namespace.oid = procedure.pronamespace
+            cross join lateral aclexplode(
+              coalesce(
+                procedure.proacl,
+                acldefault('f', procedure.proowner)
+              )
+            ) as grant_row
+           where namespace.nspname = 'public'
+             and procedure.proname = 'has_active_equine_center_permission'
+             and grant_row.grantee = 0
+             and grant_row.privilege_type = 'EXECUTE'
         )
   then
     raise exception '013 privileges are not deny-by-default';
