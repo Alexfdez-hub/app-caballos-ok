@@ -1,5 +1,21 @@
-import { isCenterRoleCode, isMembershipStatus } from './labels';
-import type { CenterMembership } from './types';
+import type {
+  CenterMembership,
+  CenterRoleCode,
+  MembershipStatus,
+} from './types';
+
+function isCenterRoleCode(value: unknown): value is CenterRoleCode {
+  return (
+    value === 'ADMIN' ||
+    value === 'MANAGER' ||
+    value === 'INSTRUCTOR' ||
+    value === 'ASSESSOR'
+  );
+}
+
+function isMembershipStatus(value: unknown): value is MembershipStatus {
+  return value === 'ACTIVE' || value === 'ENDED';
+}
 
 const UNEXPECTED_MEMBERSHIP_RESULT =
   'Center membership RPC returned an unexpected result.';
