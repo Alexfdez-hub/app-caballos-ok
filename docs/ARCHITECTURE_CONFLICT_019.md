@@ -5,7 +5,10 @@
 **Architecture:** Data Architecture 2.1 Frozen
 **Baseline:** `origin/main` `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18)
 **Branch:** `docs/architecture-conflict-019`
-**Decision:** STOP before migration `019`. No `019`–`022` SQL. No stacked implementation PRs.
+**Decision:** CLOSED by Product Owner 2026-09-02 (PR #19 comment
+`5516860208`). 019–022 may resume. This docs PR does **not** contain
+migration 019. Implementation is a separate branch
+`refactor/phase-9a-zero-sessions-authorizations`.
 
 This document is the durable conflict report. Historical phase reports
 for 015–018 are not rewritten. They remain branch-time records.
@@ -375,7 +378,72 @@ Affected migrations:
 
 ## Next
 
-Product Owner names the decisions above. After that, the 019–022 train
-can resume from `origin/main` `40e1f1e7` without guessing tokens.
-Recommended merge order later remains 019 → 020 → 021 → 022. This
-agent will not merge.
+Closed. See **Closed by Product Owner** above. Implementation of 019
+is a separate PR on `refactor/phase-9a-zero-sessions-authorizations`.
+
+## Closed by Product Owner (2026-09-02)
+
+Comment https://github.com/Alexfdez-hub/app-caballos-ok/pull/19#issuecomment-5516860208
+
+Ordinary implementation details may be derived from Architecture 2.1,
+existing patterns and this decision. Escalate only a genuine product
+contradiction, legal/economic risk, security-critical ambiguity with
+materially different outcomes, or an irreversible action outside scope.
+
+### 019
+
+- `rider_equine_authorizations.status`: `ACTIVE | REVOKED`.
+  `revoked_at` required iff `REVOKED`. No stored `EXPIRED`. Current
+  effectiveness: ACTIVE, `valid_from <= now()`, null/future
+  `valid_until`. No `now()` in a CHECK.
+- Zero Session evaluator ≠ rider. Requires active Center `ASSESSOR` at
+  `center_id` **and** effective `ASSESS_RIDERS` for that equine+Center.
+  Assessment remains distinct from Zero Session.
+- `ZERO_SESSION` authorization: `source_zero_session_id` required for
+  the same rider+equine with result `APPROVED` or
+  `APPROVED_WITH_RESTRICTIONS`; issuer is that session's evaluator.
+- `CENTER_DELEGATED_APPROVAL`: `center_id` required; issuer has
+  effective `APPROVE_RIDERS`; issuer ≠ rider.
+- `OWNER_APPROVAL`: PERSON owner may equal rider. CENTER-owned equine:
+  `center_id` is the owning Center; issuer has effective
+  `APPROVE_RIDERS` there. PERSON `OWNER_APPROVAL` has null `center_id`.
+- Membership, assignment and management alone never substitute.
+- Only type `ZERO_SESSION` may have `source_zero_session_id`.
+- `APPROVED` / `APPROVED_WITH_RESTRICTIONS` require evaluator and
+  `performed_at`. A Zero Session result never auto-creates an
+  authorization.
+
+### 020
+
+- Availability status `ACTIVE | INACTIVE`.
+- Calendar block status `ACTIVE | CANCELLED`.
+- `recurrence_rule` optional trimmed text; no expansion in 020.
+- `source_type` `BOOKING | ACTIVITY | MANUAL | SYSTEM`; `source_id`
+  opaque uuid.
+- All ACTIVE same-equine overlapping blocks are incompatible.
+
+### 021
+
+- `bookings.eligibility_status` uses Architecture 2.1 eligibility tokens.
+- Requirement types: frozen equine types plus `GUARDIAN_CONSENT` and
+  `POLICY_ACCEPTANCE`.
+- Requirement sources: `OWNER | CENTER | MARKET | EQUINE | SERVICE | GUARDIAN | POLICY`.
+- `WAIVED` stored; no waiver RPC.
+- Booker may request for own PERSON or a minor with a current VERIFIED
+  guardian relationship.
+
+### 022
+
+- `check_booking_eligibility`: participant account, verified guardian
+  for that minor, or effective `MANAGE_BOOKINGS`.
+- `create_booking_request`: booked-by account; status `REQUESTED`; never
+  confirms. Server may classify `PENDING_REQUIREMENTS`,
+  `PENDING_APPROVAL`, or `APPROVED`.
+- `confirm_booking`: only effective `MANAGE_BOOKINGS`; only an
+  `APPROVED` booking; rider/booker cannot self-confirm.
+- `ZERO_SESSION_REQUIRED` needs a currently effective `ZERO_SESSION`
+  authorization. `OWNER_APPROVAL_REQUIRED` needs currently effective
+  `OWNER_APPROVAL`. `CENTER_ASSESSMENT_REQUIRED` needs current `VALID`
+  assessment at that Center.
+- Atomic confirm + BOOKING calendar block + snapshots. Concurrent
+  conflicting confirms cannot both succeed. No waiver path.

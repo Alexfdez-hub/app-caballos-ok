@@ -4,9 +4,11 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
 **Estado:** Phase 8B Center services foundation merged on `main`
-(PR #18). Migrations `001`–`018` are on `main`. Do not start 019 SQL
-until Product Owner names the conflicts in
-`docs/ARCHITECTURE_CONFLICT_019.md`. Do not merge. Do not deploy.
+(PR #18). Migrations `001`–`018` are on `main`. Product Owner
+2026-09-02 closed the 019–022 conflicts on PR #19. Implement 019 on
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`. Do
+not put 019 SQL on the docs conflict branch. Do not merge. Do not
+deploy.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
@@ -24,8 +26,8 @@ through `018`. Phase 5A–8B reports are not rewritten.
 Product Owner approved ownership/management `ACTIVE|ENDED`, assignment
 `ACTIVE|ENDED`, permission `ACTIVE|REVOKED`, discipline
 `ACTIVE|INACTIVE`, and 018 catalog `ACTIVE|INACTIVE` (2026-09-02).
-Do not start 019 SQL while authorization status and issuer/evaluator
-authority remain unnamed.
+Product Owner named 019 status `ACTIVE|REVOKED` and issuer/evaluator
+authority (2026-09-02). See `docs/ARCHITECTURE_CONFLICT_019.md`.
 
 ## 1. Método
 
@@ -247,8 +249,9 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 
 `017_equine_requirements.sql` is merged (PR #17).
 `018_center_services.sql` is merged (PR #18). Zero Sessions and
-rider-equine authorizations remain later (`019`) and are blocked on
-`docs/ARCHITECTURE_CONFLICT_019.md`. Do not start 019 SQL.
+rider-equine authorizations are `019`, authorized after the Product
+Owner 2026-09-02 decision on PR #19. Implement 019 on a separate
+branch, not on the docs conflict PR.
 
 ## 14. Phase 9 — Calendar
 
@@ -343,5 +346,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
 **Siguiente fase prevista tras Phase 8B:**
-Do not start 019 SQL until Product Owner names the 019–022 conflicts.
+`019_zero_sessions_authorizations` on
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`.
 Do not merge. Do not deploy. Do not retarget.

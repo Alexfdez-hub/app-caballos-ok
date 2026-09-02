@@ -220,10 +220,13 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No services catalog, Zero Session records or eligibility UI
 - No single `users.role` model
 
-The next planned SQL migration is `019` and is **not** started. Do not
-merge. Do not invent 019–022 tokens. Remote remains aligned through
-`018`; this agent does not deploy. See
-`docs/ARCHITECTURE_CONFLICT_019.md`.
+Product Owner 2026-09-02 closed the 019–022 preflight conflicts
+(PR #19 comment `5516860208`). See
+`docs/ARCHITECTURE_CONFLICT_019.md` (Closed section). Migration `019`
+is implemented on a separate branch
+`refactor/phase-9a-zero-sessions-authorizations`. This docs PR does not
+contain 019 SQL. Do not merge this docs PR as if it were 019. Remote
+remains aligned through `018`; this agent does not deploy.
 
 ## Historical records
 
