@@ -397,15 +397,15 @@ begin
   delete from public.rider_assessments where id = cascade_assessment_id;
 
   select count(*) into child_count
-    from public.rider_assessment_disciplines
-   where assessment_id = cascade_assessment_id;
+    from public.rider_assessment_disciplines as observation
+   where observation.assessment_id = cascade_assessment_id;
   if child_count <> 0 then
     raise exception 'Discipline rows did not cascade on assessment delete';
   end if;
 
   select count(*) into child_count
-    from public.rider_assessment_restrictions
-   where assessment_id = cascade_assessment_id;
+    from public.rider_assessment_restrictions as restriction
+   where restriction.assessment_id = cascade_assessment_id;
   if child_count <> 0 then
     raise exception 'Restriction rows did not cascade on assessment delete';
   end if;
