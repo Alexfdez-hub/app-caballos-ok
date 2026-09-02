@@ -1,51 +1,66 @@
 # MIGRATION STATUS
 
-PHASE: 5A — Disciplines foundation
-STATUS: IMPLEMENTADO — stacked PR against `refactor/phase-4b-equine-center-relations`; 014 NOT deployed
+PHASE: 5B — Qualifications foundation
+STATUS: IMPLEMENTADO — stacked PR against `main`; 015 NOT deployed
 DATE: 2026-09-02
 
-Phase 5A is stacked on Ready PR #13 (`013_equine_center_relations.sql`).
-Do not merge this PR before #13 (and #12, #11). Do not deploy 014. Product
-Owner will retarget later. This agent will not retarget or merge.
+## Current baseline (verified 2026-09-02)
 
-Parent HEAD after merging corrected 013: `9e1fad291b8aa4c719ba79f051667741263f27b2`.
-Original parent at branch creation: `d056c3ca5af8cda6e3c098733ce24629164a21d1`.
-Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
+PRs #11–#14 are merged into `main`. `origin/main` HEAD is
+`6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14).
+Migrations `001`–`014` exist on `main`. Migration `015` did not exist
+and was not previously started.
+
+Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
+through `014`. Remote schema/RLS verification passed. Android/Expo Go
+smoke PASS. This agent does not deploy and does not modify remote.
+Do not rewrite `001`–`014`.
+
+Historical note: Phase 5A `MIGRATION_STATUS.md` / `MIGRATION_PLAN.md` /
+`CURRENT_ARCHITECTURE_REPORT.md` / `PHASE_5A_DISCIPLINES_REPORT.md`
+described `011`–`014` as stacked and not deployed. Those statements were
+true at Phase 5A branch time. They are historical. Current state is the
+merge of #11–#14 and remote alignment through `014`.
+
+Phase 5B is a new branch from that SHA. Do not merge this PR. Do not
+deploy `015`.
 
 ## Files created
 
-- `supabase/migrations/014_disciplines.sql`
-- `supabase/tests/014_disciplines_test.sql`
-- `scripts/run-disciplines-sql-tests.cjs`
-- `docs/PHASE_5A_DISCIPLINES_REPORT.md`
+- `supabase/migrations/015_qualifications.sql`
+- `supabase/tests/015_qualifications_test.sql`
+- `scripts/run-qualifications-sql-tests.cjs`
+- `docs/PHASE_5B_QUALIFICATIONS_REPORT.md`
 
 ## Files modified
 
-- `package.json` (`test:disciplines` appended to `test:sql`)
-- `supabase/tests/008_rider_profiles_test.sql` (allow `disciplines`; still forbid qualifications/assessments)
-- `supabase/tests/012_equine_ownership_management_test.sql` (allow 014 tables; still forbid qualifications/bookings)
+- `package.json` (`test:qualifications` appended to `test:sql`)
+- `supabase/tests/008_rider_profiles_test.sql` (allow 015 tables; still forbid assessments)
+- `supabase/tests/012_equine_ownership_management_test.sql` (allow 015; still forbid assessments/bookings)
 - `supabase/tests/013_equine_center_relations_test.sql` (same)
+- `supabase/tests/014_disciplines_test.sql` (allow 015; still forbid assessments/bookings)
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-Inherited migrations present on the parent branch, including `013`, are
-unchanged versus the corrected parent HEAD.
+Inherited migrations `001`–`014` are unchanged versus `main`
+`6f916e7abb6834349cffef173bf307e51131123c`.
 
 ## Lifecycle
 
-Product Owner approved ownership/management `ACTIVE | ENDED`, assignment
-`ACTIVE | ENDED`, permission `ACTIVE | REVOKED`, and discipline
-`ACTIVE | INACTIVE` (2026-09-02). Stored lifecycle is distinct from
-effective-at-time authority on 012/013 helpers. `now()` is not used in a
-table CHECK. `sort_order` is a non-negative display hint; duplicates are
-allowed.
+Rider `verification_status` is frozen exactly as
+`DECLARED | PENDING | VERIFIED | REJECTED | EXPIRED`.
+System/level `status` reuses Product Owner-approved catalog
+`ACTIVE | INACTIVE` (2026-09-02). `now()` is not used in a table CHECK.
+`level_order` is a non-negative ordering hint; duplicates are allowed.
 
 ## Security
 
-RLS on all three tables, no client policies, no catalog/list/assign RPC.
-No seed. `experience_level` is optional free text, not a Galope token set.
+RLS on all three tables, no client policies, no catalog/list/declare/verify
+RPC. No seed. A rider cannot mark their own qualification `VERIFIED`.
+`verified_by_person_id` does not imply Center authority.
 
 ## Next phase
 
-`015_qualifications`. Do not start 015. Do not merge. Do not deploy.
+`016_rider_assessments` on `refactor/phase-6a-rider-assessments`,
+stacked on this branch. Do not merge. Do not deploy. Do not start 019.

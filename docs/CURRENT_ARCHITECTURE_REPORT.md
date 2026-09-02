@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 5A — Disciplines foundation (stacked on 4B)
+**Baseline:** Phase 5B — Qualifications foundation
 **Date:** 2026-09-02
 
 ## Summary
@@ -17,7 +17,9 @@ directory. Phase 4B adds equine–center assignments and explicit center
 permissions without treating membership, ownership or assignment as a
 permission grant. Phase 5A adds a coded discipline catalog, translations
 and equine–discipline associations without seeding codes, without Galope
-equivalences, and without qualifications. The application shell remains a
+equivalences. Phase 5B adds configurable qualification systems, levels
+and rider qualifications without seeding, without equivalences, and
+without assessments. The application shell remains a
 single authenticated app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
@@ -79,6 +81,14 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 
 ## Database target
 
+**Current baseline (verified 2026-09-02):** `origin/main` HEAD is
+`6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
+#11–#14 are merged into `main`. Migrations `001`–`014` exist on `main`.
+Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
+through `014`; remote schema/RLS verification passed; Android/Expo Go
+smoke PASS. Historical reports that described `011`–`014` as stacked and
+not deployed were true at those branch times; they are not rewritten.
+
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:
 
@@ -95,7 +105,7 @@ visibility is stored intent only and does not grant SELECT. `equine_media`
 stores unique `storage_path` metadata only; 011 does not create a Storage
 bucket. Provisioning remains controlled outside the app.
 
-Migration `012_equine_ownership_management.sql` (stacked, not on `main`)
+Migration `012_equine_ownership_management.sql` (merged PR #12)
 adds `equine_ownerships` and `equine_management_assignments` with PERSON|
 CENTER XOR FKs, strictly positive percentage, Product Owner approved
 `ACTIVE|ENDED`, and at most one active `PRIMARY_MANAGER`. Caller-scoped
@@ -106,7 +116,7 @@ gestiono load those RPCs. Center membership does not grant equine
 authority. `has_active_equine_management_role` is server-internal and
 requires `valid_from <= now()`.
 
-Migration `013_equine_center_relations.sql` (stacked, not on `main`)
+Migration `013_equine_center_relations.sql` (merged PR #13)
 adds `equine_center_assignments` and `equine_center_permissions`.
 Assignment types are `BOARDING|CENTER_OWNED|SCHOOL|TEMPORARY|OTHER`
 with lifecycle `ACTIVE|ENDED`. Permissions are explicit codes with
@@ -117,13 +127,23 @@ mutation RPC. `has_active_equine_center_permission` is server-internal,
 requires `granted_at <= now()`, and is not executable by `anon` or
 `authenticated`.
 
-Migration `014_disciplines.sql` (stacked, not on `main`) adds
+Migration `014_disciplines.sql` (merged PR #14) adds
 `disciplines`, `discipline_translations` and `equine_disciplines`.
 Lifecycle is Product Owner approved `ACTIVE|INACTIVE`. Codes are unique
 and unseeded. `sort_order` is a non-negative display hint (duplicates
 allowed). Translations use BCP 47 locales. `experience_level` is optional
 free text, not a qualification. There is no client catalog or assign RPC
 and no Expo selector.
+
+Migration `015_qualifications.sql` (this branch, not deployed) adds
+`qualification_systems`, `qualification_levels` and
+`rider_qualifications`. Systems may be market-scoped. Level codes are
+unique per system. `level_order` is a non-negative hint, not an
+international equivalence. Rider qualification belongs to PERSON.
+Verification states are exactly
+`DECLARED|PENDING|VERIFIED|REJECTED|EXPIRED`. A rider cannot mark their
+own qualification `VERIFIED`. `verified_by_person_id` does not imply
+Center authority. No seed, no equivalence tables, no client RPC.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
@@ -156,12 +176,13 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No public equine directory, media upload, availability, booking or
   equine–center assign/grant UI
 - No discipline catalog UI, selector or seeded codes
+- No qualification catalog UI, selector, seed or equivalences
 - No booking, assessment, payment, or review UI
 - No single `users.role` model
 
-The next planned SQL migration after Product Owner authorization is
-`015_qualifications.sql`. Migrations 011–014 are not deployed
-on the linked development project. Phase 015 has not been started.
+The next planned SQL migration is `016_rider_assessments.sql` stacked on
+this branch. Do not merge. Do not deploy `015`. Do not start 019.
+Remote remains aligned through `014`; this agent does not deploy.
 
 ## Historical records
 
