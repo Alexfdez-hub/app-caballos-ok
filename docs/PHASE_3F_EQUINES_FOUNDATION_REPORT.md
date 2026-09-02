@@ -92,8 +92,8 @@ confirmed `PHOTO` only. Storage buckets and policies remain a later phase.
 - `id uuid pk`
 - trimmed non-empty `name`
 - `equine_type` `HORSE|PONY`
-- optional `birth_date` (`NULL` or `<= created_at::date`; age is not stored
-  and is not an access rule)
+- optional `birth_date` (`NULL` or `<= (created_at AT TIME ZONE 'UTC')::date`;
+  age is not stored and is not an access rule)
 - optional `sex`, `breed`, `height_cm`, `description`,
   `temperament_description`
 - `height_cm` strictly positive when present
@@ -185,9 +185,10 @@ with `DECEASED ≠ ARCHIVED` and without `RETIRED`. Center `DRAFT` was not
 copied. Ownership/management were not collapsed onto `equines`. Architecture
 §22 public-read-if-publishable is not implemented in 011 because
 publishability requires 012; deny-by-default preserves a later secure read
-path. `birth_date` is optional and must not be after record creation; age is
-not stored. Unique `storage_path` is metadata uniqueness only and does not
-create a Storage bucket.
+path. `birth_date` is optional and must not be after the UTC calendar date of
+`created_at` (`(created_at AT TIME ZONE 'UTC')::date`); age is not stored.
+Unique `storage_path` is metadata uniqueness only and does not create a
+Storage bucket.
 
 Official Supabase RLS / Data API (CLI 2.116.0; docs and changelog 45329):
 RLS with no policies denies rows; `REVOKE ALL` from `anon`/`authenticated`
@@ -195,6 +196,14 @@ also keeps tables off the Data API. Security was not weakened to expose
 tables through PostgREST.
 
 ## Tests and checks
+
+GitHub Actions (`.github/workflows/quality-gate.yml`) is the permanent
+automated quality gate for pull requests targeting `main`. It uses
+`pull_request` (never `pull_request_target`), `contents: read`, no project
+secrets, and local Docker/Supabase only. It is **not** claimed PASS in this
+document until a workflow run is green.
+
+### Checks Grok ran in the cloud workspace
 
 | Command | Result |
 |---|---|
@@ -204,9 +213,19 @@ tables through PostgREST.
 | `npm run typecheck` | PASS |
 | `npx expo-doctor` | PASS — 18/18 |
 | `git diff --check` | PASS |
-| `001–010` vs `origin/main` | PASS — empty; only `011_equines.sql` added |
+| `001–010` vs `origin/main` | PASS — empty; only `011_equines.sql` added among migrations |
+
+### Checks executed by GitHub Actions
+
+Recorded on the Draft PR after the workflow run finishes. Do not treat SQL
+or CI as passed from this cloud clone.
+
+### Checks not executed in the cloud workspace
+
+| Command | Result |
+|---|---|
 | `npx supabase db reset --local` | NOT RUN — `docker: command not found` |
-| `npm run test:equines` | NOT EXECUTED against PostgreSQL — runner stopped: no local db container / `docker: command not found` |
+| `npm run test:equines` | NOT EXECUTED against PostgreSQL — no local db container |
 | `npm run test:memberships` | NOT EXECUTED against PostgreSQL — Docker unavailable |
 | `npm run test:centers` | NOT EXECUTED against PostgreSQL — Docker unavailable |
 | `npm run test:riders` | NOT EXECUTED against PostgreSQL — Docker unavailable |
@@ -214,7 +233,8 @@ tables through PostgREST.
 | `npm run test:guardians` | NOT EXECUTED against PostgreSQL — Docker unavailable |
 | local advisors | NOT RUN — no local Supabase |
 
-**LOCAL_RUNTIME_GATE_PENDING.** SQL/RLS P0 tests exist in source (`supabase/tests/011_equines_test.sql`) and are wired as `npm run test:equines`. They were not executed against PostgreSQL in this cloud clone. Do not treat them as passed. Docker was not installed (out of scope).
+Cloud clone: `LOCAL_RUNTIME_GATE_PENDING`. Docker was not installed. SQL/RLS
+P0 execution belongs to GitHub-hosted runners.
 
 ## Remote
 

@@ -1,0 +1,136 @@
+name: Quality gate
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app-quality:
+    name: App quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Auth unit tests
+        run: npm run test:auth
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Expo Doctor
+        run: npx expo-doctor
+
+      - name: Whitespace check
+        run: |
+          git diff --check
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
+            git diff --check "${{ github.event.pull_request.base.sha }}"
+          else
+            git fetch --no-tags origin main
+            git diff --check origin/main
+          fi
+
+      - name: Migrations 001-010 unchanged versus PR base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            git fetch --no-tags origin main
+            BASE_SHA="$(git rev-parse origin/main)"
+          fi
+          echo "Comparing migrations 001-010 against $BASE_SHA"
+          git diff --exit-code "$BASE_SHA" -- \
+            supabase/migrations/001_extensions_and_core.sql \
+            supabase/migrations/002_markets.sql \
+            supabase/migrations/003_persons_accounts.sql \
+            supabase/migrations/004_policies.sql \
+            supabase/migrations/005_legacy_retirement.sql \
+            supabase/migrations/006_identity_integration.sql \
+            supabase/migrations/007_guardians.sql \
+            supabase/migrations/008_rider_profiles.sql \
+            supabase/migrations/009_centers.sql \
+            supabase/migrations/010_center_memberships.sql
+
+  postgres-quality:
+    name: PostgreSQL quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase
+        run: npx --yes supabase@2.116.0 start --yes --ignore-health-check -x studio,imgproxy
+
+      - name: Reset local database
+        run: npx --yes supabase@2.116.0 db reset --local --yes
+
+      - name: Identity SQL tests
+        run: npm run test:identity
+
+      - name: Guardian SQL tests including concurrency
+        run: npm run test:guardians
+
+      - name: Rider SQL tests
+        run: npm run test:riders
+
+      - name: Center SQL tests
+        run: npm run test:centers
+
+      - name: Membership SQL tests
+        run: npm run test:memberships
+
+      - name: Equine SQL tests
+        run: npm run test:equines
+
+      - name: Diagnose local Docker and Supabase
+        if: failure()
+        run: |
+          echo "docker ps"
+          docker ps -a || true
+          echo "supabase status (pretty, not env)"
+          npx --yes supabase@2.116.0 status --output pretty || true
+          echo "container logs (tail)"
+          docker ps -aq | while read -r id; do
+            name="$(docker inspect -f '{{.Name}}' "$id" 2>/dev/null || echo "$id")"
+            echo "===== logs: $name ====="
+            docker logs --tail 80 "$id" 2>&1 | sed -E \
+              '/SERVICE_ROLE|service_role|SECRET|PASSWORD|password|anon.key|JWT_SECRET|API_KEY/d' \
+              || true
+          done
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx --yes supabase@2.116.0 stop --no-backup --yes

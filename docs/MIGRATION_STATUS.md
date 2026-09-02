@@ -23,6 +23,7 @@ only. Migrations `001–010` were not modified.
 - `supabase/tests/011_equines_test.sql`
 - `scripts/run-equines-sql-tests.cjs`
 - `docs/PHASE_3F_EQUINES_FOUNDATION_REPORT.md`
+- `.github/workflows/quality-gate.yml`
 
 ## Files modified
 
@@ -44,7 +45,8 @@ only. Migrations `001–010` were not modified.
 - `equines` as UUID equine identity; `HORSE | PONY` types;
 - lifecycle `ACTIVE | INACTIVE | ARCHIVED | DECEASED` (Product Owner
   confirmed; `DECEASED ≠ ARCHIVED`; `RETIRED` rejected);
-- `birth_date` null or `<= created_at::date`; age is not stored;
+- `birth_date` null or `<= (created_at AT TIME ZONE 'UTC')::date`; age is
+  not stored;
 - visibility `PRIVATE | PUBLIC` as stored intent only;
 - `equine_media` metadata with `PHOTO` only and unique `storage_path`;
 - RLS deny-by-default, no client table policies or grants;
@@ -101,10 +103,13 @@ config.
 
 ## Local / app verification
 
-**LOCAL_RUNTIME_GATE_PENDING.** This cloud clone has no Docker; SQL tests
-were not executed against PostgreSQL. Docker was not installed.
+GitHub Actions is the permanent automated quality gate
+(`.github/workflows/quality-gate.yml`, `pull_request` to `main` plus
+`workflow_dispatch`). It uses `contents: read`, no project secrets, and
+local Docker/Supabase only. CI results are recorded on the Draft PR after
+the run; they are not claimed PASS from this cloud clone.
 
-Executed here:
+### Checks Grok ran in the cloud workspace
 
 - `npm ci` PASS
 - `npm run test:auth` PASS — 38/38
@@ -112,7 +117,17 @@ Executed here:
 - `npx expo-doctor` PASS — 18/18
 - `git diff --check` PASS
 - `001–010` vs `origin/main` PASS — unchanged
-- `npm run test:equines` did not reach PostgreSQL (`docker: command not found`)
+
+### Checks executed by GitHub Actions
+
+See the Draft PR and workflow run. Do not treat SQL/RLS as passed until
+that run is green.
+
+### Checks not executed in the cloud workspace
+
+**LOCAL_RUNTIME_GATE_PENDING.** This cloud clone has no Docker; SQL tests
+were not executed against PostgreSQL here. Docker was not installed.
+`npm run test:equines` (and the other SQL suites) did not reach PostgreSQL.
 
 ## Next phase
 

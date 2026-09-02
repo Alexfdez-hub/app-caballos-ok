@@ -82,7 +82,8 @@ Centers and Center memberships. Migration `011_equines.sql` adds:
 An equine row is a domain identity with type `HORSE` or `PONY`. Lifecycle is
 `ACTIVE|INACTIVE|ARCHIVED|DECEASED` (Product Owner confirmed). It is not
 ownership, management, center assignment, availability or booking rights.
-`birth_date` is optional and cannot be after record creation; age is not
+`birth_date` is optional and cannot be after the UTC calendar date of
+record creation (`(created_at AT TIME ZONE 'UTC')::date`); age is not
 stored. Clients have no table privileges. There is no client RPC. PUBLIC
 visibility is stored intent only and does not grant SELECT. `equine_media`
 stores unique `storage_path` metadata only; 011 does not create a Storage
@@ -97,6 +98,12 @@ receive table `INSERT`/`UPDATE`/`DELETE`/`SELECT` on identity, guardian,
 rider-profile, center, membership or equine tables.
 
 Usual development: `npm run start:local`. Remote: `npm run start:remote`.
+
+GitHub Actions (`.github/workflows/quality-gate.yml`) is the permanent
+automated quality gate for pull requests targeting `main`. App quality and
+local PostgreSQL/SQL suites run on GitHub-hosted runners with
+`contents: read`, no project secrets, and no linked/remote Supabase. The
+cloud clone does not replace that gate.
 
 ## Current limitations by design
 
