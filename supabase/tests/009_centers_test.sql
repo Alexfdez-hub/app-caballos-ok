@@ -111,7 +111,6 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'rider_assessments',
          'center_services',
          'bookings'
        )
@@ -376,7 +375,6 @@ reset role;
 do $$
 declare
   membership_count integer;
-  assessment_exists boolean;
 begin
   if to_regclass('public.center_memberships') is not null then
     select count(*) into membership_count
@@ -403,14 +401,14 @@ begin
     raise exception 'Creating a center created policy acceptance';
   end if;
 
-  select exists (
+  if exists (
     select 1
-      from information_schema.tables
-     where table_schema = 'public'
-       and table_name = 'rider_assessments'
-  ) into assessment_exists;
-
-  if assessment_exists then
+      from public.rider_assessments
+     where center_id in (
+       current_setting('app.center_id', true)::uuid,
+       current_setting('app.draft_center_id', true)::uuid
+     )
+  ) then
     raise exception 'Creating a center created assessments';
   end if;
 

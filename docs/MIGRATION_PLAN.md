@@ -3,9 +3,10 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 5B Qualifications foundation implemented on
-`refactor/phase-5b-qualifications` (PR targeting `main`). Do not merge.
-Do not deploy `015`.
+**Estado:** Phase 6A Rider assessments foundation implemented on
+`refactor/phase-6a-rider-assessments` (stacked PR targeting
+`refactor/phase-5b-qualifications` / PR #15). Do not merge. Do not
+deploy `016`. Do not start 019.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
@@ -229,7 +230,11 @@ still requires `RIDER_POLICY`; profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
 
-Crear assessments + discipline results + restrictions. Assessor debe tener membership válido y no puede autoevaluarse.
+**IMPLEMENTADA EN `refactor/phase-6a-rider-assessments` (stacked on PR #15).**
+Migration `016_rider_assessments.sql`. Assessor must have an active
+`ASSESSOR` membership at the assessment Center and cannot autoevaluate.
+Historical rows remain if the assessor later leaves. No Zero Session,
+authorization, eligibility or booking RPCs.
 
 ## 12. Phase 7 — Guardians/minors (histórico de numeración)
 
@@ -332,8 +337,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 5B:**
-`016_rider_assessments.sql` on `refactor/phase-6a-rider-assessments`,
-stacked on `refactor/phase-5b-qualifications`.
+**Siguiente fase prevista tras Phase 6A:**
+`017_equine_requirements.sql` on `refactor/phase-8a-equine-requirements`,
+stacked on `refactor/phase-6a-rider-assessments`.
 Do not merge. Do not deploy. Do not start 019.
 Do not merge or retarget stacked PRs until Product Owner review.

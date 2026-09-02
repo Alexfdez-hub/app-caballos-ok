@@ -93,7 +93,8 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'rider_assessments'
+         'zero_sessions',
+         'rider_equine_authorizations'
        )
   ) then
     raise exception 'Later passport domains must remain deferred';

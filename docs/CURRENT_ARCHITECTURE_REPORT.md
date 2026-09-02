@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 5B — Qualifications foundation
+**Baseline:** Phase 6A — Rider assessments foundation (stacked on 5B)
 **Date:** 2026-09-02
 
 ## Summary
@@ -19,7 +19,9 @@ permission grant. Phase 5A adds a coded discipline catalog, translations
 and equine–discipline associations without seeding codes, without Galope
 equivalences. Phase 5B adds configurable qualification systems, levels
 and rider qualifications without seeding, without equivalences, and
-without assessments. The application shell remains a
+without assessments. Phase 6A adds Center-owned rider assessments with
+discipline observations and restriction JSON, without Zero Session,
+authorization or eligibility. The application shell remains a
 single authenticated app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
@@ -135,7 +137,7 @@ allowed). Translations use BCP 47 locales. `experience_level` is optional
 free text, not a qualification. There is no client catalog or assign RPC
 and no Expo selector.
 
-Migration `015_qualifications.sql` (this branch, not deployed) adds
+Migration `015_qualifications.sql` (parent PR #15, not deployed) adds
 `qualification_systems`, `qualification_levels` and
 `rider_qualifications`. Systems may be market-scoped. Level codes are
 unique per system. `level_order` is a non-negative hint, not an
@@ -144,6 +146,14 @@ Verification states are exactly
 `DECLARED|PENDING|VERIFIED|REJECTED|EXPIRED`. A rider cannot mark their
 own qualification `VERIFIED`. `verified_by_person_id` does not imply
 Center authority. No seed, no equivalence tables, no client RPC.
+
+Migration `016_rider_assessments.sql` (stacked on 015, not deployed) adds
+`rider_assessments`, `rider_assessment_disciplines` and
+`rider_assessment_restrictions`. Types
+`ACCESS_TEST|RIDING_LESSON|COURSE|PRACTICAL_TEST|OTHER`. States
+`DRAFT|PENDING|VALID|REJECTED|REVOKED|EXPIRED`. Assessor cannot assess
+themselves. Creating/validating requires active `ASSESSOR` membership at
+that Center. Historical rows remain after membership end. No client RPC.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
@@ -177,11 +187,11 @@ in diagnostics) is recorded after the replacement run on this branch.
   equine–center assign/grant UI
 - No discipline catalog UI, selector or seeded codes
 - No qualification catalog UI, selector, seed or equivalences
-- No booking, assessment, payment, or review UI
+- No booking, assessment mutation, payment, or review UI
 - No single `users.role` model
 
-The next planned SQL migration is `016_rider_assessments.sql` stacked on
-this branch. Do not merge. Do not deploy `015`. Do not start 019.
+The next planned SQL migration is `017_equine_requirements.sql` stacked on
+this branch. Do not merge. Do not deploy `015`/`016`. Do not start 019.
 Remote remains aligned through `014`; this agent does not deploy.
 
 ## Historical records
