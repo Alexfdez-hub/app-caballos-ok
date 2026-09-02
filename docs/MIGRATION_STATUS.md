@@ -1,39 +1,37 @@
 # MIGRATION STATUS
 
-PHASE: 8B — Center services foundation
-STATUS: IMPLEMENTADO — stacked PR against `refactor/phase-8a-equine-requirements`; 018 NOT deployed
+PHASE: 8B — Center services foundation (merged)
+STATUS: MERGED ON `main` (PR #18). Remote aligned through 018 per Product
+Owner. Migration 019 NOT started — blocked on ARCHITECTURE_CONFLICT.
 DATE: 2026-09-02
 
-Parent is Ready PR #17 HEAD `7165b7c1eaae1eadaee4a8358195abaab5096980`.
-Do not merge this PR before #17 (and #16, #15). Do not deploy 018.
+`origin/main` HEAD is `40e1f1e7b201796c632ec480bfba07d43564d439`
+(merge of PR #18). PRs #15–#18 merged sequentially. Migrations
+`001`–`018` exist on `main`. `019` does not exist.
 
-## Files created
+Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
+through `018`; 9 new 015–018 tables present; RLS on all 9; no direct
+anon/authenticated table grants; new internal trigger functions not
+client-executable; Expo Go smoke PASS. This agent does not deploy and
+does not modify remote.
 
-- `supabase/migrations/018_center_services.sql`
-- `supabase/tests/018_center_services_test.sql`
-- `scripts/run-center-services-sql-tests.cjs`
-- `docs/PHASE_8B_CENTER_SERVICES_REPORT.md`
+Phase reports for 015–018 remain historical branch-time records and are
+not rewritten.
 
-## Files modified
+## Files created (this status update)
 
-- `package.json`
-- `supabase/tests/009_centers_test.sql`
-- `supabase/tests/010_center_memberships_test.sql`
-- `supabase/tests/011_equines_test.sql`
-- `supabase/tests/015_qualifications_test.sql`
-- `supabase/tests/016_rider_assessments_test.sql`
-- `supabase/tests/017_equine_requirements_test.sql`
+- `docs/ARCHITECTURE_CONFLICT_019.md`
+
+## Files modified (this status update)
+
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-Inherited migrations including `017` are unchanged versus parent HEAD.
-
-Product Owner (2026-09-02) approved `ACTIVE|INACTIVE` for
-`center_services.status` and `service_equines.status`. Those CHECKs are
-in `018` only. 015/017 already used the same catalog pair. Do not
-rewrite 001–017.
+No SQL migrations. Inherited `001`–`018` unchanged versus `origin/main`.
 
 ## Next phase
 
-Do not start 019. Do not merge. Do not deploy.
+Do not start 019 SQL until Product Owner names the conflicts in
+`docs/ARCHITECTURE_CONFLICT_019.md`. Do not merge. Do not deploy.
+Do not retarget. Do not push to `main`.

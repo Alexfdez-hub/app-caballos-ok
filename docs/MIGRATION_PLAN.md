@@ -3,27 +3,29 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 8B Center services foundation implemented on
-`refactor/phase-8b-center-services` (stacked PR targeting
-`refactor/phase-8a-equine-requirements` / PR #17). Do not merge. Do not
-deploy `018`. Do not start 019.
+**Estado:** Phase 8B Center services foundation merged on `main`
+(PR #18). Migrations `001`–`018` are on `main`. Do not start 019 SQL
+until Product Owner names the conflicts in
+`docs/ARCHITECTURE_CONFLICT_019.md`. Do not merge. Do not deploy.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
-`6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
-#11–#14 are merged. Migrations `001`–`014` exist on `main`. Product
-Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
-`014`; remote schema/RLS verification passed; Android/Expo Go smoke
-PASS. `015` was not previously started. This agent does not deploy and
-does not modify remote.
+`40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
+#15–#18 are merged. Migrations `001`–`018` exist on `main`. `019` does
+not exist. Product Owner states remote project `efkauegdlmfkonzwyyiv`
+is aligned through `018`; remote schema/RLS verification passed;
+Android/Expo Go smoke PASS. This agent does not deploy and does not
+modify remote.
 
-**Historical (Phase 5A branch time):** earlier text described `011`–`014`
-as stacked/not deployed and remote aligned through `010`. That was true
-then. It is superseded by the merge of #11–#14 and remote alignment
-through `014`. Phase 5A report is not rewritten.
+**Historical (Phase 5A / 5B–8B branch time):** earlier text described
+`011`–`014` then `015`–`018` as stacked/not deployed. That was true
+then. It is superseded by the merge of #15–#18 and remote alignment
+through `018`. Phase 5A–8B reports are not rewritten.
 
 Product Owner approved ownership/management `ACTIVE|ENDED`, assignment
-`ACTIVE|ENDED`, permission `ACTIVE|REVOKED`, and discipline
-`ACTIVE|INACTIVE` (2026-09-02). Do not start 019.
+`ACTIVE|ENDED`, permission `ACTIVE|REVOKED`, discipline
+`ACTIVE|INACTIVE`, and 018 catalog `ACTIVE|INACTIVE` (2026-09-02).
+Do not start 019 SQL while authorization status and issuer/evaluator
+authority remain unnamed.
 
 ## 1. Método
 
@@ -185,7 +187,7 @@ Equines foundation is implemented separately as Phase 3F / migration `011`.
 ## 8e. Phase 3F — Equines foundation
 
 **IMPLEMENTADA Y MERGEADA EN `main` (PR #11).** Migration `011_equines.sql`
-is on `main`. Product Owner states remote is aligned through `014`.
+is on `main`. Product Owner states remote is aligned through `018`.
 
 Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Product
 Owner confirmed lifecycle `ACTIVE|INACTIVE|ARCHIVED|DECEASED`
@@ -223,18 +225,18 @@ owner/manager/center columns. Do not migrate legacy `horses` (retired in
 Product Owner approved stored lifecycle `ACTIVE|INACTIVE` (2026-09-02).
 `sort_order` must be `>= 0`; duplicate non-negative values are allowed.
 `015_qualifications.sql` (`qualification_systems`, `qualification_levels`,
-`rider_qualifications`) is implemented on `refactor/phase-5b-qualifications`.
-No seed. No equivalences. Rider verification states are frozen
+`rider_qualifications`) is merged (PR #15). No seed. No equivalences.
+Rider verification states are frozen
 `DECLARED|PENDING|VERIFIED|REJECTED|EXPIRED`. Sensitive Rider activation
 still requires `RIDER_POLICY`; profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
 
-**IMPLEMENTADA EN `refactor/phase-6a-rider-assessments` (stacked on PR #15).**
-Migration `016_rider_assessments.sql`. Assessor must have an active
-`ASSESSOR` membership at the assessment Center and cannot autoevaluate.
-Historical rows remain if the assessor later leaves. No Zero Session,
-authorization, eligibility or booking RPCs.
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #16).** Migration
+`016_rider_assessments.sql`. Assessor must have an active `ASSESSOR`
+membership at the assessment Center and cannot autoevaluate. Historical
+rows remain if the assessor later leaves. No Zero Session, authorization,
+eligibility or booking RPCs.
 
 ## 12. Phase 7 — Guardians/minors (histórico de numeración)
 
@@ -243,10 +245,10 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 
 ## 13. Phase 8 — Requirements/services/trust
 
-`017_equine_requirements.sql` is implemented on
-`refactor/phase-8a-equine-requirements`. `018_center_services.sql` is
-implemented on `refactor/phase-8b-center-services`. Zero Sessions and
-rider-equine authorizations remain later (`019`). Do not start 019.
+`017_equine_requirements.sql` is merged (PR #17).
+`018_center_services.sql` is merged (PR #18). Zero Sessions and
+rider-equine authorizations remain later (`019`) and are blocked on
+`docs/ARCHITECTURE_CONFLICT_019.md`. Do not start 019 SQL.
 
 ## 14. Phase 9 — Calendar
 
@@ -341,5 +343,5 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
 **Siguiente fase prevista tras Phase 8B:**
-Do not start 019. Do not merge. Do not deploy.
-Do not merge or retarget stacked PRs until Product Owner review.
+Do not start 019 SQL until Product Owner names the 019–022 conflicts.
+Do not merge. Do not deploy. Do not retarget.
