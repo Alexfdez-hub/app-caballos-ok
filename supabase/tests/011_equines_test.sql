@@ -157,8 +157,6 @@ begin
        and table_name in (
          'equine_availability_rules',
          'equine_calendar_blocks',
-         'rider_equine_authorizations',
-         'zero_sessions',
          'bookings'
        )
   ) then

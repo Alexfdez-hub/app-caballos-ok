@@ -79,8 +79,8 @@ begin
     select 1 from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'zero_sessions',
-         'rider_equine_authorizations',
+         'equine_availability_rules',
+         'equine_calendar_blocks',
          'bookings',
          'sessions'
        )

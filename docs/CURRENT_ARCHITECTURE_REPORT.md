@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 8A — Equine requirements foundation (stacked on 6A)
+**Baseline:** Phase 9A — Zero Sessions and authorizations (on `main` through 018)
 **Date:** 2026-09-02
 
 ## Summary
@@ -84,11 +84,11 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 ## Database target
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
-`6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
-#11–#14 are merged into `main`. Migrations `001`–`014` exist on `main`.
+`40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
+#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`.
 Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
-through `014`; remote schema/RLS verification passed; Android/Expo Go
-smoke PASS. Historical reports that described `011`–`014` as stacked and
+through `018`; remote schema/RLS verification passed; Android/Expo Go
+smoke PASS. Historical reports that described `015`–`018` as stacked and
 not deployed were true at those branch times; they are not rewritten.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
@@ -137,7 +137,7 @@ allowed). Translations use BCP 47 locales. `experience_level` is optional
 free text, not a qualification. There is no client catalog or assign RPC
 and no Expo selector.
 
-Migration `015_qualifications.sql` (parent PR #15, not deployed) adds
+Migration `015_qualifications.sql` (merged PR #15) adds
 `qualification_systems`, `qualification_levels` and
 `rider_qualifications`. Systems may be market-scoped. Level codes are
 unique per system. `level_order` is a non-negative hint, not an
@@ -147,7 +147,7 @@ Verification states are exactly
 own qualification `VERIFIED`. `verified_by_person_id` does not imply
 Center authority. No seed, no equivalence tables, no client RPC.
 
-Migration `016_rider_assessments.sql` (stacked on 015, not deployed) adds
+Migration `016_rider_assessments.sql` (merged PR #16) adds
 `rider_assessments`, `rider_assessment_disciplines` and
 `rider_assessment_restrictions`. Types
 `ACCESS_TEST|RIDING_LESSON|COURSE|PRACTICAL_TEST|OTHER`. States
@@ -155,12 +155,12 @@ Migration `016_rider_assessments.sql` (stacked on 015, not deployed) adds
 themselves. Creating/validating requires active `ASSESSOR` membership at
 that Center. Historical rows remain after membership end. No client RPC.
 
-Migration `017_equine_requirements.sql` (stacked on 016, not deployed) adds
+Migration `017_equine_requirements.sql` (merged PR #17) adds
 `equine_requirements` attached to an equine. Types and sources follow
 Architecture 2.1. Typed value columns are mapped per type. No client CRUD,
 no eligibility evaluation, no stored rider age.
 
-Migration `018_center_services.sql` (stacked on 017, not deployed) adds
+Migration `018_center_services.sql` (merged PR #18) adds
 `center_services` and `service_equines`. Types are
 `EQUINE_SESSION|RIDER_ASSESSMENT|ZERO_SESSION`. `ZERO_SESSION` is a
 service kind, not a Zero Session record. Linking an equine requires
@@ -204,12 +204,16 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No discipline catalog UI, selector or seeded codes
 - No qualification catalog UI, selector, seed or equivalences
 - No booking, assessment mutation, payment, or review UI
-- No services catalog, Zero Session records or eligibility UI
+- No services catalog or eligibility UI
 - No single `users.role` model
 
-The next planned SQL migration is `019` and is **not** started. Do not
-merge. Do not deploy `015`/`016`/`017`/`018`. Remote remains aligned
-through `014`; this agent does not deploy.
+Migration `019_zero_sessions_authorizations.sql` (this branch) adds
+`zero_sessions` and `rider_equine_authorizations`. Product Owner
+2026-09-02 named authorization status `ACTIVE|REVOKED` and
+evaluator/issuer authority. No client CRUD. No eligibility, calendar
+or booking RPC. Remote remains aligned through `018`; this agent does
+not deploy. The next planned SQL migration is `020` and is **not**
+started.
 
 ## Historical records
 
