@@ -157,7 +157,6 @@ begin
        and table_name in (
          'equine_availability_rules',
          'equine_calendar_blocks',
-         'equine_requirements',
          'service_equines',
          'rider_equine_authorizations',
          'zero_sessions',

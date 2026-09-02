@@ -3,10 +3,10 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 6A Rider assessments foundation implemented on
-`refactor/phase-6a-rider-assessments` (stacked PR targeting
-`refactor/phase-5b-qualifications` / PR #15). Do not merge. Do not
-deploy `016`. Do not start 019.
+**Estado:** Phase 8A Equine requirements foundation implemented on
+`refactor/phase-8a-equine-requirements` (stacked PR targeting
+`refactor/phase-6a-rider-assessments` / PR #16). Do not merge. Do not
+deploy `017`. Do not start 019.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
@@ -243,7 +243,9 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 
 ## 13. Phase 8 — Requirements/services/trust
 
-Crear equine requirements, center services, service-equines, Zero Sessions y rider-equine authorizations.
+`017_equine_requirements.sql` is implemented on
+`refactor/phase-8a-equine-requirements`. Center services, Zero Sessions
+and rider-equine authorizations remain later (`018` / `019`).
 
 ## 14. Phase 9 — Calendar
 
@@ -337,8 +339,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 6A:**
-`017_equine_requirements.sql` on `refactor/phase-8a-equine-requirements`,
-stacked on `refactor/phase-6a-rider-assessments`.
+**Siguiente fase prevista tras Phase 8A:**
+`018_center_services.sql` on `refactor/phase-8b-center-services`,
+stacked on `refactor/phase-8a-equine-requirements`.
 Do not merge. Do not deploy. Do not start 019.
 Do not merge or retarget stacked PRs until Product Owner review.
