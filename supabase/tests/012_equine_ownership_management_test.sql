@@ -477,24 +477,36 @@ begin
 
   if not exists (
     select 1
-      from public.equine_ownerships
-     where equine_id = ended_equine_id
-       and owner_person_id = caller_person_id
-       and status = 'ENDED'
-       and ended_at is not null
+      from public.equine_ownerships as ownership
+     where ownership.equine_id = ended_equine_id
+       and ownership.owner_person_id = caller_person_id
+       and ownership.status = 'ENDED'
+       and ownership.ended_at is not null
   ) then
     raise exception 'Valid historical ENDED ownership was not preserved';
   end if;
 
   if not exists (
     select 1
-      from public.equine_management_assignments
-     where equine_id = ended_equine_id
-       and manager_person_id = caller_person_id
-       and status = 'ENDED'
-       and valid_until is not null
+      from public.equine_management_assignments as assignment
+     where assignment.equine_id = ended_equine_id
+       and assignment.manager_person_id = caller_person_id
+       and assignment.status = 'ENDED'
+       and assignment.valid_until is not null
   ) then
     raise exception 'Valid historical ENDED management was not preserved';
+  end if;
+
+  if exists (
+    select 1
+      from pg_catalog.pg_constraint as constraint_row
+     where constraint_row.conrelid in (
+       'public.equine_ownerships'::regclass,
+       'public.equine_management_assignments'::regclass
+     )
+       and pg_catalog.pg_get_constraintdef(constraint_row.oid) ~* 'now\s*\('
+  ) then
+    raise exception 'Ownership/management CHECK used now()';
   end if;
 
   insert into public.equine_ownerships (
@@ -816,6 +828,33 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    update public.equine_management_assignments
+       set status = 'ENDED',
+           valid_until = now();
+    raise exception 'Anonymous role updated management assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_management_assignments;
+    raise exception 'Anonymous role deleted management assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform public.has_active_equine_management_role(
+      current_setting('app.caller_person', true)::uuid,
+      current_setting('app.equine_id', true)::uuid,
+      'PRIMARY_MANAGER'
+    );
+    raise exception 'Anonymous role executed internal management helper';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -825,16 +864,23 @@ do $$
 begin
   if has_table_privilege('anon', 'public.equine_ownerships', 'select')
      or has_table_privilege('authenticated', 'public.equine_ownerships', 'select')
+     or has_table_privilege('authenticated', 'public.equine_ownerships', 'update')
+     or has_table_privilege('authenticated', 'public.equine_ownerships', 'delete')
      or has_table_privilege('anon', 'public.equine_management_assignments', 'select')
      or has_table_privilege(
           'authenticated',
           'public.equine_management_assignments',
           'insert'
         )
-     or has_function_privilege(
-          'public',
-          'public.has_active_equine_management_role(uuid,uuid,text)',
-          'execute'
+     or has_table_privilege(
+          'authenticated',
+          'public.equine_management_assignments',
+          'update'
+        )
+     or has_table_privilege(
+          'authenticated',
+          'public.equine_management_assignments',
+          'delete'
         )
      or has_function_privilege(
           'anon',
@@ -845,6 +891,22 @@ begin
           'authenticated',
           'public.has_active_equine_management_role(uuid,uuid,text)',
           'execute'
+        )
+     or exists (
+          select 1
+            from pg_catalog.pg_proc as procedure
+            join pg_catalog.pg_namespace as namespace
+              on namespace.oid = procedure.pronamespace
+            cross join lateral aclexplode(
+              coalesce(
+                procedure.proacl,
+                acldefault('f', procedure.proowner)
+              )
+            ) as grant_row
+           where namespace.nspname = 'public'
+             and procedure.proname = 'has_active_equine_management_role'
+             and grant_row.grantee = 0
+             and grant_row.privilege_type = 'EXECUTE'
         )
      or has_function_privilege(
           'anon',

@@ -86,3 +86,12 @@ No public directory. No create/edit. Empty states are truthful.
 `npm run test:ownership` is appended to `npm run test:sql`. Inherited
 migrations at the parent SHA must remain unchanged; 012 is a new file.
 009/010/011 SQL tests allow 012 tables and still forbid 013+.
+
+P0 coverage includes: future management not effective; manager PERSON both
+FKs / neither FK / type-FK mismatch rejected; valid CENTER manager
+accepted; ownership `ended_at < started_at` and management
+`valid_until < valid_from` rejected; historical ENDED ownership and
+management preserved; authenticated UPDATE/DELETE denied on both tables;
+membership alone does not create management; list RPCs do not expose
+another person’s rows; helper inaccessible to PUBLIC/anon/authenticated;
+no `now()` in a table CHECK; no mutation RPCs.
