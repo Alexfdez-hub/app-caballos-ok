@@ -26,19 +26,25 @@ or merge.
   as a table CHECK without a constraint trigger).
 - Provisioning stays outside Expo. No mutation RPC. No self-assignment.
 
-## Provisional lifecycle
+## Lifecycle
 
-Architecture 2.1 names `status` without values. This migration uses
-`ACTIVE | ENDED` as a **provisional convention awaiting Product Owner
-acceptance**, copied from the frozen 010 membership pattern.
+Product Owner approved `ACTIVE | ENDED` for ownership and management
+(2026-09-02). This is the stored lifecycle, copied from the frozen 010
+membership pattern. Stored status is not rewritten for display.
 
 | Value | Ownership | Management |
 |---|---|---|
-| `ACTIVE` | In force. `ended_at` null. | In force. `valid_until` null. |
-| `ENDED` | Historical. `ended_at` required. | Historical. `valid_until` required. |
+| `ACTIVE` | Stored in force. `ended_at` null. Currently effective only when `started_at <= now()`. | Stored in force. `valid_until` null. Currently effective only when `valid_from <= now()`. |
+| `ENDED` | Historical. `ended_at` required and `>= started_at`. | Historical. `valid_until` required and `>= valid_from`. |
 
-Not included: `INVITED`, `PENDING`, `SUSPENDED`, `VERIFIED`. No invitation
-or verification workflow.
+`now()` is not placed in a table CHECK. Invitation, suspension and
+verification tokens are not included.
+
+`has_active_equine_management_role(...)` requires stored `ACTIVE`,
+`valid_until` null, and `valid_from <= now()`. Caller list RPCs return
+stored `status` plus derived `is_currently_effective`. Profile screens
+display that derived flag; a future-dated stored ACTIVE row is not shown
+as currently effective.
 
 ## Migration contents
 
@@ -80,3 +86,12 @@ No public directory. No create/edit. Empty states are truthful.
 `npm run test:ownership` is appended to `npm run test:sql`. Inherited
 migrations at the parent SHA must remain unchanged; 012 is a new file.
 009/010/011 SQL tests allow 012 tables and still forbid 013+.
+
+P0 coverage includes: future management not effective; manager PERSON both
+FKs / neither FK / type-FK mismatch rejected; valid CENTER manager
+accepted; ownership `ended_at < started_at` and management
+`valid_until < valid_from` rejected; historical ENDED ownership and
+management preserved; authenticated UPDATE/DELETE denied on both tables;
+membership alone does not create management; list RPCs do not expose
+another person’s rows; helper inaccessible to PUBLIC/anon/authenticated;
+no `now()` in a table CHECK; no mutation RPCs.

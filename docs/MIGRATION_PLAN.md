@@ -4,10 +4,13 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
 **Estado:** Phase 4B Equine–Center relations implemented on
-`refactor/phase-4b-equine-center-relations` (stacked on Ready PR #12).
+`refactor/phase-4b-equine-center-relations` (stacked PR #13 on #12 / #11).
 Migrations `011`–`013` are local only and are not deployed. Phase 3E
-remains merged on `main`; remote history is aligned through `010`.
-Disciplines and later equine phases are not started.
+remains merged on `main`; remote history is aligned through `010`. Product
+Owner approved ownership/management `ACTIVE|ENDED`, assignment
+`ACTIVE|ENDED`, and permission `ACTIVE|REVOKED` (2026-09-02). Stored
+lifecycle is distinct from effective-at-time authority. Disciplines and
+later equine phases are not started on this branch.
 
 ## 1. Método
 
@@ -187,8 +190,13 @@ Architecture Phase 4 grouped equines + ownership + management + center
 relations. Implementation numbering splits them:
 
 - `011_equines` — foundation (PR #11)
-- `012_equine_ownership_management` — stacked PR on #11
-- `013_equine_center_relations` — stacked PR on #12
+- `012_equine_ownership_management` — stacked PR #12 on #11. Product Owner
+  approved stored lifecycle `ACTIVE|ENDED` (2026-09-02). Effective
+  management also requires `valid_from <= now()`; `now()` is not in a CHECK.
+- `013_equine_center_relations` — stacked PR #13 on #12. Product Owner
+  approved assignment `ACTIVE|ENDED` and permission `ACTIVE|REVOKED`.
+  Effective permission also requires `granted_at <= now()`; `now()` is
+  not in a CHECK.
 
 Do not collapse ownership or management onto `equines`. Do not invent
 owner/manager/center columns. Do not migrate legacy `horses` (retired in
@@ -311,4 +319,4 @@ Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, 
 disciplines foundation according to the current roadmap
 (`014_disciplines.sql`).
 Do not start 015. Migrations `011`–`013` have not been deployed remotely.
-Do not merge stacked PRs until Product Owner review.
+Do not merge or retarget stacked PRs until Product Owner review.

@@ -17,10 +17,11 @@
 --     that derive PERSON from auth.uid() and do not expose other
 --     owners or managers.
 --
--- Architecture 2.1 names ownership/management status without enumerating
--- values. This migration constrains ACTIVE | ENDED as a provisional
--- foundation convention awaiting Product Owner acceptance. Invitation,
--- suspension and verification tokens are not invented here.
+-- Product Owner approved ownership/management lifecycle ACTIVE | ENDED
+-- (2026-09-02). Stored status is not the same as effective-at-time
+-- authority: a stored ACTIVE management row is effective only when
+-- valid_from <= now() and valid_until is null. Do not put now() in a
+-- CHECK. Invitation, suspension and verification tokens are not invented.
 
 create table public.equine_ownerships (
   id uuid primary key default gen_random_uuid(),
@@ -95,7 +96,7 @@ comment on column public.equine_ownerships.owner_center_id is
 comment on column public.equine_ownerships.ownership_percentage is
   'Strictly positive share up to 100 inclusive. Zero is rejected. Not an access rule.';
 comment on column public.equine_ownerships.status is
-  'Provisional foundation lifecycle awaiting Product Owner acceptance: ACTIVE (in force, ended_at null) or ENDED (historical, ended_at required). INVITED, SUSPENDED and verification tokens are not part of this phase.';
+  'Product Owner approved lifecycle: ACTIVE (stored in force, ended_at null) or ENDED (historical, ended_at required). Stored ACTIVE is currently effective only when started_at <= now(). INVITED, SUSPENDED and verification tokens are not part of this phase.';
 
 create table public.equine_management_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -176,7 +177,9 @@ comment on table public.equine_management_assignments is
 comment on column public.equine_management_assignments.management_role is
   'PRIMARY_MANAGER, CO_MANAGER or AUTHORIZED_MANAGER. At most one active PRIMARY_MANAGER per equine. MVP0 publishability later requires a PRIMARY_MANAGER; this phase stores the assignment only.';
 comment on column public.equine_management_assignments.status is
-  'Provisional foundation lifecycle awaiting Product Owner acceptance: ACTIVE (in force, valid_until null) or ENDED (historical).';
+  'Product Owner approved lifecycle: ACTIVE (stored in force, valid_until null) or ENDED (historical, valid_until required). Stored ACTIVE is not sufficient for current authority.';
+comment on column public.equine_management_assignments.valid_from is
+  'Start of stored validity. Effective authority also requires valid_from <= now(). This timestamp is not constrained against now() by a CHECK.';
 comment on column public.equine_management_assignments.granted_by_person_id is
   'Domain person who granted the assignment during controlled provisioning. Not an Auth UUID and not a client actor argument.';
 
@@ -204,11 +207,12 @@ as $$
        and assignment.management_role = p_management_role
        and assignment.status = 'ACTIVE'
        and assignment.valid_until is null
+       and assignment.valid_from <= now()
   );
 $$;
 
 comment on function public.has_active_equine_management_role(uuid, uuid, text) is
-  'Server-internal PERSON + equine + management-role check. Not executable by anon or authenticated. Not a roster read and not a membership shortcut.';
+  'Server-internal PERSON + equine + management-role check. Effective only for stored ACTIVE with valid_from <= now() and valid_until null. Stored lifecycle and effective-at-time authority stay separate. Not executable by PUBLIC, anon or authenticated. Not a roster read and not a membership shortcut.';
 
 revoke all on function public.has_active_equine_management_role(uuid, uuid, text)
   from public, anon, authenticated;
@@ -222,6 +226,7 @@ returns table (
   owner_type text,
   ownership_percentage numeric,
   status text,
+  is_currently_effective boolean,
   started_at timestamptz,
   ended_at timestamptz
 )
@@ -260,6 +265,11 @@ begin
     ownership.owner_type,
     ownership.ownership_percentage,
     ownership.status,
+    (
+      ownership.status = 'ACTIVE'
+      and ownership.ended_at is null
+      and ownership.started_at <= now()
+    ) as is_currently_effective,
     ownership.started_at,
     ownership.ended_at
   from public.equine_ownerships as ownership
@@ -267,14 +277,19 @@ begin
     on equine.id = ownership.equine_id
   where ownership.owner_person_id = caller_person_id
   order by
-    case when ownership.status = 'ACTIVE' then 0 else 1 end,
+    case
+      when ownership.status = 'ACTIVE'
+        and ownership.started_at <= now() then 0
+      when ownership.status = 'ACTIVE' then 1
+      else 2
+    end,
     ownership.started_at desc,
     ownership.created_at desc;
 end;
 $$;
 
 comment on function public.list_my_equine_ownerships() is
-  'Returns only the authenticated caller''s PERSON ownership rows with safe equine display fields. Person is derived from auth.uid() through user_accounts. Does not expose other owners, CENTER-owned shares, management, or accept a person_id argument.';
+  'Returns only the authenticated caller''s PERSON ownership rows with safe equine display fields and a derived is_currently_effective flag. Stored status is not rewritten. Person is derived from auth.uid() through user_accounts. Does not expose other owners, CENTER-owned shares, management, or accept a person_id argument.';
 
 revoke all on function public.list_my_equine_ownerships()
   from public, anon, authenticated;
@@ -288,6 +303,7 @@ returns table (
   equine_type text,
   management_role text,
   status text,
+  is_currently_effective boolean,
   valid_from timestamptz,
   valid_until timestamptz
 )
@@ -325,6 +341,11 @@ begin
     equine.equine_type,
     assignment.management_role,
     assignment.status,
+    (
+      assignment.status = 'ACTIVE'
+      and assignment.valid_until is null
+      and assignment.valid_from <= now()
+    ) as is_currently_effective,
     assignment.valid_from,
     assignment.valid_until
   from public.equine_management_assignments as assignment
@@ -332,14 +353,19 @@ begin
     on equine.id = assignment.equine_id
   where assignment.manager_person_id = caller_person_id
   order by
-    case when assignment.status = 'ACTIVE' then 0 else 1 end,
+    case
+      when assignment.status = 'ACTIVE'
+        and assignment.valid_from <= now() then 0
+      when assignment.status = 'ACTIVE' then 1
+      else 2
+    end,
     assignment.valid_from desc,
     assignment.created_at desc;
 end;
 $$;
 
 comment on function public.list_my_equine_management_assignments() is
-  'Returns only the authenticated caller''s PERSON management assignments with safe equine display fields. Person is derived from auth.uid() through user_accounts. Does not expose other managers, CENTER managers, ownership shares, or accept a person_id argument.';
+  'Returns only the authenticated caller''s PERSON management assignments with safe equine display fields and a derived is_currently_effective flag. Stored status is not rewritten. Person is derived from auth.uid() through user_accounts. Does not expose other managers, CENTER managers, ownership shares, or accept a person_id argument.';
 
 revoke all on function public.list_my_equine_management_assignments()
   from public, anon, authenticated;

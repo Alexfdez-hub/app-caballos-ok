@@ -30,7 +30,15 @@ Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 - `docs/MIGRATION_PLAN.md`
 
 Inherited migrations present on the parent branch, including `012`, are
-unchanged.
+unchanged versus the corrected parent HEAD.
+
+## Lifecycle
+
+Product Owner approved ownership/management `ACTIVE | ENDED`, assignment
+`ACTIVE | ENDED`, and permission `ACTIVE | REVOKED` (2026-09-02). Stored
+lifecycle is distinct from effective-at-time authority
+(`valid_from <= now()`, `started_at <= now()`, `granted_at <= now()`).
+`now()` is not used in a table CHECK.
 
 ## Security
 

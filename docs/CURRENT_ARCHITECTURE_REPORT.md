@@ -95,12 +95,14 @@ bucket. Provisioning remains controlled outside the app.
 
 Migration `012_equine_ownership_management.sql` (stacked, not on `main`)
 adds `equine_ownerships` and `equine_management_assignments` with PERSON|
-CENTER XOR FKs, strictly positive percentage, provisional `ACTIVE|ENDED`,
-and at most one active `PRIMARY_MANAGER`. Caller-scoped
+CENTER XOR FKs, strictly positive percentage, Product Owner approved
+`ACTIVE|ENDED`, and at most one active `PRIMARY_MANAGER`. Caller-scoped
 `list_my_equine_ownerships()` / `list_my_equine_management_assignments()`
-derive PERSON from `auth.uid()`. Profile → Mis equinos / Equinos que
+derive PERSON from `auth.uid()` and expose stored status plus
+`is_currently_effective`. Profile → Mis equinos / Equinos que
 gestiono load those RPCs. Center membership does not grant equine
-authority. `has_active_equine_management_role` is server-internal.
+authority. `has_active_equine_management_role` is server-internal and
+requires `valid_from <= now()`.
 
 Migration `013_equine_center_relations.sql` (stacked, not on `main`)
 adds `equine_center_assignments` and `equine_center_permissions`.

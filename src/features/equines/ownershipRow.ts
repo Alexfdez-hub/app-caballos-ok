@@ -68,6 +68,7 @@ function isOwnershipRow(
     row.owner_type === 'PERSON' &&
     asFiniteNumber(row.ownership_percentage) !== null &&
     isOwnershipStatus(row.status) &&
+    typeof row.is_currently_effective === 'boolean' &&
     typeof row.started_at === 'string' &&
     isOwnershipLifecycleConsistent(row.status, row.ended_at)
   );
@@ -86,6 +87,7 @@ function isManagementRow(value: unknown): value is Record<string, unknown> {
     isEquineType(row.equine_type) &&
     isManagementRole(row.management_role) &&
     isOwnershipStatus(row.status) &&
+    typeof row.is_currently_effective === 'boolean' &&
     typeof row.valid_from === 'string' &&
     isOwnershipLifecycleConsistent(row.status, row.valid_until)
   );
@@ -113,6 +115,7 @@ export function parseEquineOwnershipRow(value: unknown): EquineOwnership {
     ownerType: 'PERSON',
     ownershipPercentage: percentage,
     status: value.status,
+    isCurrentlyEffective: value.is_currently_effective as boolean,
     startedAt: value.started_at as string,
     endedAt: value.ended_at as string | null,
   };
@@ -140,6 +143,7 @@ export function parseEquineManagementRow(
     equineType: value.equine_type,
     managementRole: value.management_role,
     status: value.status,
+    isCurrentlyEffective: value.is_currently_effective as boolean,
     validFrom: value.valid_from as string,
     validUntil: value.valid_until as string | null,
   };
