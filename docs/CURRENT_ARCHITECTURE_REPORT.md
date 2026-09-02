@@ -103,7 +103,10 @@ GitHub Actions (`.github/workflows/quality-gate.yml`) is the permanent
 automated quality gate for pull requests targeting `main`. App quality and
 local PostgreSQL/SQL suites run on GitHub-hosted runners with
 `contents: read`, no project secrets, and no linked/remote Supabase. The
-cloud clone does not replace that gate.
+cloud clone does not replace that gate. First proven-green run:
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
+(head `93788a208b50c8e5f652b9c94ee3c1d230c840e7`; App quality PASS;
+PostgreSQL quality PASS).
 
 ## Current limitations by design
 

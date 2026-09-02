@@ -106,8 +106,14 @@ config.
 GitHub Actions is the permanent automated quality gate
 (`.github/workflows/quality-gate.yml`, `pull_request` to `main` plus
 `workflow_dispatch`). It uses `contents: read`, no project secrets, and
-local Docker/Supabase only. CI results are recorded on the Draft PR after
-the run; they are not claimed PASS from this cloud clone.
+local Docker/Supabase only.
+
+Proven green: run
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
+on `93788a208b50c8e5f652b9c94ee3c1d230c840e7`. Conclusion: success.
+App quality PASS. PostgreSQL quality PASS (`test:identity`, `test:guardians`
+including two-session concurrency, `test:riders`, `test:centers`,
+`test:memberships`, `test:equines`).
 
 ### Checks Grok ran in the cloud workspace
 
@@ -118,16 +124,18 @@ the run; they are not claimed PASS from this cloud clone.
 - `git diff --check` PASS
 - `001–010` vs `origin/main` PASS — unchanged
 
+SQL suites were not executed in this cloud clone (no Docker).
+
 ### Checks executed by GitHub Actions
 
-See the Draft PR and workflow run. Do not treat SQL/RLS as passed until
-that run is green.
+Quality gate `33629791578` PASS (both jobs). See
+`docs/PHASE_3F_EQUINES_FOUNDATION_REPORT.md` for job URLs.
 
 ### Checks not executed in the cloud workspace
 
-**LOCAL_RUNTIME_GATE_PENDING.** This cloud clone has no Docker; SQL tests
-were not executed against PostgreSQL here. Docker was not installed.
-`npm run test:equines` (and the other SQL suites) did not reach PostgreSQL.
+This cloud clone has no Docker; SQL tests were not executed against
+PostgreSQL here. Docker was not installed. Those suites ran on
+GitHub-hosted runners and passed.
 
 ## Next phase
 

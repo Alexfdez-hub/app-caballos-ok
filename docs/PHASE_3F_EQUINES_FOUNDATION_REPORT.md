@@ -200,8 +200,11 @@ tables through PostgREST.
 GitHub Actions (`.github/workflows/quality-gate.yml`) is the permanent
 automated quality gate for pull requests targeting `main`. It uses
 `pull_request` (never `pull_request_target`), `contents: read`, no project
-secrets, and local Docker/Supabase only. It is **not** claimed PASS in this
-document until a workflow run is green.
+secrets, and local Docker/Supabase only.
+
+Proven green: Quality gate run
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
+on `93788a208b50c8e5f652b9c94ee3c1d230c840e7`. Conclusion: success.
 
 ### Checks Grok ran in the cloud workspace
 
@@ -215,26 +218,49 @@ document until a workflow run is green.
 | `git diff --check` | PASS |
 | `001–010` vs `origin/main` | PASS — empty; only `011_equines.sql` added among migrations |
 
+Docker is not installed in this cloud clone. SQL suites were not executed
+here.
+
 ### Checks executed by GitHub Actions
 
-Recorded on the Draft PR after the workflow run finishes. Do not treat SQL
-or CI as passed from this cloud clone.
+Run `33629791578` on head `93788a208b50c8e5f652b9c94ee3c1d230c840e7`.
+Workflow: Quality gate. Event: `pull_request`. Conclusion: **success**.
+
+| Job | Result | URL |
+|---|---|---|
+| App quality | PASS (33s) | https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578/job/100246131581 |
+| PostgreSQL quality | PASS (3m11s) | https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578/job/100246131894 |
+
+App quality executed: `npm ci`, `npm run test:auth`, `npm run typecheck`,
+`npx expo-doctor`, `git diff --check`, migrations `001–010` unchanged versus
+PR base.
+
+PostgreSQL quality executed on local Docker/Supabase only (CLI `2.116.0`,
+`db reset --local`, never `--linked`): `npm run test:identity`,
+`npm run test:guardians` (includes the two-session concurrency test),
+`npm run test:riders`, `npm run test:centers`, `npm run test:memberships`,
+`npm run test:equines`. Local Supabase was stopped in an `always()` step.
+
+Earlier failed run (superseded):
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629287665
+on `847583b993a31a69b38b249218c2ab230d926c2f` (trailing whitespace in this
+report; static `FROM storage.policies` parse error). Fixed in `93788a2`.
 
 ### Checks not executed in the cloud workspace
 
 | Command | Result |
 |---|---|
-| `npx supabase db reset --local` | NOT RUN — `docker: command not found` |
-| `npm run test:equines` | NOT EXECUTED against PostgreSQL — no local db container |
-| `npm run test:memberships` | NOT EXECUTED against PostgreSQL — Docker unavailable |
-| `npm run test:centers` | NOT EXECUTED against PostgreSQL — Docker unavailable |
-| `npm run test:riders` | NOT EXECUTED against PostgreSQL — Docker unavailable |
-| `npm run test:identity` | NOT EXECUTED against PostgreSQL — Docker unavailable |
-| `npm run test:guardians` | NOT EXECUTED against PostgreSQL — Docker unavailable |
-| local advisors | NOT RUN — no local Supabase |
+| `npx supabase db reset --local` | NOT RUN here — `docker: command not found` |
+| `npm run test:equines` | NOT EXECUTED here against PostgreSQL — executed by GitHub Actions |
+| `npm run test:memberships` | NOT EXECUTED here against PostgreSQL — executed by GitHub Actions |
+| `npm run test:centers` | NOT EXECUTED here against PostgreSQL — executed by GitHub Actions |
+| `npm run test:riders` | NOT EXECUTED here against PostgreSQL — executed by GitHub Actions |
+| `npm run test:identity` | NOT EXECUTED here against PostgreSQL — executed by GitHub Actions |
+| `npm run test:guardians` | NOT EXECUTED here against PostgreSQL — executed by GitHub Actions |
+| local advisors | NOT RUN here — no local Supabase |
 
-Cloud clone: `LOCAL_RUNTIME_GATE_PENDING`. Docker was not installed. SQL/RLS
-P0 execution belongs to GitHub-hosted runners.
+Cloud clone: Docker was not installed. SQL/RLS P0 execution is the GitHub
+Actions PostgreSQL quality job, which passed on run `33629791578`.
 
 ## Remote
 
