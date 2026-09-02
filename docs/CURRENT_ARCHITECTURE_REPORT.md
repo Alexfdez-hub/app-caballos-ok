@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 4B — Equine–Center relations (stacked on 4A)
+**Baseline:** Phase 5A — Disciplines foundation (stacked on 4B)
 **Date:** 2026-09-02
 
 ## Summary
@@ -15,8 +15,10 @@ identity and media metadata. Phase 4A adds ownership and management
 relationships without collapsing them onto `equines` and without a public
 directory. Phase 4B adds equine–center assignments and explicit center
 permissions without treating membership, ownership or assignment as a
-permission grant. The application shell remains a single authenticated
-app without role selectors.
+permission grant. Phase 5A adds a coded discipline catalog, translations
+and equine–discipline associations without seeding codes, without Galope
+equivalences, and without qualifications. The application shell remains a
+single authenticated app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -115,6 +117,14 @@ mutation RPC. `has_active_equine_center_permission` is server-internal,
 requires `granted_at <= now()`, and is not executable by `anon` or
 `authenticated`.
 
+Migration `014_disciplines.sql` (stacked, not on `main`) adds
+`disciplines`, `discipline_translations` and `equine_disciplines`.
+Lifecycle is Product Owner approved `ACTIVE|INACTIVE`. Codes are unique
+and unseeded. `sort_order` is a non-negative display hint (duplicates
+allowed). Translations use BCP 47 locales. `experience_level` is optional
+free text, not a qualification. There is no client catalog or assign RPC
+and no Expo selector.
+
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
 membership does not grant equine authority.
@@ -145,12 +155,13 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No client membership grant/revoke or first-admin bootstrap
 - No public equine directory, media upload, availability, booking or
   equine–center assign/grant UI
+- No discipline catalog UI, selector or seeded codes
 - No booking, assessment, payment, or review UI
 - No single `users.role` model
 
 The next planned SQL migration after Product Owner authorization is
-`014_disciplines.sql`. Migrations 011–013 are not deployed
-on the linked development project. Phase 014 has not been started.
+`015_qualifications.sql`. Migrations 011–014 are not deployed
+on the linked development project. Phase 015 has not been started.
 
 ## Historical records
 

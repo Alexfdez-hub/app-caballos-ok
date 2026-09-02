@@ -1,5 +1,5 @@
 -- Phase 4B local equine–center relation tests.
--- Assumes migrations 001-013. Disciplines remain deferred.
+-- Assumes migrations 001-013. Qualifications remain deferred.
 
 begin;
 
@@ -58,7 +58,7 @@ declare
 begin
   if exists (
     select 1 from information_schema.tables
-     where table_schema = 'public' and table_name in ('disciplines', 'bookings')
+     where table_schema = 'public' and table_name in ('qualification_systems', 'bookings')
   ) then
     raise exception 'Later domains must remain deferred';
   end if;

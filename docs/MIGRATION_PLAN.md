@@ -3,14 +3,14 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 4B Equine–Center relations implemented on
-`refactor/phase-4b-equine-center-relations` (stacked PR #13 on #12 / #11).
-Migrations `011`–`013` are local only and are not deployed. Phase 3E
+**Estado:** Phase 5A Disciplines foundation implemented on
+`refactor/phase-5a-disciplines` (stacked PR #14 on #13 / #12 / #11).
+Migrations `011`–`014` are local only and are not deployed. Phase 3E
 remains merged on `main`; remote history is aligned through `010`. Product
 Owner approved ownership/management `ACTIVE|ENDED`, assignment
-`ACTIVE|ENDED`, and permission `ACTIVE|REVOKED` (2026-09-02). Stored
-lifecycle is distinct from effective-at-time authority. Disciplines and
-later equine phases are not started on this branch.
+`ACTIVE|ENDED`, permission `ACTIVE|REVOKED`, and discipline
+`ACTIVE|INACTIVE` (2026-09-02). Qualifications and later equine phases
+are not started. Do not start 015.
 
 ## 1. Método
 
@@ -204,10 +204,13 @@ owner/manager/center columns. Do not migrate legacy `horses` (retired in
 
 ## 10. Phase 5 — Disciplines / qualifications
 
-`rider_profiles` foundations are implemented in Phase 3C. The next stacked
-migration is `014_disciplines.sql` (`disciplines`, `discipline_translations`,
-`equine_disciplines`) after Phase 4B. Qualification systems/levels and
-rider qualifications remain later. Sensitive Rider activation still
+`rider_profiles` foundations are implemented in Phase 3C.
+`014_disciplines.sql` (`disciplines`, `discipline_translations`,
+`equine_disciplines`) is stacked on Phase 4B and does not seed a catalog.
+Product Owner approved stored lifecycle `ACTIVE|INACTIVE` (2026-09-02).
+`sort_order` must be `>= 0`; duplicate non-negative values are allowed.
+Qualification systems/levels and rider qualifications remain later
+(`015_qualifications.sql`). Sensitive Rider activation still
 requires `RIDER_POLICY`; profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
@@ -315,8 +318,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 4B:**
-disciplines foundation according to the current roadmap
-(`014_disciplines.sql`).
-Do not start 015. Migrations `011`–`013` have not been deployed remotely.
+**Siguiente fase prevista tras Phase 5A:**
+qualifications according to the current roadmap
+(`015_qualifications.sql`).
+Do not start 015. Migrations `011`–`014` have not been deployed remotely.
 Do not merge or retarget stacked PRs until Product Owner review.
