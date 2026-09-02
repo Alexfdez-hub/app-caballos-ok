@@ -24,7 +24,8 @@ begin
         'Deceased Equine',
         'Public Intent Horse',
         'Boundary Birth',
-        'Null Birth'
+        'Null Birth',
+        'Utc Boundary Birth'
       );
 
   delete from public.equine_media
@@ -418,7 +419,7 @@ begin
       date '2020-01-02',
       timestamptz '2020-01-01 12:00:00+00'
     );
-    raise exception 'birth_date after created_at was allowed';
+    raise exception 'birth_date after UTC created_at date was allowed';
   exception
     when check_violation then null;
   end;
@@ -430,6 +431,47 @@ begin
   exception
     when check_violation then null;
   end;
+
+  perform set_config('TimeZone', 'Etc/GMT-14', true);
+
+  if current_setting('TimeZone') is distinct from 'Etc/GMT-14' then
+    raise exception 'Could not set transaction timezone for UTC birth_date test';
+  end if;
+
+  if (timestamptz '2020-01-01 22:00:00+00')::date is distinct from date '2020-01-02' then
+    raise exception 'Timezone fixture did not move created_at::date to the next local day';
+  end if;
+
+  if (
+    (timestamptz '2020-01-01 22:00:00+00' at time zone 'UTC')::date
+  ) is distinct from date '2020-01-01' then
+    raise exception 'UTC calendar date fixture is wrong';
+  end if;
+
+  insert into public.equines (
+    name, equine_type, birth_date, created_at
+  ) values (
+    'Utc Boundary Birth',
+    'HORSE',
+    date '2020-01-01',
+    timestamptz '2020-01-01 22:00:00+00'
+  );
+
+  begin
+    insert into public.equines (
+      name, equine_type, birth_date, created_at
+    ) values (
+      'Kiritimati Future Birth',
+      'HORSE',
+      date '2020-01-02',
+      timestamptz '2020-01-01 22:00:00+00'
+    );
+    raise exception 'Session-timezone next-day birth_date was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  perform set_config('TimeZone', 'UTC', true);
 
   begin
     insert into public.equines (name, equine_type, visibility_status)

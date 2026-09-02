@@ -47,7 +47,10 @@ create table public.equines (
   constraint equines_height_cm_check
     check (height_cm is null or height_cm > 0),
   constraint equines_birth_date_check
-    check (birth_date is null or birth_date <= created_at::date),
+    check (
+      birth_date is null
+      or birth_date <= (created_at at time zone 'UTC')::date
+    ),
   constraint equines_status_check
     check (status in ('ACTIVE', 'INACTIVE', 'ARCHIVED', 'DECEASED')),
   constraint equines_visibility_status_check
@@ -71,7 +74,7 @@ comment on column public.equines.equine_type is
 comment on column public.equines.height_cm is
   'Optional height in centimetres. When present it must be strictly positive. Not a horse/pony classifier.';
 comment on column public.equines.birth_date is
-  'Optional calendar date of birth. Null is allowed. Must not be after created_at::date. Age is not stored and this column is not an access rule.';
+  'Optional calendar date of birth. Null is allowed. Must not be after the UTC calendar date of created_at ((created_at AT TIME ZONE ''UTC'')::date). Age is not stored and this column is not an access rule.';
 comment on column public.equines.status is
   'Product Owner confirmed lifecycle: ACTIVE (default, operational record), INACTIVE (temporarily not operational), ARCHIVED (retained historical record of a living equine withdrawn from operational use) or DECEASED (the equine has died). DECEASED is distinct from ARCHIVED. RETIRED is not a token. Not calendar occupancy and not availability. DRAFT is not copied from Centers.';
 comment on column public.equines.visibility_status is
