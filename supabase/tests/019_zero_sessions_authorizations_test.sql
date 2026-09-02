@@ -676,7 +676,9 @@ begin
        set supervision_required = true
      where equine_id = person_owned_id
        and authorization_type = 'OWNER_APPROVAL'
-       and status = 'ACTIVE';
+       and rider_person_id = owner_person_id
+       and status = 'ACTIVE'
+       and valid_from <= now();
     raise exception 'PERSON OWNER_APPROVAL mutation after ownership end was allowed';
   exception
     when insufficient_privilege then null;
@@ -687,7 +689,9 @@ begin
          revoked_at = now()
    where equine_id = person_owned_id
      and authorization_type = 'OWNER_APPROVAL'
-     and status = 'ACTIVE';
+     and rider_person_id = owner_person_id
+     and status = 'ACTIVE'
+     and valid_from <= now();
 
   if public.has_effective_rider_equine_authorization(
     owner_person_id, person_owned_id, 'OWNER_APPROVAL'
