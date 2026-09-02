@@ -155,8 +155,6 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'equine_center_assignments',
-         'equine_center_permissions',
          'equine_availability_rules',
          'equine_calendar_blocks',
          'equine_requirements',

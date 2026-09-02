@@ -3,13 +3,14 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 4A Equine ownership/management implemented on
-`refactor/phase-4a-equine-ownership-management` (stacked PR #12 on #11).
-Migrations `011` and `012` are local only and are not deployed. Phase 3E
+**Estado:** Phase 4B Equine–Center relations implemented on
+`refactor/phase-4b-equine-center-relations` (stacked PR #13 on #12 / #11).
+Migrations `011`–`013` are local only and are not deployed. Phase 3E
 remains merged on `main`; remote history is aligned through `010`. Product
-Owner approved ownership/management lifecycle `ACTIVE|ENDED` (2026-09-02).
-Stored lifecycle is distinct from effective-at-time authority. Center
-relations (`013`) and later equine phases are not started on this branch.
+Owner approved ownership/management `ACTIVE|ENDED`, assignment
+`ACTIVE|ENDED`, and permission `ACTIVE|REVOKED` (2026-09-02). Stored
+lifecycle is distinct from effective-at-time authority. Disciplines and
+later equine phases are not started on this branch.
 
 ## 1. Método
 
@@ -170,7 +171,7 @@ Equines foundation is implemented separately as Phase 3F / migration `011`.
 
 ## 8e. Phase 3F — Equines foundation
 
-**IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (draft PR).**
+**IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (Ready PR #11).**
 Migration `011_equines.sql` is local only and has not been deployed.
 
 Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Product
@@ -192,7 +193,10 @@ relations. Implementation numbering splits them:
 - `012_equine_ownership_management` — stacked PR #12 on #11. Product Owner
   approved stored lifecycle `ACTIVE|ENDED` (2026-09-02). Effective
   management also requires `valid_from <= now()`; `now()` is not in a CHECK.
-- `013_equine_center_relations` — not started on this branch
+- `013_equine_center_relations` — stacked PR #13 on #12. Product Owner
+  approved assignment `ACTIVE|ENDED` and permission `ACTIVE|REVOKED`.
+  Effective permission also requires `granted_at <= now()`; `now()` is
+  not in a CHECK.
 
 Do not collapse ownership or management onto `equines`. Do not invent
 owner/manager/center columns. Do not migrate legacy `horses` (retired in
@@ -200,10 +204,11 @@ owner/manager/center columns. Do not migrate legacy `horses` (retired in
 
 ## 10. Phase 5 — Disciplines / qualifications
 
-`rider_profiles` foundations are implemented in Phase 3C. This later phase
-adds disciplines/translations, qualification systems/levels and rider
-qualifications. Sensitive Rider activation still requires `RIDER_POLICY`;
-profile existence is not that activation.
+`rider_profiles` foundations are implemented in Phase 3C. The next stacked
+migration is `014_disciplines.sql` (`disciplines`, `discipline_translations`,
+`equine_disciplines`) after Phase 4B. Qualification systems/levels and
+rider qualifications remain later. Sensitive Rider activation still
+requires `RIDER_POLICY`; profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
 
@@ -310,9 +315,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 4A:**
-equine–center relations according to the current roadmap
-(`013_equine_center_relations.sql`).
-Do not start that phase on this branch. Migrations `011` and `012` have not
-been deployed remotely. Do not merge or retarget stacked PRs until Product
-Owner review. Do not start 015.
+**Siguiente fase prevista tras Phase 4B:**
+disciplines foundation according to the current roadmap
+(`014_disciplines.sql`).
+Do not start 015. Migrations `011`–`013` have not been deployed remotely.
+Do not merge or retarget stacked PRs until Product Owner review.
