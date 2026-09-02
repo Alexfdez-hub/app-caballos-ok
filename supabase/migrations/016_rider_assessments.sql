@@ -203,6 +203,13 @@ declare
   parent_center uuid;
   target_assessment uuid;
 begin
+  if TG_OP = 'UPDATE'
+     and new.assessment_id is distinct from old.assessment_id then
+    raise exception using
+      errcode = '42501',
+      message = 'Assessment observation cannot be moved to another assessment';
+  end if;
+
   if TG_OP = 'DELETE' then
     target_assessment := old.assessment_id;
   else
@@ -243,7 +250,7 @@ end;
 $$;
 
 comment on function public.enforce_rider_assessment_child_authority() is
-  'BEFORE INSERT OR UPDATE OR DELETE on assessment children: the parent assessment''s assessor must currently hold ASSESSOR at that Center. Not executable by anon or authenticated.';
+  'BEFORE INSERT OR UPDATE OR DELETE on assessment children: the parent assessment''s assessor must currently hold ASSESSOR at that Center. UPDATE cannot retarget assessment_id. DELETE is allowed when the parent row is already gone (ON DELETE CASCADE). Not executable by anon or authenticated.';
 
 revoke all on function public.enforce_rider_assessment_child_authority()
   from public, anon, authenticated;

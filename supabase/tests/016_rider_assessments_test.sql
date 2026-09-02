@@ -83,7 +83,7 @@ declare
   center_b_id uuid;
   fixture_equine_id uuid;
   fixture_discipline_id uuid;
-  assessment_id uuid;
+  kept_assessment_id uuid;
   cascade_assessment_id uuid;
   remaining_id uuid;
   child_count integer;
@@ -336,19 +336,19 @@ begin
     'VALID',
     'fixture assessment'
   )
-  returning id into assessment_id;
+  returning id into kept_assessment_id;
 
   insert into public.rider_assessment_disciplines (
     assessment_id, discipline_id, observed_level, supervision_required
   ) values (
-    assessment_id, fixture_discipline_id, 'observed note', true
+    kept_assessment_id, fixture_discipline_id, 'observed note', true
   );
 
   begin
     insert into public.rider_assessment_disciplines (
       assessment_id, discipline_id
     ) values (
-      assessment_id, '93000000-0000-0000-0000-000000000098'::uuid
+      kept_assessment_id, '93000000-0000-0000-0000-000000000098'::uuid
     );
     raise exception 'Discipline child with invalid discipline FK was allowed';
   exception
@@ -358,7 +358,7 @@ begin
   insert into public.rider_assessment_restrictions (
     assessment_id, restriction_code, value_json, notes
   ) values (
-    assessment_id,
+    kept_assessment_id,
     'SUPERVISION',
     '{"required": true}'::jsonb,
     'fixture restriction'
@@ -368,7 +368,7 @@ begin
     insert into public.rider_assessment_restrictions (
       assessment_id, restriction_code, value_json
     ) values (
-      assessment_id, 'BAD_JSON', '[]'::jsonb
+      kept_assessment_id, 'BAD_JSON', '[]'::jsonb
     );
     raise exception 'Non-object restriction value_json was allowed';
   exception
@@ -413,7 +413,7 @@ begin
   begin
     update public.rider_assessments
        set rider_person_id = other_person_id
-     where id = assessment_id;
+     where id = kept_assessment_id;
     raise exception 'Historical rider identity rewrite was allowed';
   exception
     when insufficient_privilege then null;
@@ -422,7 +422,7 @@ begin
   begin
     update public.rider_assessments
        set center_id = center_b_id
-     where id = assessment_id;
+     where id = kept_assessment_id;
     raise exception 'Historical center identity rewrite was allowed';
   exception
     when insufficient_privilege then null;
@@ -438,7 +438,7 @@ begin
 
   select id into remaining_id
     from public.rider_assessments
-   where id = assessment_id;
+   where id = kept_assessment_id;
 
   if remaining_id is null then
     raise exception 'Historical assessment was removed after membership end';
@@ -447,7 +447,7 @@ begin
   begin
     update public.rider_assessments
        set status = 'REVOKED'
-     where id = assessment_id;
+     where id = kept_assessment_id;
     raise exception 'Assessment mutation after membership end was allowed';
   exception
     when insufficient_privilege then null;
@@ -457,7 +457,7 @@ begin
     insert into public.rider_assessment_disciplines (
       assessment_id, discipline_id
     ) values (
-      assessment_id, fixture_discipline_id
+      kept_assessment_id, fixture_discipline_id
     );
     raise exception 'Child discipline insert after membership end was allowed';
   exception
@@ -469,7 +469,7 @@ begin
   begin
     update public.rider_assessment_restrictions as restriction
        set notes = 'rewritten after leave'
-     where restriction.assessment_id = assessment_id;
+     where restriction.assessment_id = kept_assessment_id;
     raise exception 'Child restriction update after membership end was allowed';
   exception
     when insufficient_privilege then null;
@@ -477,13 +477,13 @@ begin
 
   begin
     delete from public.rider_assessment_restrictions as restriction
-     where restriction.assessment_id = assessment_id;
+     where restriction.assessment_id = kept_assessment_id;
     raise exception 'Child restriction delete after membership end was allowed';
   exception
     when insufficient_privilege then null;
   end;
 
-  perform set_config('app.assessment_id', assessment_id::text, true);
+  perform set_config('app.assessment_id', kept_assessment_id::text, true);
   perform set_config('app.center_a_id', center_a_id::text, true);
   perform set_config('app.discipline_id', fixture_discipline_id::text, true);
 end;
