@@ -14,7 +14,7 @@ export default function ExploreScreen() {
       <SectionCard title="Descubrir">
         <MenuRow
           label="Caballos y ponis"
-          description="Equinos disponibles para montar o conocer."
+          description="Los equinos existen como dominio, pero el directorio público, la disponibilidad, las reservas y la subida de media aún no están en la app."
           status="comingSoon"
         />
         <MenuRow
