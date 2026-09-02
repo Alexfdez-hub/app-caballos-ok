@@ -62,7 +62,7 @@ begin
     select 1 from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'bookings'
+         'sessions'
        )
   ) then
     raise exception 'Later domains must remain deferred';

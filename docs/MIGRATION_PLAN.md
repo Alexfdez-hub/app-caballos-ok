@@ -3,9 +3,9 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 10A calendar implemented on
-`refactor/phase-10a-calendar` targeting the 019 branch (PR #20 Ready).
-Do not merge. Do not deploy `020`. Do not start 021 until this PR is
+**Estado:** Phase 11A bookings implemented on
+`refactor/phase-11a-bookings` targeting the 020 branch (PR #21 Ready).
+Do not merge. Do not deploy `021`. Do not start 022 until this PR is
 Ready, CI-green and Bugbot-clean.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
