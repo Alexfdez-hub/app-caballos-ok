@@ -116,13 +116,18 @@ begin
   end if;
 
   if TG_OP = 'UPDATE' then
+    if new.participant_person_id is distinct from old.participant_person_id
+       or new.booked_by_account_id is distinct from old.booked_by_account_id
+       or new.equine_id is distinct from old.equine_id
+       or new.center_id is distinct from old.center_id
+       or new.service_id is distinct from old.service_id then
+      raise exception using
+        errcode = '42501',
+        message = 'Historical booking identity cannot be rewritten';
+    end if;
+
     if old.status = any(critical_states) then
-      if new.participant_person_id is distinct from old.participant_person_id
-         or new.booked_by_account_id is distinct from old.booked_by_account_id
-         or new.equine_id is distinct from old.equine_id
-         or new.center_id is distinct from old.center_id
-         or new.service_id is distinct from old.service_id
-         or new.starts_at is distinct from old.starts_at
+      if new.starts_at is distinct from old.starts_at
          or new.ends_at is distinct from old.ends_at
          or new.booking_policy_snapshot is distinct from old.booking_policy_snapshot
          or new.confirmed_at is distinct from old.confirmed_at then
@@ -195,7 +200,7 @@ end;
 $$;
 
 comment on function public.enforce_booking_request_authority() is
-  'BEFORE INSERT OR UPDATE OR DELETE: booker is own PERSON or current VERIFIED guardian. Service must belong to center_id. CONFIRMED is allowed only from APPROVED when confirm_booking sets app.confirming_booking=1. ACTIVE/COMPLETED still cannot be forced. Confirmed history cannot be rewritten. Not executable by anon or authenticated.';
+  'BEFORE INSERT OR UPDATE OR DELETE: booker is own PERSON or current VERIFIED guardian. Service must belong to center_id. Identity cannot be retargeted. CONFIRMED is allowed only from APPROVED when confirm_booking sets app.confirming_booking=1. ACTIVE/COMPLETED still cannot be forced. Confirmed history cannot be rewritten. Not executable by anon or authenticated.';
 
 create function public.has_person_accepted_required_policy(
   p_person_id uuid,
@@ -398,6 +403,36 @@ comment on function public.worse_booking_eligibility_token(text, text) is
 revoke all on function public.worse_booking_eligibility_token(text, text)
   from public, anon, authenticated;
 
+create function public.caller_has_booking_manage_authority(
+  p_person_id uuid,
+  p_equine_id uuid,
+  p_center_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select
+    p_person_id is not null
+    and public.has_active_equine_center_permission(
+      p_equine_id,
+      p_center_id,
+      'MANAGE_BOOKINGS'
+    )
+    and (
+      public.has_active_center_role(p_person_id, p_center_id, 'ADMIN')
+      or public.has_active_center_role(p_person_id, p_center_id, 'MANAGER')
+    );
+$$;
+
+comment on function public.caller_has_booking_manage_authority(uuid, uuid, uuid) is
+  'Server-internal confirm/inspect staff path. Effective MANAGE_BOOKINGS is a Center-over-equine capability; the caller must also be an active ADMIN or MANAGER at that Center. INSTRUCTOR, ASSESSOR, membership alone and booker-alone are not enough. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.caller_has_booking_manage_authority(uuid, uuid, uuid)
+  from public, anon, authenticated;
+
 create function public.booking_caller_can_inspect_eligibility(
   p_participant_person_id uuid,
   p_equine_id uuid,
@@ -437,16 +472,16 @@ begin
     return true;
   end if;
 
-  return public.has_active_equine_center_permission(
+  return public.caller_has_booking_manage_authority(
+    caller_person,
     p_equine_id,
-    p_center_id,
-    'MANAGE_BOOKINGS'
+    p_center_id
   );
 end;
 $$;
 
 comment on function public.booking_caller_can_inspect_eligibility(uuid, uuid, uuid) is
-  'True when auth.uid() is the participant, a current VERIFIED guardian, or holds effective MANAGE_BOOKINGS for that equine+Center. Not executable by PUBLIC, anon or authenticated.';
+  'True when auth.uid() is the participant, a current VERIFIED guardian, or a Center ADMIN/MANAGER with effective MANAGE_BOOKINGS for that equine+Center. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.booking_caller_can_inspect_eligibility(uuid, uuid, uuid)
   from public, anon, authenticated;
@@ -1336,14 +1371,21 @@ begin
       message = 'Only an APPROVED booking can be confirmed';
   end if;
 
-  if not public.has_active_equine_center_permission(
+  if caller_person is not distinct from booking_row.participant_person_id
+     or caller_account is not distinct from booking_row.booked_by_account_id then
+    raise exception using
+      errcode = '42501',
+      message = 'The rider or booker cannot self-confirm';
+  end if;
+
+  if not public.caller_has_booking_manage_authority(
+    caller_person,
     booking_row.equine_id,
-    booking_row.center_id,
-    'MANAGE_BOOKINGS'
+    booking_row.center_id
   ) then
     raise exception using
       errcode = '42501',
-      message = 'Confirming a booking requires effective MANAGE_BOOKINGS for this equine at this Center';
+      message = 'Confirming a booking requires a Center ADMIN or MANAGER with effective MANAGE_BOOKINGS for this equine at this Center';
   end if;
 
   select account.person_id

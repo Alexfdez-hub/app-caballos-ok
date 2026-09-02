@@ -440,6 +440,15 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    perform public.confirm_booking(
+      current_setting('app.created_booking_id')::uuid
+    );
+    raise exception 'Unrelated account confirmed a booking';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -497,6 +506,30 @@ begin
      and status = 'ACTIVE';
 end;
 $$;
+
+-- ASSESSOR membership is not confirm authority.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '99000000-0000-0000-0000-000000000006', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"99000000-0000-0000-0000-000000000006","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.confirm_booking(
+      current_setting('app.created_booking_id')::uuid
+    );
+    raise exception 'ASSESSOR confirmed a booking';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
 
 -- Staff with MANAGE_BOOKINGS can check and confirm. Confirm only APPROVED.
 set local role authenticated;

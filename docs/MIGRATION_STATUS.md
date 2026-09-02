@@ -4,7 +4,7 @@ PHASE: 11B — Booking functions
 STATUS: IMPLEMENTADO — Draft PR targeting the 021 branch. 022 NOT deployed.
 DATE: 2026-09-02
 
-021 branch HEAD is `cdfd76808813d6b4a23e38472873e08b68c19554`
+021 branch HEAD is `69bceac9cff865e7e10fc533ad1cec956a2a7f9d`
 (PR #22 Ready). This branch implements 022 only.
 
 Do not merge. Do not deploy. Do not start 023.

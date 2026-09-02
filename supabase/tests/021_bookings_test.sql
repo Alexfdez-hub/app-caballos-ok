@@ -130,7 +130,7 @@ begin
          'waive_booking_requirement'
        )
   ) then
-    raise exception '021 must not add approve_zero_session';
+    raise exception '021 must not add approve_zero_session or a waive RPC';
   end if;
 
   if (

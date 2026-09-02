@@ -5,7 +5,7 @@
 **Migration:** `supabase/migrations/022_booking_functions.sql`
 **Date:** 2026-09-02
 **Architecture:** Data Architecture 2.1
-**Baseline:** `refactor/phase-11a-bookings` `cdfd76808813d6b4a23e38472873e08b68c19554`
+**Baseline:** `refactor/phase-11a-bookings` `69bceac9cff865e7e10fc533ad1cec956a2a7f9d`
 **Branch:** `refactor/phase-11b-booking-functions`
 
 This PR targets the 021 branch. Do not merge. Do not deploy `022`.
@@ -23,7 +23,8 @@ Product Owner closed the 019–022 conflicts on docs PR #19
   `app.confirming_booking = '1'`. ACTIVE/COMPLETED still cannot be forced.
   Ordinary calendar inserts still require `MANAGE_AVAILABILITY`.
 - Eligibility callers: participant account, current VERIFIED guardian, or
-  effective `MANAGE_BOOKINGS` for that equine+Center.
+  a Center ADMIN/MANAGER with effective `MANAGE_BOOKINGS` for that
+  equine+Center. INSTRUCTOR/ASSESSOR and booker-alone are not enough.
 - Return shape: overall frozen eligibility token on every row plus
   explainable unmet-requirement rows.
 - Staff callers do not use `has_accepted_required_policy(auth.uid())`.
@@ -35,8 +36,9 @@ Product Owner closed the 019–022 conflicts on docs PR #19
     `REQUIRES_OWNER_APPROVAL` → `PENDING_APPROVAL`
   - `REQUIRES_GUARDIAN_CONSENT` / `QUALIFICATION_NOT_VERIFIED` /
     `NOT_ELIGIBLE` → `PENDING_REQUIREMENTS`
-- `confirm_booking` requires effective `MANAGE_BOOKINGS`. Booker-alone is
-  not enough. Accepts only `APPROVED`.
+- `confirm_booking` requires a Center ADMIN/MANAGER with effective
+  `MANAGE_BOOKINGS`. Rider/booker cannot self-confirm. Accepts only
+  `APPROVED`. Identity cannot be retargeted.
 - Satisfaction:
   - `ZERO_SESSION_REQUIRED` → currently effective `ZERO_SESSION`
     authorization. A Zero Session result alone is not enough.
