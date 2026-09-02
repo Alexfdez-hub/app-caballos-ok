@@ -27,15 +27,17 @@ remains a single authenticated app without role selectors.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
-#15–#18 are merged. Migrations `001`–`018` exist on `main`. `019` does
-not exist. Product Owner states remote project `efkauegdlmfkonzwyyiv`
-is aligned through `018`; remote schema/RLS verification passed;
-Android/Expo Go smoke PASS. Historical reports that described
-`015`–`018` as stacked and not deployed were true at those branch
-times; they are not rewritten. Migration `019` is **not** started.
-Preflight found unnamed Architecture 2.1 vocabularies required by
-019–022; see `docs/ARCHITECTURE_CONFLICT_019.md`. This agent does not
-deploy and does not modify remote.
+#15–#18 are merged. Migrations `001`–`018` exist on `main` and remain
+the live schema. Product Owner states remote project
+`efkauegdlmfkonzwyyiv` is aligned through `018`; remote schema/RLS
+verification passed; Android/Expo Go smoke PASS. Historical reports
+that described `015`–`018` as stacked and not deployed were true at
+those branch times; they are not rewritten. Product Owner closed the
+019–022 preflight conflicts (PR #19 comment `5516860208`,
+2026-09-02). Status: CLOSED / RESOLVED. Implementation of `019` is
+authorized on a separate branch
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`, not
+on docs PR #19. This agent does not deploy and does not modify remote.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -98,11 +100,13 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
-#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`.
-Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
-through `018`; remote schema/RLS verification passed; Android/Expo Go
-smoke PASS. Historical reports that described `015`–`018` as stacked and
-not deployed were true at those branch times; they are not rewritten.
+#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`
+and remain the live schema. Remote project `efkauegdlmfkonzwyyiv` is
+aligned through `018` per Product Owner. Historical reports that
+described `015`–`018` as stacked and not deployed were true at those
+branch times; they are not rewritten. Product Owner closed the 019–022
+preflight conflicts (PR #19 comment `5516860208`). 019 implements on a
+separate branch targeting `main`, not on this docs PR.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:

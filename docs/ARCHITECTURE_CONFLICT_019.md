@@ -5,10 +5,11 @@
 **Architecture:** Data Architecture 2.1 Frozen
 **Baseline:** `origin/main` `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18)
 **Branch:** `docs/architecture-conflict-019`
-**Decision:** CLOSED by Product Owner 2026-09-02 (PR #19 comment
-`5516860208`). 019–022 may resume. This docs PR does **not** contain
-migration 019. Implementation is a separate branch
-`refactor/phase-9a-zero-sessions-authorizations`.
+**Status:** CLOSED / RESOLVED
+**Decision:** Product Owner closed these conflicts via PR #19 comment
+`5516860208` (2026-09-02). Implementation of 019 is **authorized** on
+a separate branch. This docs PR is a close-out record, **not** a STOP
+and **not** migration 019. Do not add `019_*.sql` here.
 
 This document is the durable conflict report. Historical phase reports
 for 015–018 are not rewritten. They remain branch-time records.
@@ -366,15 +367,14 @@ Product Owner wants the three RPCs in this train.
 Affected migrations:
 022 (and 021 if confirm-side snapshots need the same tokens).
 
-## Explicitly not invented / not started
+## Preflight STOP (historical — superseded)
 
-- No `supabase/migrations/019_*.sql` or later.
-- No `approve_zero_session()`, `check_booking_eligibility()`,
-  `create_booking_request()`, `confirm_booking()`,
-  `create_safety_block()`.
-- No calendar, booking, session, payment, storage or UI work.
-- No `023`.
-- No remote Supabase change. No merge. No retarget. No push to `main`.
+The preflight on HEAD `ee0dc57` recorded the unnamed tokens below and
+stopped before SQL. That STOP is closed by the Product Owner package.
+This docs branch still contains **no** `019_*.sql`. Implementation
+starts on `refactor/phase-9a-zero-sessions-authorizations` targeting
+`main`. No merge, retarget, remote deploy, push to `main`, force-push,
+`023`, payments, Sessions, Storage or Autofix.
 
 ## Next
 
@@ -412,6 +412,16 @@ materially different outcomes, or an irreversible action outside scope.
 - `APPROVED` / `APPROVED_WITH_RESTRICTIONS` require evaluator and
   `performed_at`. A Zero Session result never auto-creates an
   authorization.
+- Do **not** bind the Zero Session evaluator to `APPROVE_RIDERS`.
+- `approve_zero_session()` remains omitted until caller identity and
+  result transitions are named; 019 enforces the frozen authority on
+  INSERT/UPDATE instead.
+
+**CENTER-owner “represent the owning Center” (derived, not a new role):**
+the issuer PERSON must have an active Center membership `ADMIN` or
+`MANAGER` at the owning Center **and** effective explicit
+`APPROVE_RIDERS` for that equine at that Center. `INSTRUCTOR` /
+`ASSESSOR` membership, assignment and management do not substitute.
 
 ### 020
 

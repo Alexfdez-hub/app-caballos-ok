@@ -1,10 +1,12 @@
 # MIGRATION STATUS
 
-PHASE: 8B merged; 019–022 architecture conflicts CLOSED
+PHASE: 8B merged; 019–022 architecture conflicts CLOSED / RESOLVED
 STATUS: Product Owner 2026-09-02 closed the 019–022 preflight conflicts
-on Draft PR #19. Migration 019 is implemented on a separate branch
-`refactor/phase-9a-zero-sessions-authorizations`. This docs PR contains
-no SQL.
+(PR #19 comment `5516860208`). Migrations `015`–`018` remain merged on
+`main`. Remote remains aligned through `018`. Conflicts are closed.
+Migration 019 is implementing on a **separate** branch
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`, not
+on this docs PR. This PR contains no SQL.
 DATE: 2026-09-02
 
 `origin/main` HEAD is `40e1f1e7b201796c632ec480bfba07d43564d439`
