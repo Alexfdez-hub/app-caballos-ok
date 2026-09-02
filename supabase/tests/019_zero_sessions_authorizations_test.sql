@@ -1,5 +1,7 @@
 -- Phase 9A local Zero Session and authorization foundation tests.
 -- Assumes migrations 001-019. Calendar, bookings and eligibility remain deferred.
+-- CENTER OWNER_APPROVAL requires ADMIN or MANAGER plus APPROVE_RIDERS;
+-- INSTRUCTOR plus APPROVE_RIDERS is rejected.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -492,6 +494,19 @@ begin
   ) values (
     center_owned_id, center_a_id, staff_person_id, 'APPROVE_RIDERS'
   );
+
+  begin
+    insert into public.rider_equine_authorizations (
+      rider_person_id, equine_id, authorization_type, issued_by_person_id,
+      center_id
+    ) values (
+      rider_person_id, center_owned_id, 'OWNER_APPROVAL', instructor_person_id,
+      center_a_id
+    );
+    raise exception 'CENTER OWNER_APPROVAL by INSTRUCTOR was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
 
   begin
     insert into public.rider_equine_authorizations (

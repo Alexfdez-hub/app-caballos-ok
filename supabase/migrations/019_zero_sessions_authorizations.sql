@@ -257,16 +257,16 @@ set search_path = pg_catalog, public
 as $$
   select exists (
     select 1
-      from public.rider_equine_authorizations as authorization
-     where authorization.rider_person_id = p_rider_person_id
-       and authorization.equine_id = p_equine_id
-       and authorization.authorization_type = p_authorization_type
-       and authorization.status = 'ACTIVE'
-       and authorization.revoked_at is null
-       and authorization.valid_from <= now()
+      from public.rider_equine_authorizations as rider_auth
+     where rider_auth.rider_person_id = p_rider_person_id
+       and rider_auth.equine_id = p_equine_id
+       and rider_auth.authorization_type = p_authorization_type
+       and rider_auth.status = 'ACTIVE'
+       and rider_auth.revoked_at is null
+       and rider_auth.valid_from <= now()
        and (
-         authorization.valid_until is null
-         or authorization.valid_until > now()
+         rider_auth.valid_until is null
+         or rider_auth.valid_until > now()
        )
   );
 $$;
@@ -371,14 +371,14 @@ begin
   end if;
 
   if new.authorization_type = 'ZERO_SESSION' then
-    select session.rider_person_id,
-           session.equine_id,
-           session.center_id,
-           session.result,
-           session.evaluator_person_id
+    select zero_session.rider_person_id,
+           zero_session.equine_id,
+           zero_session.center_id,
+           zero_session.result,
+           zero_session.evaluator_person_id
       into source_rider, source_equine, source_center, source_result, source_evaluator
-      from public.zero_sessions as session
-     where session.id = new.source_zero_session_id;
+      from public.zero_sessions as zero_session
+     where zero_session.id = new.source_zero_session_id;
 
     if source_rider is null then
       raise exception using
@@ -467,6 +467,23 @@ begin
         raise exception using
           errcode = '42501',
           message = 'CENTER OWNER_APPROVAL requires effective APPROVE_RIDERS at the owning Center';
+      end if;
+
+      if not (
+        public.has_active_center_role(
+          new.issued_by_person_id,
+          new.center_id,
+          'ADMIN'
+        )
+        or public.has_active_center_role(
+          new.issued_by_person_id,
+          new.center_id,
+          'MANAGER'
+        )
+      ) then
+        raise exception using
+          errcode = '42501',
+          message = 'CENTER OWNER_APPROVAL issuer must be an active ADMIN or MANAGER at the owning Center';
       end if;
 
       if new.issued_by_person_id = new.rider_person_id then

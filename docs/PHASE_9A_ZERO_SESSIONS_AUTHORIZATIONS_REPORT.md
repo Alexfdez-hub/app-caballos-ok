@@ -10,7 +10,10 @@
 
 This PR targets `main`. Do not merge. Do not deploy `019`. Product Owner
 closed the 019–022 conflicts on docs PR #19
-(comment `5516860208`). This agent will not merge or deploy.
+(comment `5516860208`, HEAD `6127941e4b89baf17d4a5fea36e4b73bf4d22d5d`).
+This agent will not merge or deploy.
+
+SQL aliases avoid reserved keywords (`authorization`, `session`).
 
 ## Design selected
 
@@ -47,7 +50,9 @@ closed the 019–022 conflicts on docs PR #19
 - `OWNER_APPROVAL` with null `center_id`: issuer is an effective PERSON
   owner. Owner-as-rider is allowed.
 - `OWNER_APPROVAL` with `center_id`: that Center must effectively own
-  the equine and hold `APPROVE_RIDERS`. Issuer ≠ rider.
+  the equine and hold `APPROVE_RIDERS`. Issuer is an active `ADMIN` or
+  `MANAGER` at that owning Center. Issuer ≠ rider. `INSTRUCTOR` /
+  `ASSESSOR` do not represent the owning Center.
 - Membership, assignment and management alone never substitute.
 - UPDATE cannot retarget historical identity columns. Evaluator cannot
   change once set. Historical Zero Session remains after membership end;
