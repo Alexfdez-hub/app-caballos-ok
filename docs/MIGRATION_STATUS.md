@@ -1,139 +1,144 @@
 # MIGRATION STATUS
 
-PHASE: 3E — Center memberships
-STATUS: IMPLEMENTADO — merged on `main` (PR #9); migration 010 deployed
-to linked development project `efkauegdlmfkonzwyyiv`
+PHASE: 3F — Equines foundation
+STATUS: IMPLEMENTADO — draft PR against `main`; migration 011 NOT deployed
 DATE: 2026-09-02
 
-Phase 3E Center memberships is merged on `main`
-(`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`, PR #9).
-Migration `010_center_memberships.sql` is deployed on the linked development
-project. Migrations `001–009` were not modified.
+Phase 3F Equines foundation is implemented on
+`refactor/phase-3f-equines-foundation`. Migration `011_equines.sql` is local
+only. Migrations `001–010` were not modified.
 
 ## Approved starting state
 
-- `main` includes Phase 3D (`1b67ade`, PR #8 documentation after PR #7).
-- Migrations 001–009 exist locally and on the linked development project
+- `main` `9ac317295a5a983c6b74284af17f7e9fb305a8c7` (docs PR #10; Phase 3E
+  merged and documented).
+- Migrations 001–010 exist locally and on the linked development project
   `efkauegdlmfkonzwyyiv`.
-- Next unused migration number was `010`.
-- Roadmap assigns `010_center_memberships.sql` to memberships.
+- Next unused migration number was `011`.
+- Roadmap assigns `011_equines.sql` to the Equines foundation.
 
 ## Files created
 
-- `supabase/migrations/010_center_memberships.sql`
-- `supabase/tests/010_center_memberships_test.sql`
-- `scripts/run-memberships-sql-tests.cjs`
-- `src/features/centers/*`
-- `src/screens/MyCentersScreen.tsx`
-- `docs/PHASE_3E_CENTER_MEMBERSHIPS_REPORT.md`
+- `supabase/migrations/011_equines.sql`
+- `supabase/tests/011_equines_test.sql`
+- `scripts/run-equines-sql-tests.cjs`
+- `docs/PHASE_3F_EQUINES_FOUNDATION_REPORT.md`
+- `.github/workflows/quality-gate.yml`
 
 ## Files modified
 
 - `package.json`
+- `src/screens/ExploreScreen.tsx`
 - `src/screens/ProfileScreen.tsx`
-- `src/app/navigation/AuthenticatedTabs.tsx`
-- `src/app/navigation/types.ts`
 - `supabase/tests/009_centers_test.sql` (regression compatibility only;
   migration `009_centers.sql` is unchanged)
+- `supabase/tests/010_center_memberships_test.sql` (regression compatibility
+  only; migration `010_center_memberships.sql` is unchanged)
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
 ## Migration created
 
-`010_center_memberships.sql`:
+`011_equines.sql`:
 
-- `center_memberships` as PERSON + CENTER domain relationships;
-- MVP0 roles `ADMIN | MANAGER | INSTRUCTOR | ASSESSOR`;
-- lifecycle `ACTIVE | ENDED`;
-- unique active `(center_id, person_id, role_code)`;
+- `equines` as UUID equine identity; `HORSE | PONY` types;
+- lifecycle `ACTIVE | INACTIVE | ARCHIVED | DECEASED` (Product Owner
+  confirmed; `DECEASED ≠ ARCHIVED`; `RETIRED` rejected);
+- `birth_date` null or `<= (created_at AT TIME ZONE 'UTC')::date`; age is
+  not stored;
+- visibility `PRIVATE | PUBLIC` as stored intent only;
+- `equine_media` metadata with `PHOTO` only and unique `storage_path`;
 - RLS deny-by-default, no client table policies or grants;
-- `list_my_center_memberships()` caller-context read;
-- `has_active_center_role(person, center, role)` server-internal helper;
-- no grant/revoke/bootstrap RPCs, no invitations, no Center Policy
-  activation.
+- no client RPC; no Storage bucket, objects or policies.
 
-## Membership lifecycle decision
+## Equine enumeration decision
 
-**Product Owner, 2026-09-02.** Architecture 2.1 names
-`center_memberships.status` without enumerating values. The frozen 010
-tokens are:
+**Product Owner, 2026-09-02.** Confirmed `equines.status`:
 
-- `ACTIVE` (default): currently in force; `ended_at` must be null.
-- `ENDED`: historical; `ended_at` required and `>= joined_at`.
+- `ACTIVE` (default)
+- `INACTIVE`
+- `ARCHIVED` — living equine withdrawn from operational use
+- `DECEASED` — the equine has died; distinct from `ARCHIVED`
 
-Do not add `INVITED`, `PENDING`, `SUSPENDED` or other lifecycle states.
-Invitation and onboarding workflows remain deferred. Later tokens need a
-new forward migration. 010 does not enforce transition triggers. Ordinary
-clients cannot change status. Historical rows are retained; ending is not
-a physical DELETE.
+Do not add `RETIRED`. Architecture 2.1 still names `visibility_status` and
+`media_type` without enumerating values. The 011 foundation set remains:
+
+- Visibility: `PRIVATE` (default), `PUBLIC`. PUBLIC does not grant SELECT.
+- Media: `PHOTO` only. Architecture does not mention VIDEO for equine_media.
+
+Do not add ownership, management, center assignment or public-directory
+tokens. Later tokens need a new forward migration. 011 does not enforce
+transition triggers. Ordinary clients cannot change status. Historical rows
+are retained.
 
 ## Application state
 
-- Profile → Mis centros lists the authenticated person’s real memberships
-  (Center name, role label, active/ended). Empty state is truthful: onboarding
-  and role assignment are not in the app.
-- Explore → Hípicas remains coming-soon (no public directory).
-- No join/create/invite/assign/verify UI.
+- Explore → Caballos y ponis remains coming-soon: domain exists; public
+  discovery, availability, booking and media upload are not in the app.
+- Profile → Mis equinos remains coming-soon: domain exists; ownership
+  listing is not in the app.
+- Profile → Equinos que gestiono remains coming-soon: domain exists;
+  management, center assignment and booking are not in the app.
+- No create/edit/upload/directory UI and no fabricated equine cards.
 
 ## Remote
 
 Linked development project: `efkauegdlmfkonzwyyiv`.
 
-Product Owner approved the linked push. `010_center_memberships.sql` was applied.
-
-- Strict dry-run: `npx supabase db push --linked --dry-run --skip-vault`
-  showed ONLY `010_center_memberships.sql`.
-- Deployment: `npx supabase db push --linked --yes --skip-vault`.
-- Vault, seeds and custom roles were not included.
-- Local and remote histories align through `010`.
-- `public.center_memberships` exists remotely.
-- RLS is enabled. No RLS policies (intentional deny-by-default).
-- `anon` has no SELECT/INSERT/UPDATE/DELETE.
-- `authenticated` has no SELECT/INSERT/UPDATE/DELETE.
-- `list_my_center_memberships()` is executable by `authenticated`, not by
-  `anon`; no `person_id` argument; identity from `auth.uid()`;
-  `SECURITY DEFINER`; `STABLE`; `search_path = pg_catalog, public`.
-- `has_active_center_role(uuid, uuid, text)` is not executable by `anon` or
-  `authenticated`; `SECURITY DEFINER`; `STABLE`; fixed `search_path`.
-- Unique active-membership index exists.
-- Migration `011` was not created or deployed.
+Migration `011` was **not** created on the remote project and was **not**
+deployed. Local and remote histories remain aligned through `010`. Do not
+deploy 011 from this correction pass.
 
 ## Security Advisor (record only — do not fix)
 
-1. `rls_enabled_no_policy` on `center_memberships` is intentional (RLS on,
-   privileges revoked, no client policies, reads via caller-context RPC).
-   Do not add permissive policies.
-2. Authenticated `SECURITY DEFINER` on `list_my_center_memberships()` is
-   intentional (caller-context read API, no `person_id`, `auth.uid()`,
-   table access denied). Do not switch to `SECURITY INVOKER` or revoke
-   authenticated execute.
-3. Separate future task: Security Advisor "Leaked Password Protection
-   Disabled". Not a Phase 3E defect and not caused by 010. Do not change
-   Auth config.
+When 011 is applied locally or remotely, `rls_enabled_no_policy` on
+`equines` and `equine_media` is intentional (RLS on, privileges revoked, no
+client policies, no client RPC). Do not add permissive policies to silence
+the advisor. Do not grant Data API SELECT to make PostgREST see the tables.
 
-## Local / app verification (final Phase 3E HEAD)
+Separate future task: Security Advisor "Leaked Password Protection
+Disabled". Not a Phase 3F defect and not caused by 011. Do not change Auth
+config.
 
-The complete local runtime gate was executed successfully on pre-merge
-Phase 3E HEAD `0973a609176c77f87d2682644a6b8e57fe4794d4`. Merge commit
-`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2` contains the identical source
-tree (GitHub comparison: zero changed files). The tests were not re-run
-after merge.
+## Local / app verification
 
-- clean local replay `001–010`
-- `test:memberships`, `test:centers`, `test:riders`, `test:identity`
-- `test:guardians` including real two-session concurrency
-- `test:auth` 38/38
-- TypeScript typecheck
-- Expo Doctor 18/18
-- `git diff --check`
-- `001–009` immutability
-- clean working tree
-- Authenticated Expo Go smoke: Profile → Mis centros against remote;
-  caller without memberships sees truthful empty state; no PGRST202 or
-  generic load failure; no create/join/invite/assign-role/membership-edit UI
+GitHub Actions is the permanent automated quality gate
+(`.github/workflows/quality-gate.yml`, every `pull_request` plus
+`workflow_dispatch`). It uses `contents: read`, no project secrets, and
+local Docker/Supabase only. Inherited migrations at the PR base must remain
+unchanged; new files are allowed. PostgreSQL quality runs `npm run test:sql`.
+
+Proven green: run
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
+on `93788a208b50c8e5f652b9c94ee3c1d230c840e7`. Conclusion: success.
+App quality PASS. PostgreSQL quality PASS (`test:identity`, `test:guardians`
+including two-session concurrency, `test:riders`, `test:centers`,
+`test:memberships`, `test:equines`).
+
+### Checks Grok ran in the cloud workspace
+
+- `npm ci` PASS
+- `npm run test:auth` PASS — 38/38
+- `npm run typecheck` PASS
+- `npx expo-doctor` PASS — 18/18
+- `git diff --check` PASS
+- `001–010` vs `origin/main` PASS — unchanged
+
+SQL suites were not executed in this cloud clone (no Docker).
+
+### Checks executed by GitHub Actions
+
+Quality gate `33629791578` PASS (both jobs). See
+`docs/PHASE_3F_EQUINES_FOUNDATION_REPORT.md` for job URLs.
+
+### Checks not executed in the cloud workspace
+
+This cloud clone has no Docker; SQL tests were not executed against
+PostgreSQL here. Docker was not installed. Those suites ran on
+GitHub-hosted runners and passed.
 
 ## Next phase
 
-Do not start equines, disciplines, assessments, services or bookings until
-Product Owner authorizes the next phase. Phase 011 has not been started.
+Do not start 012 equine ownership/management until Product Owner authorizes
+it. Do not merge this draft. Do not deploy 011 remotely.

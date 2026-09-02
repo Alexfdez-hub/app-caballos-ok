@@ -1,6 +1,7 @@
 -- Phase 3E local center-membership tests.
 -- Assumes migrations 001-010 are applied and auth.uid() reads
--- request.jwt.claim.sub. Runnable without psql meta-commands.
+-- request.jwt.claim.sub. Compatible with 011 equines foundation.
+-- Runnable without psql meta-commands.
 
 begin;
 
@@ -117,12 +118,29 @@ begin
 
   if exists (
     select 1
+      from information_schema.columns
+     where table_schema = 'public'
+       and table_name = 'equines'
+       and column_name in (
+         'owner_id',
+         'manager_id',
+         'center_id',
+         'auth_user_id'
+       )
+  ) then
+    raise exception 'Equines must not carry owner, manager or center shortcuts';
+  end if;
+
+  if exists (
+    select 1
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
          'rider_assessments',
-         'equines',
+         'equine_ownerships',
          'equine_management_assignments',
+         'equine_center_assignments',
+         'equine_center_permissions',
          'center_services',
          'bookings'
        )
