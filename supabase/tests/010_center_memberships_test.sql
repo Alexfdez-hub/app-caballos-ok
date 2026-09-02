@@ -137,8 +137,6 @@ begin
      where table_schema = 'public'
        and table_name in (
          'rider_assessments',
-         'equine_ownerships',
-         'equine_management_assignments',
          'equine_center_assignments',
          'equine_center_permissions',
          'center_services',

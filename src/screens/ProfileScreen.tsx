@@ -79,14 +79,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
       <SectionCard title="Mi actividad ecuestre">
         <MenuRow
-          description="Los equinos existen como dominio, pero la propiedad y el listado de tus equinos aún no están en la app."
+          description="Consulta participaciones reales de tu identidad. El alta y el directorio público no están en la app."
           label="Mis equinos"
-          status="comingSoon"
+          onPress={() => navigation.navigate('MyEquines')}
         />
         <MenuRow
-          description="Los equinos existen como dominio, pero la gestión, la asignación a centros y las reservas aún no están en la app."
+          description="Consulta asignaciones de gestión de tu identidad. No son propiedad ni asignación a un centro."
           label="Equinos que gestiono"
-          status="comingSoon"
+          onPress={() => navigation.navigate('MyManagedEquines')}
         />
         <MenuRow
           description="Consulta membresías reales de tu identidad. El alta de centros y la asignación de roles no están en la app."

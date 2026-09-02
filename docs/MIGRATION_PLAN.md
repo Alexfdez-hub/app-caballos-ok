@@ -186,8 +186,8 @@ booking and media upload remain deferred.
 Architecture Phase 4 grouped equines + ownership + management + center
 relations. Implementation numbering splits them:
 
-- `011_equines` — foundation (this phase)
-- `012_equine_ownership_management` — not started
+- `011_equines` — foundation (PR #11)
+- `012_equine_ownership_management` — stacked PR on #11
 - `013_equine_center_relations` — not started
 
 Do not collapse ownership or management onto `equines`. Do not invent
