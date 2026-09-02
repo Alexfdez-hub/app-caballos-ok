@@ -158,13 +158,52 @@ unspecified. Invitation and suspension states were not invented.
 | `npm run test:riders` | PASS |
 | `npm run test:identity` | PASS |
 | `npm run test:guardians` | PASS — SQL/RLS plus concurrency |
-| `npm run test:auth` | PASS — 29 tests |
+| `npm run test:auth` | PASS — 38/38 |
 | `npm run typecheck` | PASS |
 | `npx expo-doctor` | PASS — 18/18 |
 | `git diff --check` | PASS |
 | Migrations `001–009` diff | PASS — empty |
+| Working tree | PASS — clean |
+| Authenticated Expo Go smoke (remote) | PASS — Profile → Mis centros; empty state truthful; no PGRST202 or generic load failure; no create/join/invite/assign-role/membership-edit UI |
+
+Final Phase 3E HEAD verification above is recorded as already passed on
+`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`. Not re-run in this
+documentation update.
 
 ## Remote
 
-Do not deploy 010 until Product Owner approves. Local and remote histories
-currently align through 009.
+Linked development project: `efkauegdlmfkonzwyyiv`.
+
+Phase 3E PR #9 was merged into `main` at
+`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`. Product Owner approved the
+linked push. `010_center_memberships.sql` was applied.
+
+- Strict dry-run: `npx supabase db push --linked --dry-run --skip-vault`
+  showed ONLY `010_center_memberships.sql`.
+- Deployment: `npx supabase db push --linked --yes --skip-vault`.
+- Vault, seeds and custom roles were not included.
+- Local and remote histories align through `010`.
+- `public.center_memberships` exists remotely.
+- RLS is enabled. No RLS policies (intentional deny-by-default).
+- `anon` has no SELECT/INSERT/UPDATE/DELETE.
+- `authenticated` has no SELECT/INSERT/UPDATE/DELETE.
+- `list_my_center_memberships()` is executable by `authenticated`, not by
+  `anon`; no `person_id` argument; identity from `auth.uid()`;
+  `SECURITY DEFINER`; `STABLE`; `search_path = pg_catalog, public`.
+- `has_active_center_role(uuid, uuid, text)` is not executable by `anon` or
+  `authenticated`; `SECURITY DEFINER`; `STABLE`; fixed `search_path`.
+- Unique active-membership index exists.
+- Migration `011` was not created or deployed.
+
+## Security Advisor (record only — do not fix)
+
+1. `rls_enabled_no_policy` on `center_memberships` is intentional (RLS on,
+   privileges revoked, no client policies, reads via caller-context RPC).
+   Do not add permissive policies.
+2. Authenticated `SECURITY DEFINER` on `list_my_center_memberships()` is
+   intentional (caller-context read API, no `person_id`, `auth.uid()`,
+   table access denied). Do not switch to `SECURITY INVOKER` or revoke
+   authenticated execute.
+3. Separate future task: Security Advisor "Leaked Password Protection
+   Disabled". Not a Phase 3E defect and not caused by 010. Do not change
+   Auth config.

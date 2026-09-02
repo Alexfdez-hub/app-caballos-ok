@@ -1,12 +1,14 @@
 # MIGRATION STATUS
 
 PHASE: 3E — Center memberships
-STATUS: IMPLEMENTADO localmente — pending review / remote deployment approval
+STATUS: IMPLEMENTADO — merged on `main` (PR #9); migration 010 deployed
+to linked development project `efkauegdlmfkonzwyyiv`
 DATE: 2026-09-02
 
-Phase 3E Center memberships is implemented on
-`refactor/phase-3e-center-memberships`. Migration `010_center_memberships.sql`
-is local only. Migrations `001–009` were not modified.
+Phase 3E Center memberships is merged on `main`
+(`84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`, PR #9).
+Migration `010_center_memberships.sql` is deployed on the linked development
+project. Migrations `001–009` were not modified.
 
 ## Approved starting state
 
@@ -78,12 +80,57 @@ a physical DELETE.
 
 Linked development project: `efkauegdlmfkonzwyyiv`.
 
-- Local and remote histories currently align through `009`.
-- Migration `010` is **not** deployed.
-- Do not `db push` until Product Owner approves this phase.
+Product Owner approved the linked push. `010_center_memberships.sql` was applied.
+
+- Strict dry-run: `npx supabase db push --linked --dry-run --skip-vault`
+  showed ONLY `010_center_memberships.sql`.
+- Deployment: `npx supabase db push --linked --yes --skip-vault`.
+- Vault, seeds and custom roles were not included.
+- Local and remote histories align through `010`.
+- `public.center_memberships` exists remotely.
+- RLS is enabled. No RLS policies (intentional deny-by-default).
+- `anon` has no SELECT/INSERT/UPDATE/DELETE.
+- `authenticated` has no SELECT/INSERT/UPDATE/DELETE.
+- `list_my_center_memberships()` is executable by `authenticated`, not by
+  `anon`; no `person_id` argument; identity from `auth.uid()`;
+  `SECURITY DEFINER`; `STABLE`; `search_path = pg_catalog, public`.
+- `has_active_center_role(uuid, uuid, text)` is not executable by `anon` or
+  `authenticated`; `SECURITY DEFINER`; `STABLE`; fixed `search_path`.
+- Unique active-membership index exists.
+- Migration `011` was not created or deployed.
+
+## Security Advisor (record only — do not fix)
+
+1. `rls_enabled_no_policy` on `center_memberships` is intentional (RLS on,
+   privileges revoked, no client policies, reads via caller-context RPC).
+   Do not add permissive policies.
+2. Authenticated `SECURITY DEFINER` on `list_my_center_memberships()` is
+   intentional (caller-context read API, no `person_id`, `auth.uid()`,
+   table access denied). Do not switch to `SECURITY INVOKER` or revoke
+   authenticated execute.
+3. Separate future task: Security Advisor "Leaked Password Protection
+   Disabled". Not a Phase 3E defect and not caused by 010. Do not change
+   Auth config.
+
+## Local / app verification (final Phase 3E HEAD)
+
+Recorded as already passed on `84e3da1c7184abf4b9ebe5ec2f02257d7dbe15e2`.
+Not re-run in this documentation update.
+
+- clean local replay `001–010`
+- `test:memberships`, `test:centers`, `test:riders`, `test:identity`
+- `test:guardians` including real two-session concurrency
+- `test:auth` 38/38
+- TypeScript typecheck
+- Expo Doctor 18/18
+- `git diff --check`
+- `001–009` immutability
+- clean working tree
+- Authenticated Expo Go smoke: Profile → Mis centros against remote;
+  caller without memberships sees truthful empty state; no PGRST202 or
+  generic load failure; no create/join/invite/assign-role/membership-edit UI
 
 ## Next phase
 
 Do not start equines, disciplines, assessments, services or bookings until
-Product Owner authorizes the next phase. Remote deployment of 010 is a
-separate approval.
+Product Owner authorizes the next phase. Phase 011 has not been started.

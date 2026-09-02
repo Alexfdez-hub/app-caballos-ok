@@ -3,8 +3,8 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3E Center memberships implementada localmente en
-`refactor/phase-3e-center-memberships`. Migration `010` no desplegada.
+**Estado:** Phase 3E Center memberships mergeada en `main` (PR #9);
+migration `010` desplegada en el proyecto linked `efkauegdlmfkonzwyyiv`.
 Equines y fases posteriores no iniciadas.
 
 ## 1. Método
@@ -151,8 +151,9 @@ verification or public directory.
 
 ## 8d. Phase 3E — Center memberships
 
-**IMPLEMENTADA LOCALMENTE.** Migration `010_center_memberships.sql`.
-Pendiente de revisión, PR y aprobación de despliegue remoto.
+**IMPLEMENTADA Y MERGEADA EN `main` (PR #9).** Migration
+`010_center_memberships.sql` desplegada en el proyecto linked
+`efkauegdlmfkonzwyyiv`. Histories local y remota alineadas hasta `010`.
 
 Creates `center_memberships` as PERSON + CENTER relationships with MVP0
 roles `ADMIN|MANAGER|INSTRUCTOR|ASSESSOR`. Product Owner froze lifecycle
@@ -279,6 +280,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras aprobar Phase 3E y desplegar 010:**
+**Siguiente fase prevista tras Phase 3E:**
 equines / ownership according to the current roadmap (`011_equines.sql`).
-Do not start that phase in this memberships implementation.
+Do not start that phase. Phase 011 has not been created or deployed.

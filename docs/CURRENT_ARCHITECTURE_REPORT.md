@@ -94,8 +94,8 @@ Usual development: `npm run start:local`. Remote: `npm run start:remote`.
 - No single `users.role` model
 
 The next planned SQL migration after Product Owner authorization is
-`011_equines.sql`. Migration 010 must not be deployed remotely until
-explicitly approved.
+`011_equines.sql`. Migration 010 is deployed on the linked development
+project. Phase 011 has not been started.
 
 ## Historical records
 
