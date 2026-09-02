@@ -77,6 +77,7 @@ insert into auth.users (id) values
   ('96000000-0000-0000-0000-000000000006');
 
 do $$
+#variable_conflict use_variable
 declare
   rider_person_id uuid;
   evaluator_person_id uuid;
@@ -676,7 +677,7 @@ begin
        set supervision_required = true
      where equine_id = person_owned_id
        and authorization_type = 'OWNER_APPROVAL'
-       and rider_person_id = owner_person_id
+       and public.rider_equine_authorizations.rider_person_id = owner_person_id
        and status = 'ACTIVE'
        and valid_from <= now();
     raise exception 'PERSON OWNER_APPROVAL mutation after ownership end was allowed';
@@ -689,7 +690,7 @@ begin
          revoked_at = now()
    where equine_id = person_owned_id
      and authorization_type = 'OWNER_APPROVAL'
-     and rider_person_id = owner_person_id
+     and public.rider_equine_authorizations.rider_person_id = owner_person_id
      and status = 'ACTIVE'
      and valid_from <= now();
 
