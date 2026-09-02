@@ -459,6 +459,12 @@ begin
           message = 'CENTER OWNER_APPROVAL requires effective CENTER ownership of this equine';
       end if;
 
+      if new.issued_by_person_id = new.rider_person_id then
+        raise exception using
+          errcode = '23514',
+          message = 'CENTER OWNER_APPROVAL issuer cannot be the rider';
+      end if;
+
       if not public.has_active_equine_center_permission(
         new.equine_id,
         new.center_id,
@@ -484,12 +490,6 @@ begin
         raise exception using
           errcode = '42501',
           message = 'CENTER OWNER_APPROVAL issuer must be an active ADMIN or MANAGER at the owning Center';
-      end if;
-
-      if new.issued_by_person_id = new.rider_person_id then
-        raise exception using
-          errcode = '23514',
-          message = 'CENTER OWNER_APPROVAL issuer cannot be the rider';
       end if;
     end if;
   end if;

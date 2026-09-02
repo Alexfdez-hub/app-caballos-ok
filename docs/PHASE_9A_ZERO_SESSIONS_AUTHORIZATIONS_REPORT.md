@@ -51,7 +51,8 @@ SQL aliases avoid reserved keywords (`authorization`, `session`).
   owner. Owner-as-rider is allowed.
 - `OWNER_APPROVAL` with `center_id`: that Center must effectively own
   the equine and hold `APPROVE_RIDERS`. Issuer is an active `ADMIN` or
-  `MANAGER` at that owning Center. Issuer ≠ rider. `INSTRUCTOR` /
+  `MANAGER` at that owning Center. Issuer ≠ rider, checked before role
+  so an ADMIN/MANAGER rider still cannot self-approve. `INSTRUCTOR` /
   `ASSESSOR` do not represent the owning Center.
 - Membership, assignment and management alone never substitute.
 - UPDATE cannot retarget historical identity columns. Evaluator cannot
