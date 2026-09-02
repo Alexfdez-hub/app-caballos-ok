@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 4A — Equine ownership and management (stacked on 3F)
+**Baseline:** Phase 4B — Equine–Center relations (stacked on 4A)
 **Date:** 2026-09-02
 
 ## Summary
@@ -13,7 +13,9 @@ Center organization foundation. Phase 3E adds Center-scoped memberships
 without client grant/revoke or first-admin bootstrap. Phase 3F adds equine
 identity and media metadata. Phase 4A adds ownership and management
 relationships without collapsing them onto `equines` and without a public
-directory. The application shell remains a single authenticated
+directory. Phase 4B adds equine–center assignments and explicit center
+permissions without treating membership, ownership or assignment as a
+permission grant. The application shell remains a single authenticated
 app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
@@ -53,6 +55,8 @@ index.js
                        -> EditIdentityScreen
                        -> GuardianRelationshipsScreen
                        -> MyCentersScreen
+                       -> MyEquinesScreen
+                       -> MyManagedEquinesScreen
 ```
 
 `AuthProvider` remains generic session infrastructure. It does not store
@@ -66,11 +70,10 @@ Profile → Mis centros reads only the caller’s memberships through
 coming-soon copy. There is no Center creation, verification, invitation or
 directory UI.
 
-Explore → Caballos y ponis and Profile → Mis equinos / Equinos que gestiono
-remain truthful coming-soon copy. The equine domain exists; public
-discovery, ownership, management, center assignment, availability, booking
-and media upload are not in the app. There is no equine create/edit/upload
-UI and no fabricated catalog.
+Explore → Caballos y ponis remains truthful coming-soon copy (no public
+directory). Profile → Mis equinos / Equinos que gestiono load the
+Phase 4A caller-scoped RPCs. There is no equine create/edit/upload UI,
+no fabricated catalog, and no assign/grant/revoke UI for center relations.
 
 ## Database target
 
@@ -98,6 +101,16 @@ and at most one active `PRIMARY_MANAGER`. Caller-scoped
 derive PERSON from `auth.uid()`. Profile → Mis equinos / Equinos que
 gestiono load those RPCs. Center membership does not grant equine
 authority. `has_active_equine_management_role` is server-internal.
+
+Migration `013_equine_center_relations.sql` (stacked, not on `main`)
+adds `equine_center_assignments` and `equine_center_permissions`.
+Assignment types are `BOARDING|CENTER_OWNED|SCHOOL|TEMPORARY|OTHER`
+with lifecycle `ACTIVE|ENDED`. Permissions are explicit codes with
+lifecycle `ACTIVE|REVOKED`. Duplicate active exact assignment type and
+duplicate active permission code are rejected. Assignment, membership
+and ownership do not create a permission. There is no client list or
+mutation RPC. `has_active_equine_center_permission` is server-internal
+and is not executable by `anon` or `authenticated`.
 
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
@@ -127,14 +140,14 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No public Center directory or map
 - No Center self-service onboarding, self-verification or invitations
 - No client membership grant/revoke or first-admin bootstrap
-- No public equine directory, ownership listing, management UI, media upload,
-  availability or booking UI
+- No public equine directory, media upload, availability, booking or
+  equine–center assign/grant UI
 - No booking, assessment, payment, or review UI
 - No single `users.role` model
 
 The next planned SQL migration after Product Owner authorization is
-`013_equine_center_relations.sql`. Migrations 011 and 012 are not deployed
-on the linked development project. Phase 013 has not been started.
+`014_disciplines.sql`. Migrations 011–013 are not deployed
+on the linked development project. Phase 014 has not been started.
 
 ## Historical records
 

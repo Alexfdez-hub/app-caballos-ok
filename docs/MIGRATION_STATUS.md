@@ -1,51 +1,45 @@
 # MIGRATION STATUS
 
-PHASE: 4A — Equine ownership and management
-STATUS: IMPLEMENTADO — stacked PR against `refactor/phase-3f-equines-foundation`; 012 NOT deployed
+PHASE: 4B — Equine–Center relations
+STATUS: IMPLEMENTADO — stacked PR against `refactor/phase-4a-equine-ownership-management`; 013 NOT deployed
 DATE: 2026-09-02
 
-Phase 4A is stacked on Ready PR #11 (`011_equines.sql`). Do not merge this
-PR before #11. Do not deploy 012. Product Owner will retarget later.
+Phase 4B is stacked on Ready PR #12 (`012_equine_ownership_management.sql`).
+Do not merge this PR before #12 (and #11). Do not deploy 013. Product Owner
+will retarget later. This agent will not retarget or merge.
 
-Parent HEAD at branch creation: `8262306bad8252713691fdcde8fff5be1dfbc8e1`.
+Parent HEAD at branch creation: `71955494db243063889b56e4e1f4bc31c57f359d`.
 Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 
 ## Files created
 
-- `supabase/migrations/012_equine_ownership_management.sql`
-- `supabase/tests/012_equine_ownership_management_test.sql`
-- `scripts/run-ownership-sql-tests.cjs`
-- `docs/PHASE_4A_EQUINE_OWNERSHIP_MANAGEMENT_REPORT.md`
-- `src/features/equines/*`
-- `src/screens/MyEquinesScreen.tsx`
-- `src/screens/MyManagedEquinesScreen.tsx`
+- `supabase/migrations/013_equine_center_relations.sql`
+- `supabase/tests/013_equine_center_relations_test.sql`
+- `scripts/run-center-relations-sql-tests.cjs`
+- `docs/PHASE_4B_EQUINE_CENTER_RELATIONS_REPORT.md`
 
 ## Files modified
 
-- `package.json` (`test:ownership` appended to `test:sql`)
-- `src/screens/ProfileScreen.tsx`
-- `src/app/navigation/types.ts`
-- `src/app/navigation/AuthenticatedTabs.tsx`
-- `supabase/tests/009_centers_test.sql` (allow 012 tables; still forbid 013+)
+- `package.json` (`test:center-relations` appended to `test:sql`)
+- `supabase/tests/009_centers_test.sql` (allow 013 tables; still forbid later domains)
 - `supabase/tests/010_center_memberships_test.sql` (same)
 - `supabase/tests/011_equines_test.sql` (same)
+- `supabase/tests/012_equine_ownership_management_test.sql` (allow 013 tables; still forbid `disciplines`/`bookings`)
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-Inherited migrations present on the parent branch, including `011`, are
+Inherited migrations present on the parent branch, including `012`, are
 unchanged.
-
-## Provisional lifecycle
-
-`ACTIVE | ENDED` on ownership and management is a provisional convention
-awaiting Product Owner acceptance. Not frozen like 010.
 
 ## Security
 
-RLS on both tables, no client policies, no mutation RPC, no
-`person_id` argument on list RPCs, no PUBLIC execute on the internal helper.
+RLS on both tables, no client policies, no grant/revoke/assign RPC, no
+caller-scoped list RPC (the relation is equine+center, not the caller's
+person). `has_active_equine_center_permission` execute is revoked from
+PUBLIC/anon/authenticated. Assignment, membership and ownership do not
+create a permission.
 
 ## Next phase
 
-`013_equine_center_relations`. Do not start 015. Do not merge. Do not deploy.
+`014_disciplines`. Do not start 015. Do not merge. Do not deploy.

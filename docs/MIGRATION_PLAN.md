@@ -3,11 +3,11 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3F Equines foundation implemented on
-`refactor/phase-3f-equines-foundation` (draft PR). Migration `011` is local
-only and is not deployed. Phase 3E remains merged on `main`; remote history
-is aligned through `010`. Ownership/management and later equine phases are
-not started.
+**Estado:** Phase 4B Equine–Center relations implemented on
+`refactor/phase-4b-equine-center-relations` (stacked on Ready PR #12).
+Migrations `011`–`013` are local only and are not deployed. Phase 3E
+remains merged on `main`; remote history is aligned through `010`.
+Disciplines and later equine phases are not started.
 
 ## 1. Método
 
@@ -168,7 +168,7 @@ Equines foundation is implemented separately as Phase 3F / migration `011`.
 
 ## 8e. Phase 3F — Equines foundation
 
-**IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (draft PR).**
+**IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (Ready PR #11).**
 Migration `011_equines.sql` is local only and has not been deployed.
 
 Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Product
@@ -188,7 +188,7 @@ relations. Implementation numbering splits them:
 
 - `011_equines` — foundation (PR #11)
 - `012_equine_ownership_management` — stacked PR on #11
-- `013_equine_center_relations` — not started
+- `013_equine_center_relations` — stacked PR on #12
 
 Do not collapse ownership or management onto `equines`. Do not invent
 owner/manager/center columns. Do not migrate legacy `horses` (retired in
@@ -196,10 +196,11 @@ owner/manager/center columns. Do not migrate legacy `horses` (retired in
 
 ## 10. Phase 5 — Disciplines / qualifications
 
-`rider_profiles` foundations are implemented in Phase 3C. This later phase
-adds disciplines/translations, qualification systems/levels and rider
-qualifications. Sensitive Rider activation still requires `RIDER_POLICY`;
-profile existence is not that activation.
+`rider_profiles` foundations are implemented in Phase 3C. The next stacked
+migration is `014_disciplines.sql` (`disciplines`, `discipline_translations`,
+`equine_disciplines`) after Phase 4B. Qualification systems/levels and
+rider qualifications remain later. Sensitive Rider activation still
+requires `RIDER_POLICY`; profile existence is not that activation.
 
 ## 11. Phase 6 — Assessments
 
@@ -306,8 +307,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 3F:**
-equine ownership / management according to the current roadmap
-(`012_equine_ownership_management.sql`).
-Do not start that phase. Migration `011` has not been deployed remotely.
-Do not merge the Phase 3F draft until Product Owner review.
+**Siguiente fase prevista tras Phase 4B:**
+disciplines foundation according to the current roadmap
+(`014_disciplines.sql`).
+Do not start 015. Migrations `011`–`013` have not been deployed remotely.
+Do not merge stacked PRs until Product Owner review.

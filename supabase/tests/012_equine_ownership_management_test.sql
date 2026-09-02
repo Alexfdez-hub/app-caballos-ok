@@ -1,7 +1,7 @@
 -- Phase 4A local equine ownership/management tests.
 -- Assumes migrations 001-012 are applied and auth.uid() reads
--- request.jwt.claim.sub. Compatible with later 013 being absent.
--- Runnable without psql meta-commands.
+-- request.jwt.claim.sub. Compatible with 013 tables being present.
+-- Disciplines remain deferred. Runnable without psql meta-commands.
 
 begin;
 
@@ -123,8 +123,6 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'equine_center_assignments',
-         'equine_center_permissions',
          'disciplines',
          'bookings'
        )
