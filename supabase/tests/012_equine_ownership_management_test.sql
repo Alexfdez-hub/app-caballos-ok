@@ -123,7 +123,7 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'rider_assessments',
+         'zero_sessions',
          'bookings'
        )
   ) then
