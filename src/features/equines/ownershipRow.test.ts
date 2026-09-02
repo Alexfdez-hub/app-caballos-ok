@@ -6,6 +6,7 @@ import {
   parseEquineManagementRow,
   parseEquineOwnershipRow,
 } from './ownershipRow.ts';
+import { effectiveRelationStatusLabel } from './labels.ts';
 
 function ownershipRpc(
   overrides: Record<string, unknown> = {},
@@ -18,6 +19,7 @@ function ownershipRpc(
     owner_type: 'PERSON',
     ownership_percentage: 60,
     status: 'ACTIVE',
+    is_currently_effective: true,
     started_at: '2026-01-01T00:00:00.000Z',
     ended_at: null,
     ...overrides,
@@ -34,6 +36,7 @@ function managementRpc(
     equine_type: 'HORSE',
     management_role: 'PRIMARY_MANAGER',
     status: 'ACTIVE',
+    is_currently_effective: true,
     valid_from: '2026-01-01T00:00:00.000Z',
     valid_until: null,
     ...overrides,
@@ -45,6 +48,7 @@ describe('equine ownership RPC lifecycle payloads', () => {
     assert.equal(isOwnershipLifecycleConsistent('ACTIVE', null), true);
     const row = parseEquineOwnershipRow(ownershipRpc());
     assert.equal(row.status, 'ACTIVE');
+    assert.equal(row.isCurrentlyEffective, true);
     assert.equal(row.endedAt, null);
   });
 
@@ -74,6 +78,24 @@ describe('equine ownership RPC lifecycle payloads', () => {
       /unexpected result/,
     );
   });
+
+  it('keeps stored ACTIVE while marking a future-dated row as not currently effective', () => {
+    const row = parseEquineOwnershipRow(
+      ownershipRpc({ is_currently_effective: false }),
+    );
+    assert.equal(row.status, 'ACTIVE');
+    assert.equal(row.isCurrentlyEffective, false);
+    assert.equal(
+      effectiveRelationStatusLabel(row.status, row.isCurrentlyEffective),
+      'Aún no vigente',
+    );
+  });
+
+  it('fails closed when the derived effective flag is missing', () => {
+    const payload = ownershipRpc();
+    delete payload.is_currently_effective;
+    assert.throws(() => parseEquineOwnershipRow(payload), /unexpected result/);
+  });
 });
 
 describe('equine management RPC lifecycle payloads', () => {
@@ -81,6 +103,19 @@ describe('equine management RPC lifecycle payloads', () => {
     const row = parseEquineManagementRow(managementRpc());
     assert.equal(row.managementRole, 'PRIMARY_MANAGER');
     assert.equal(row.validUntil, null);
+    assert.equal(row.isCurrentlyEffective, true);
+  });
+
+  it('does not display a future stored-ACTIVE assignment as currently effective', () => {
+    const row = parseEquineManagementRow(
+      managementRpc({ is_currently_effective: false }),
+    );
+    assert.equal(row.status, 'ACTIVE');
+    assert.equal(row.isCurrentlyEffective, false);
+    assert.equal(
+      effectiveRelationStatusLabel(row.status, row.isCurrentlyEffective),
+      'Aún no vigente',
+    );
   });
 
   it('fails closed for ENDED with valid_until null', () => {

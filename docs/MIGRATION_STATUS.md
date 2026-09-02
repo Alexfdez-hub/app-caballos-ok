@@ -36,10 +36,12 @@ Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 Inherited migrations present on the parent branch, including `011`, are
 unchanged.
 
-## Provisional lifecycle
+## Lifecycle
 
-`ACTIVE | ENDED` on ownership and management is a provisional convention
-awaiting Product Owner acceptance. Not frozen like 010.
+Product Owner approved `ACTIVE | ENDED` for ownership and management
+(2026-09-02). Stored lifecycle is distinct from effective-at-time
+authority (`valid_from <= now()` / `started_at <= now()`). `now()` is
+not used in a table CHECK.
 
 ## Security
 
