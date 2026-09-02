@@ -58,6 +58,11 @@ SQL aliases avoid reserved keywords (`authorization`, `session`).
 - UPDATE cannot retarget historical identity columns. Evaluator cannot
   change once set. Historical Zero Session remains after membership end;
   further mutation then fails authority.
+- Authorization revoke-only UPDATE (`ACTIVE` → `REVOKED`, `revoked_at`
+  set, no other business columns changed) does not re-check issuer
+  authority, so a prior grant can be withdrawn after the issuer loses
+  role, ownership or `APPROVE_RIDERS`. Other authorization mutations
+  still require current issuance authority.
 
 ## Access
 

@@ -368,6 +368,18 @@ begin
         errcode = '42501',
         message = 'Historical authorization identity cannot be rewritten';
     end if;
+
+    if old.status = 'ACTIVE'
+       and new.status = 'REVOKED'
+       and old.revoked_at is null
+       and new.revoked_at is not null
+       and new.valid_from is not distinct from old.valid_from
+       and new.valid_until is not distinct from old.valid_until
+       and new.supervision_required is not distinct from old.supervision_required
+       and new.restrictions_json is not distinct from old.restrictions_json
+       and new.created_at is not distinct from old.created_at then
+      return new;
+    end if;
   end if;
 
   if new.authorization_type = 'ZERO_SESSION' then
@@ -499,7 +511,7 @@ end;
 $$;
 
 comment on function public.enforce_rider_equine_authorization_authority() is
-  'BEFORE INSERT OR UPDATE: issuer authority per Product Owner 2026-09-02. Membership, assignment and management are not sufficient. Identity columns cannot be retargeted. Not executable by anon or authenticated.';
+  'BEFORE INSERT OR UPDATE: issuer authority per Product Owner 2026-09-02. Membership, assignment and management are not sufficient. Identity columns cannot be retargeted. A revoke-only UPDATE (ACTIVE to REVOKED, revoked_at set, no other business columns changed) does not re-check issuer authority so a prior grant can be withdrawn after the issuer loses role, ownership or APPROVE_RIDERS. Other mutations still require current issuance authority. Not executable by anon or authenticated.';
 
 revoke all on function public.enforce_rider_equine_authorization_authority()
   from public, anon, authenticated;

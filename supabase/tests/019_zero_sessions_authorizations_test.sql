@@ -582,6 +582,30 @@ begin
     raise exception 'Future-dated OWNER_APPROVAL was treated as currently effective';
   end if;
 
+  update public.zero_sessions
+     set result = 'REJECTED'
+   where id = approved_id;
+
+  begin
+    update public.rider_equine_authorizations
+       set restrictions_json = '{"after":"reject"}'::jsonb
+     where id = auth_id;
+    raise exception 'ZERO_SESSION authorization mutation after source rejection was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  update public.rider_equine_authorizations
+     set status = 'REVOKED',
+         revoked_at = now()
+   where id = auth_id;
+
+  if public.has_effective_rider_equine_authorization(
+    rider_person_id, school_equine_id, 'ZERO_SESSION'
+  ) then
+    raise exception 'Revoked ZERO_SESSION authorization is still currently effective';
+  end if;
+
   insert into public.zero_sessions (
     rider_person_id, equine_id, center_id, requested_by_account_id,
     evaluator_person_id, result, performed_at
@@ -610,6 +634,66 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  update public.center_memberships
+     set status = 'ENDED', ended_at = now()
+   where center_id = center_a_id
+     and person_id = staff_person_id
+     and role_code = 'MANAGER';
+
+  begin
+    update public.rider_equine_authorizations
+       set supervision_required = true
+     where equine_id = center_owned_id
+       and authorization_type = 'OWNER_APPROVAL'
+       and status = 'ACTIVE';
+    raise exception 'CENTER OWNER_APPROVAL mutation after MANAGER end was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  update public.rider_equine_authorizations
+     set status = 'REVOKED',
+         revoked_at = now()
+   where equine_id = center_owned_id
+     and authorization_type = 'OWNER_APPROVAL'
+     and status = 'ACTIVE';
+
+  if public.has_effective_rider_equine_authorization(
+    rider_person_id, center_owned_id, 'OWNER_APPROVAL'
+  ) then
+    raise exception 'Revoked CENTER OWNER_APPROVAL is still currently effective';
+  end if;
+
+  update public.equine_ownerships
+     set status = 'ENDED', ended_at = now()
+   where equine_id = person_owned_id
+     and owner_type = 'PERSON'
+     and owner_person_id = owner_person_id;
+
+  begin
+    update public.rider_equine_authorizations
+       set supervision_required = true
+     where equine_id = person_owned_id
+       and authorization_type = 'OWNER_APPROVAL'
+       and status = 'ACTIVE';
+    raise exception 'PERSON OWNER_APPROVAL mutation after ownership end was allowed';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  update public.rider_equine_authorizations
+     set status = 'REVOKED',
+         revoked_at = now()
+   where equine_id = person_owned_id
+     and authorization_type = 'OWNER_APPROVAL'
+     and status = 'ACTIVE';
+
+  if public.has_effective_rider_equine_authorization(
+    owner_person_id, person_owned_id, 'OWNER_APPROVAL'
+  ) then
+    raise exception 'Revoked PERSON OWNER_APPROVAL is still currently effective';
+  end if;
 
   perform set_config('app.zero_session_id', kept_id::text, true);
   perform set_config('app.auth_id', auth_id::text, true);
