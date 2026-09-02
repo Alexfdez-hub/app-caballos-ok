@@ -6,9 +6,9 @@ import { ScreenScaffold } from '../app/ui/ScreenScaffold';
 import { SectionCard } from '../app/ui/SectionCard';
 import { colors } from '../app/ui/theme';
 import {
+  effectiveRelationStatusLabel,
   equineTypeLabel,
   managementRoleLabel,
-  ownershipStatusLabel,
 } from '../features/equines/labels';
 import { useMyEquineManagement } from '../features/equines/useMyEquineManagement';
 
@@ -58,7 +58,7 @@ export default function MyManagedEquinesScreen() {
           <Text style={styles.roleLine}>
             {equineTypeLabel(row.equineType)} ·{' '}
             {managementRoleLabel(row.managementRole)} ·{' '}
-            {ownershipStatusLabel(row.status)}
+            {effectiveRelationStatusLabel(row.status, row.isCurrentlyEffective)}
           </Text>
           <Text style={styles.hint}>
             La gestión no es propiedad ni permiso de centro. El alta y la

@@ -4,10 +4,13 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
 **Estado:** Phase 5A Disciplines foundation implemented on
-`refactor/phase-5a-disciplines` (stacked on Ready PR #13).
+`refactor/phase-5a-disciplines` (stacked PR #14 on #13 / #12 / #11).
 Migrations `011`–`014` are local only and are not deployed. Phase 3E
-remains merged on `main`; remote history is aligned through `010`.
-Qualifications and later equine phases are not started.
+remains merged on `main`; remote history is aligned through `010`. Product
+Owner approved ownership/management `ACTIVE|ENDED`, assignment
+`ACTIVE|ENDED`, permission `ACTIVE|REVOKED`, and discipline
+`ACTIVE|INACTIVE` (2026-09-02). Qualifications and later equine phases
+are not started. Do not start 015.
 
 ## 1. Método
 
@@ -187,8 +190,13 @@ Architecture Phase 4 grouped equines + ownership + management + center
 relations. Implementation numbering splits them:
 
 - `011_equines` — foundation (PR #11)
-- `012_equine_ownership_management` — stacked PR on #11
-- `013_equine_center_relations` — stacked PR on #12
+- `012_equine_ownership_management` — stacked PR #12 on #11. Product Owner
+  approved stored lifecycle `ACTIVE|ENDED` (2026-09-02). Effective
+  management also requires `valid_from <= now()`; `now()` is not in a CHECK.
+- `013_equine_center_relations` — stacked PR #13 on #12. Product Owner
+  approved assignment `ACTIVE|ENDED` and permission `ACTIVE|REVOKED`.
+  Effective permission also requires `granted_at <= now()`; `now()` is
+  not in a CHECK.
 
 Do not collapse ownership or management onto `equines`. Do not invent
 owner/manager/center columns. Do not migrate legacy `horses` (retired in
@@ -199,6 +207,8 @@ owner/manager/center columns. Do not migrate legacy `horses` (retired in
 `rider_profiles` foundations are implemented in Phase 3C.
 `014_disciplines.sql` (`disciplines`, `discipline_translations`,
 `equine_disciplines`) is stacked on Phase 4B and does not seed a catalog.
+Product Owner approved stored lifecycle `ACTIVE|INACTIVE` (2026-09-02).
+`sort_order` must be `>= 0`; duplicate non-negative values are allowed.
 Qualification systems/levels and rider qualifications remain later
 (`015_qualifications.sql`). Sensitive Rider activation still
 requires `RIDER_POLICY`; profile existence is not that activation.
@@ -312,4 +322,4 @@ Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, 
 qualifications according to the current roadmap
 (`015_qualifications.sql`).
 Do not start 015. Migrations `011`–`014` have not been deployed remotely.
-Do not merge stacked PRs until Product Owner review.
+Do not merge or retarget stacked PRs until Product Owner review.

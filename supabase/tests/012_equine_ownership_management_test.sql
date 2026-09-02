@@ -98,10 +98,10 @@ declare
   unlinked_person_id uuid;
   equine_id uuid;
   second_equine_id uuid;
+  future_equine_id uuid;
+  ended_equine_id uuid;
   center_id uuid;
   ownership_id uuid;
-  listed_count integer;
-  listed_names text;
 begin
   if exists (
     select 1
@@ -217,6 +217,20 @@ begin
   values ('phase4a-pony', 'PONY')
   returning id into second_equine_id;
 
+  insert into public.equines (name, equine_type)
+  values ('phase4a-future', 'HORSE')
+  returning id into future_equine_id;
+
+  insert into public.equines (name, equine_type)
+  values ('phase4a-ended', 'PONY')
+  returning id into ended_equine_id;
+
+  if public.has_active_equine_management_role(
+    caller_person_id, equine_id, 'PRIMARY_MANAGER'
+  ) then
+    raise exception 'Center membership created management authority';
+  end if;
+
   begin
     insert into public.equine_ownerships (
       equine_id, owner_type, owner_person_id, owner_center_id, ownership_percentage
@@ -325,6 +339,60 @@ begin
     when check_violation then null;
   end;
 
+  begin
+    insert into public.equine_management_assignments (
+      equine_id, manager_type, manager_person_id, manager_center_id,
+      management_role, granted_by_person_id
+    ) values (
+      equine_id, 'PERSON', caller_person_id, center_id,
+      'AUTHORIZED_MANAGER', caller_person_id
+    );
+    raise exception 'Manager PERSON with both FKs was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equine_management_assignments (
+      equine_id, manager_type, management_role, granted_by_person_id
+    ) values (
+      equine_id, 'PERSON', 'AUTHORIZED_MANAGER', caller_person_id
+    );
+    raise exception 'Manager PERSON with neither FK was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equine_management_assignments (
+      equine_id, manager_type, management_role, granted_by_person_id
+    ) values (
+      equine_id, 'CENTER', 'AUTHORIZED_MANAGER', caller_person_id
+    );
+    raise exception 'Manager CENTER with neither FK was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equine_management_assignments (
+      equine_id, manager_type, manager_center_id, management_role,
+      granted_by_person_id
+    ) values (
+      equine_id, 'PERSON', center_id, 'AUTHORIZED_MANAGER', caller_person_id
+    );
+    raise exception 'Manager type/FK mismatch was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  insert into public.equine_management_assignments (
+    equine_id, manager_type, manager_center_id, management_role,
+    granted_by_person_id
+  ) values (
+    equine_id, 'CENTER', center_id, 'AUTHORIZED_MANAGER', caller_person_id
+  );
+
   insert into public.equine_management_assignments (
     equine_id, manager_type, manager_person_id, management_role,
     granted_by_person_id
@@ -357,11 +425,116 @@ begin
     raise exception 'Caller is not the active PRIMARY_MANAGER';
   end if;
 
+  begin
+    insert into public.equine_ownerships (
+      equine_id, owner_type, owner_person_id, ownership_percentage,
+      status, started_at, ended_at
+    ) values (
+      ended_equine_id, 'PERSON', caller_person_id, 25, 'ENDED',
+      timestamptz '2026-01-02 00:00:00+00',
+      timestamptz '2026-01-01 00:00:00+00'
+    );
+    raise exception 'Ownership with ended_at before started_at was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
+    insert into public.equine_management_assignments (
+      equine_id, manager_type, manager_person_id, management_role,
+      granted_by_person_id, status, valid_from, valid_until
+    ) values (
+      ended_equine_id, 'PERSON', caller_person_id, 'CO_MANAGER',
+      caller_person_id, 'ENDED',
+      timestamptz '2026-01-02 00:00:00+00',
+      timestamptz '2026-01-01 00:00:00+00'
+    );
+    raise exception 'Management with valid_until before valid_from was allowed';
+  exception
+    when check_violation then null;
+  end;
+
+  insert into public.equine_ownerships (
+    equine_id, owner_type, owner_person_id, ownership_percentage,
+    status, started_at, ended_at
+  ) values (
+    ended_equine_id, 'PERSON', caller_person_id, 40, 'ENDED',
+    timestamptz '2025-01-01 00:00:00+00',
+    timestamptz '2025-06-01 00:00:00+00'
+  );
+
+  insert into public.equine_management_assignments (
+    equine_id, manager_type, manager_person_id, management_role,
+    granted_by_person_id, status, valid_from, valid_until
+  ) values (
+    ended_equine_id, 'PERSON', caller_person_id, 'CO_MANAGER',
+    caller_person_id, 'ENDED',
+    timestamptz '2025-01-01 00:00:00+00',
+    timestamptz '2025-06-01 00:00:00+00'
+  );
+
+  if not exists (
+    select 1
+      from public.equine_ownerships as ownership
+     where ownership.equine_id = ended_equine_id
+       and ownership.owner_person_id = caller_person_id
+       and ownership.status = 'ENDED'
+       and ownership.ended_at is not null
+  ) then
+    raise exception 'Valid historical ENDED ownership was not preserved';
+  end if;
+
+  if not exists (
+    select 1
+      from public.equine_management_assignments as assignment
+     where assignment.equine_id = ended_equine_id
+       and assignment.manager_person_id = caller_person_id
+       and assignment.status = 'ENDED'
+       and assignment.valid_until is not null
+  ) then
+    raise exception 'Valid historical ENDED management was not preserved';
+  end if;
+
+  if exists (
+    select 1
+      from pg_catalog.pg_constraint as constraint_row
+     where constraint_row.conrelid in (
+       'public.equine_ownerships'::regclass,
+       'public.equine_management_assignments'::regclass
+     )
+       and pg_catalog.pg_get_constraintdef(constraint_row.oid) ~* 'now\s*\('
+  ) then
+    raise exception 'Ownership/management CHECK used now()';
+  end if;
+
+  insert into public.equine_ownerships (
+    equine_id, owner_type, owner_person_id, ownership_percentage, started_at
+  ) values (
+    future_equine_id, 'PERSON', caller_person_id, 100,
+    now() + interval '7 days'
+  );
+
+  insert into public.equine_management_assignments (
+    equine_id, manager_type, manager_person_id, management_role,
+    granted_by_person_id, valid_from
+  ) values (
+    future_equine_id, 'PERSON', caller_person_id, 'PRIMARY_MANAGER',
+    caller_person_id, now() + interval '7 days'
+  );
+
+  if public.has_active_equine_management_role(
+    caller_person_id, future_equine_id, 'PRIMARY_MANAGER'
+  ) then
+    raise exception 'Future management assignment was treated as effective';
+  end if;
+
   perform set_config('app.caller_person', caller_person_id::text, true);
   perform set_config('app.other_person', other_person_id::text, true);
   perform set_config('app.unlinked_person', unlinked_person_id::text, true);
   perform set_config('app.equine_id', equine_id::text, true);
   perform set_config('app.second_equine_id', second_equine_id::text, true);
+  perform set_config('app.future_equine_id', future_equine_id::text, true);
+  perform set_config('app.ended_equine_id', ended_equine_id::text, true);
   perform set_config('app.center_id', center_id::text, true);
   perform set_config('app.ownership_id', ownership_id::text, true);
 end;
@@ -382,7 +555,6 @@ select set_config(
 do $$
 declare
   listed_count integer;
-  listed_names text;
   other_owner_seen boolean;
   center_share_seen boolean;
 begin
@@ -415,6 +587,36 @@ begin
   end;
 
   begin
+    update public.equine_ownerships
+       set ownership_percentage = 1;
+    raise exception 'Authenticated role updated ownerships';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_ownerships;
+    raise exception 'Authenticated role deleted ownerships';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.equine_management_assignments
+       set management_role = 'CO_MANAGER';
+    raise exception 'Authenticated role updated management assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_management_assignments;
+    raise exception 'Authenticated role deleted management assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
     perform public.has_active_equine_management_role(
       current_setting('app.caller_person', true)::uuid,
       current_setting('app.equine_id', true)::uuid,
@@ -426,16 +628,38 @@ begin
   end;
 
   select count(*) into listed_count from public.list_my_equine_ownerships();
-  if listed_count <> 1 then
-    raise exception 'Caller did not receive only their ownership row';
+  if listed_count <> 3 then
+    raise exception 'Caller did not receive only their ownership rows';
   end if;
 
-  select string_agg(equine_name, ',')
-    into listed_names
-    from public.list_my_equine_ownerships();
+  if not exists (
+    select 1
+      from public.list_my_equine_ownerships() as listed
+     where listed.equine_name = 'phase4a-horse'
+       and listed.status = 'ACTIVE'
+       and listed.is_currently_effective
+  ) then
+    raise exception 'Current ownership was not listed as effective';
+  end if;
 
-  if listed_names is distinct from 'phase4a-horse' then
-    raise exception 'Caller ownership list was not scoped to their equine';
+  if not exists (
+    select 1
+      from public.list_my_equine_ownerships() as listed
+     where listed.equine_name = 'phase4a-future'
+       and listed.status = 'ACTIVE'
+       and not listed.is_currently_effective
+  ) then
+    raise exception 'Future ownership displayed as currently effective';
+  end if;
+
+  if not exists (
+    select 1
+      from public.list_my_equine_ownerships() as listed
+     where listed.equine_name = 'phase4a-ended'
+       and listed.status = 'ENDED'
+       and not listed.is_currently_effective
+  ) then
+    raise exception 'Historical ENDED ownership was not listed as stored history';
   end if;
 
   select exists (
@@ -463,8 +687,47 @@ begin
   select count(*) into listed_count
     from public.list_my_equine_management_assignments();
 
-  if listed_count <> 1 then
-    raise exception 'Caller did not receive only their management assignment';
+  if listed_count <> 3 then
+    raise exception 'Caller did not receive only their management assignments';
+  end if;
+
+  if not exists (
+    select 1
+      from public.list_my_equine_management_assignments() as listed
+     where listed.equine_name = 'phase4a-horse'
+       and listed.management_role = 'PRIMARY_MANAGER'
+       and listed.is_currently_effective
+  ) then
+    raise exception 'Current management was not listed as effective';
+  end if;
+
+  if not exists (
+    select 1
+      from public.list_my_equine_management_assignments() as listed
+     where listed.equine_name = 'phase4a-future'
+       and listed.status = 'ACTIVE'
+       and not listed.is_currently_effective
+  ) then
+    raise exception 'Future management displayed as currently effective';
+  end if;
+
+  if not exists (
+    select 1
+      from public.list_my_equine_management_assignments() as listed
+     where listed.equine_name = 'phase4a-ended'
+       and listed.status = 'ENDED'
+       and not listed.is_currently_effective
+  ) then
+    raise exception 'Historical ENDED management was not listed as stored history';
+  end if;
+
+  if exists (
+    select 1
+      from public.list_my_equine_management_assignments() as listed
+     where listed.management_role = 'CO_MANAGER'
+       and listed.equine_name = 'phase4a-horse'
+  ) then
+    raise exception 'Caller enumerated another person management assignment';
   end if;
 end;
 $$;
@@ -563,6 +826,33 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    update public.equine_management_assignments
+       set status = 'ENDED',
+           valid_until = now();
+    raise exception 'Anonymous role updated management assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.equine_management_assignments;
+    raise exception 'Anonymous role deleted management assignments';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform public.has_active_equine_management_role(
+      current_setting('app.caller_person', true)::uuid,
+      current_setting('app.equine_id', true)::uuid,
+      'PRIMARY_MANAGER'
+    );
+    raise exception 'Anonymous role executed internal management helper';
+  exception
+    when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -572,11 +862,23 @@ do $$
 begin
   if has_table_privilege('anon', 'public.equine_ownerships', 'select')
      or has_table_privilege('authenticated', 'public.equine_ownerships', 'select')
+     or has_table_privilege('authenticated', 'public.equine_ownerships', 'update')
+     or has_table_privilege('authenticated', 'public.equine_ownerships', 'delete')
      or has_table_privilege('anon', 'public.equine_management_assignments', 'select')
      or has_table_privilege(
           'authenticated',
           'public.equine_management_assignments',
           'insert'
+        )
+     or has_table_privilege(
+          'authenticated',
+          'public.equine_management_assignments',
+          'update'
+        )
+     or has_table_privilege(
+          'authenticated',
+          'public.equine_management_assignments',
+          'delete'
         )
      or has_function_privilege(
           'anon',
@@ -587,6 +889,22 @@ begin
           'authenticated',
           'public.has_active_equine_management_role(uuid,uuid,text)',
           'execute'
+        )
+     or exists (
+          select 1
+            from pg_catalog.pg_proc as procedure
+            join pg_catalog.pg_namespace as namespace
+              on namespace.oid = procedure.pronamespace
+            cross join lateral aclexplode(
+              coalesce(
+                procedure.proacl,
+                acldefault('f', procedure.proowner)
+              )
+            ) as grant_row
+           where namespace.nspname = 'public'
+             and procedure.proname = 'has_active_equine_management_role'
+             and grant_row.grantee = 0
+             and grant_row.privilege_type = 'EXECUTE'
         )
      or has_function_privilege(
           'anon',

@@ -7,7 +7,7 @@ import { SectionCard } from '../app/ui/SectionCard';
 import { colors } from '../app/ui/theme';
 import {
   equineTypeLabel,
-  ownershipStatusLabel,
+  effectiveRelationStatusLabel,
 } from '../features/equines/labels';
 import { useMyEquineOwnerships } from '../features/equines/useMyEquineOwnerships';
 
@@ -56,7 +56,7 @@ export default function MyEquinesScreen() {
         <SectionCard key={row.ownershipId} title={row.equineName}>
           <Text style={styles.roleLine}>
             {equineTypeLabel(row.equineType)} · {row.ownershipPercentage}% ·{' '}
-            {ownershipStatusLabel(row.status)}
+            {effectiveRelationStatusLabel(row.status, row.isCurrentlyEffective)}
           </Text>
           <Text style={styles.hint}>
             Esto es propiedad, no gestión ni asignación a un centro. No publica

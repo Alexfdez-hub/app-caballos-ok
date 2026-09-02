@@ -8,7 +8,8 @@ Phase 5A is stacked on Ready PR #13 (`013_equine_center_relations.sql`).
 Do not merge this PR before #13 (and #12, #11). Do not deploy 014. Product
 Owner will retarget later. This agent will not retarget or merge.
 
-Parent HEAD at branch creation: `d056c3ca5af8cda6e3c098733ce24629164a21d1`.
+Parent HEAD after merging corrected 013: `9e1fad291b8aa4c719ba79f051667741263f27b2`.
+Original parent at branch creation: `d056c3ca5af8cda6e3c098733ce24629164a21d1`.
 Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 
 ## Files created
@@ -29,7 +30,16 @@ Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 - `docs/MIGRATION_PLAN.md`
 
 Inherited migrations present on the parent branch, including `013`, are
-unchanged.
+unchanged versus the corrected parent HEAD.
+
+## Lifecycle
+
+Product Owner approved ownership/management `ACTIVE | ENDED`, assignment
+`ACTIVE | ENDED`, permission `ACTIVE | REVOKED`, and discipline
+`ACTIVE | INACTIVE` (2026-09-02). Stored lifecycle is distinct from
+effective-at-time authority on 012/013 helpers. `now()` is not used in a
+table CHECK. `sort_order` is a non-negative display hint; duplicates are
+allowed.
 
 ## Security
 

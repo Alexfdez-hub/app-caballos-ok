@@ -15,6 +15,7 @@ export type EquineOwnership = {
   ownerType: 'PERSON';
   ownershipPercentage: number;
   status: OwnershipStatus;
+  isCurrentlyEffective: boolean;
   startedAt: string;
   endedAt: string | null;
 };
@@ -26,6 +27,7 @@ export type EquineManagementAssignment = {
   equineType: EquineType;
   managementRole: ManagementRole;
   status: OwnershipStatus;
+  isCurrentlyEffective: boolean;
   validFrom: string;
   validUntil: string | null;
 };

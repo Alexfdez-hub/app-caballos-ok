@@ -8,6 +8,21 @@ export function ownershipStatusLabel(status: OwnershipStatus): string {
   return status === 'ACTIVE' ? 'Activa' : 'Finalizada';
 }
 
+export function effectiveRelationStatusLabel(
+  storedStatus: OwnershipStatus,
+  isCurrentlyEffective: boolean,
+): string {
+  if (isCurrentlyEffective) {
+    return 'Activa';
+  }
+
+  if (storedStatus === 'ENDED') {
+    return 'Finalizada';
+  }
+
+  return 'Aún no vigente';
+}
+
 export function managementRoleLabel(role: ManagementRole): string {
   switch (role) {
     case 'PRIMARY_MANAGER':
