@@ -477,22 +477,22 @@ begin
 
   if not exists (
     select 1
-      from public.equine_ownerships
-     where equine_id = ended_equine_id
-       and owner_person_id = caller_person_id
-       and status = 'ENDED'
-       and ended_at is not null
+      from public.equine_ownerships as ownership
+     where ownership.equine_id = ended_equine_id
+       and ownership.owner_person_id = caller_person_id
+       and ownership.status = 'ENDED'
+       and ownership.ended_at is not null
   ) then
     raise exception 'Valid historical ENDED ownership was not preserved';
   end if;
 
   if not exists (
     select 1
-      from public.equine_management_assignments
-     where equine_id = ended_equine_id
-       and manager_person_id = caller_person_id
-       and status = 'ENDED'
-       and valid_until is not null
+      from public.equine_management_assignments as assignment
+     where assignment.equine_id = ended_equine_id
+       and assignment.manager_person_id = caller_person_id
+       and assignment.status = 'ENDED'
+       and assignment.valid_until is not null
   ) then
     raise exception 'Valid historical ENDED management was not preserved';
   end if;
