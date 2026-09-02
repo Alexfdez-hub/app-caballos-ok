@@ -521,6 +521,19 @@ begin
     when check_violation then null;
   end;
 
+  begin
+    insert into public.rider_equine_authorizations (
+      rider_person_id, equine_id, authorization_type, issued_by_person_id,
+      center_id
+    ) values (
+      staff_person_id, center_owned_id, 'OWNER_APPROVAL', staff_person_id,
+      center_a_id
+    );
+    raise exception 'CENTER OWNER_APPROVAL by MANAGER rider was allowed';
+  exception
+    when check_violation then null;
+  end;
+
   insert into public.rider_equine_authorizations (
     rider_person_id, equine_id, authorization_type, issued_by_person_id,
     center_id
