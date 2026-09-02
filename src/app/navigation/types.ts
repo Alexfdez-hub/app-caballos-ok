@@ -35,6 +35,7 @@ export type ProfileStackParamList = {
   Profile: undefined;
   EditIdentity: undefined;
   GuardianRelationships: undefined;
+  MyCenters: undefined;
 };
 
 export type AuthenticatedTabParamList = {
@@ -78,4 +79,9 @@ export type ProfileScreenProps = CompositeScreenProps<
 export type EditIdentityScreenProps = NativeStackScreenProps<
   ProfileStackParamList,
   'EditIdentity'
+>;
+
+export type MyCentersScreenProps = NativeStackScreenProps<
+  ProfileStackParamList,
+  'MyCenters'
 >;

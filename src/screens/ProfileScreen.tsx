@@ -89,9 +89,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           status="comingSoon"
         />
         <MenuRow
-          description="Las membresías de centro aún no existen. Un centro no te asigna un rol por existir."
+          description="Consulta membresías reales de tu identidad. El alta de centros y la asignación de roles no están en la app."
           label="Mis centros / organizaciones"
-          status="comingSoon"
+          onPress={() => navigation.navigate('MyCenters')}
         />
         <MenuRow
           description="Consulta relaciones y consentimientos reales. No se verifican desde la app."

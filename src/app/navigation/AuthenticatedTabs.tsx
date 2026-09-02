@@ -10,6 +10,7 @@ import EquestrianPassportScreen from '../../screens/EquestrianPassportScreen';
 import ExploreScreen from '../../screens/ExploreScreen';
 import GuardianRelationshipsScreen from '../../screens/GuardianRelationshipsScreen';
 import HomeScreen from '../../screens/HomeScreen';
+import MyCentersScreen from '../../screens/MyCentersScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
 import { colors } from '../ui/theme';
 import type {
@@ -113,6 +114,16 @@ function ProfileStack() {
         component={GuardianRelationshipsScreen}
         options={{
           title: 'Tutor y menores',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
+      />
+      <ProfileStackNavigator.Screen
+        name="MyCenters"
+        component={MyCentersScreen}
+        options={{
+          title: 'Mis centros',
           headerTintColor: colors.text,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,

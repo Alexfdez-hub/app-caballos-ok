@@ -1,17 +1,17 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 3D — Centers foundation
-**Date:** 2026-09-01
+**Baseline:** Phase 3E — Center memberships
+**Date:** 2026-09-02
 
 ## Summary
 
 The repository is an Expo/React Native client backed by Supabase. Phase 3A
 adds Auth → account → person identity. Phase 3B adds guardian relationships.
 Phase 3C adds person-owned rider profiles and Passport. Phase 3D adds the
-Center organization foundation without memberships or self-service
-onboarding. The application shell remains a single authenticated app without
-role selectors.
+Center organization foundation. Phase 3E adds Center-scoped memberships
+without client grant/revoke or first-admin bootstrap. The application shell
+remains a single authenticated app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -49,6 +49,7 @@ index.js
                     -> ProfileTab / ProfileScreen
                        -> EditIdentityScreen
                        -> GuardianRelationshipsScreen
+                       -> MyCentersScreen
 ```
 
 `AuthProvider` remains generic session infrastructure. It does not store
@@ -57,28 +58,29 @@ person or account domain state.
 Passport reads and writes only the caller’s rider profile through
 `get_my_rider_profile()` and `upsert_my_rider_profile()`.
 
-Explore and Profile mention Centers only as truthful coming-soon copy.
-There is no Center creation, verification, membership or directory UI.
+Profile → Mis centros reads only the caller’s memberships through
+`list_my_center_memberships()`. Explore → Hípicas remains truthful
+coming-soon copy. There is no Center creation, verification, invitation or
+directory UI.
 
 ## Database target
 
-Migrations 001–008 cover identity, policies, guardians and rider profiles.
-Migration `009_centers.sql` adds:
+Migrations 001–009 cover identity, policies, guardians, rider profiles and
+Centers. Migration `010_center_memberships.sql` adds:
 
-- `public.equestrian_centers`
-- `public.center_languages`
+- `public.center_memberships`
 
-A Center is an organization, not an Auth user and not a person. Row existence
-does not create membership, Center Policy acceptance, equine rights,
-assessments or bookings. Clients have no table privileges and no mutation
-RPC. Verification status can be `VERIFIED` only through a future controlled
-process; ordinary roles cannot set it.
+A membership is a PERSON + CENTER relationship, not a global account role.
+Row existence does not create Center Policy acceptance, equine rights,
+assessments or bookings. Clients have no table privileges. Grant, revoke and
+first-ADMIN bootstrap remain controlled outside the app.
 
-`center_memberships` remains deferred to `010_center_memberships.sql`.
+`has_active_center_role(person_id, center_id, role_code)` is server-internal
+and is not executable by `anon` or `authenticated`.
 
 No `service_role` credential is present in the application. Clients do not
 receive table `INSERT`/`UPDATE`/`DELETE`/`SELECT` on identity, guardian,
-rider-profile or center tables.
+rider-profile, center or membership tables.
 
 Usual development: `npm run start:local`. Remote: `npm run start:remote`.
 
@@ -86,15 +88,17 @@ Usual development: `npm run start:local`. Remote: `npm run start:remote`.
 
 - No RiderApp / OwnerApp / CenterApp split and no role selector
 - No public Center directory or map
-- No Center self-service onboarding or self-verification
-- No Center memberships or staff roles
+- No Center self-service onboarding, self-verification or invitations
+- No client membership grant/revoke or first-admin bootstrap
 - No equine, booking, assessment, payment, or review UI
 - No single `users.role` model
 
-The next planned SQL migration is `010_center_memberships.sql`.
+The next planned SQL migration after Product Owner authorization is
+`011_equines.sql`. Migration 010 must not be deployed remotely until
+explicitly approved.
 
 ## Historical records
 
 `docs/REMOTE_DATABASE_INVENTORY.md` remains the authoritative historical
-inventory of the retired legacy schema. Phase 3A–3C reports remain
+inventory of the retired legacy schema. Phase 3A–3D reports remain
 historical. Git history preserves the deleted prototype application.
