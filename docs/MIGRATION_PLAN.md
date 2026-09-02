@@ -340,6 +340,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 9A:**
-`020_calendar.sql` on `refactor/phase-10a-calendar` after this PR is
+**Siguiente fase prevista tras Phase 10A:**
+`021_bookings.sql` on `refactor/phase-11a-bookings` after this PR is
 Ready, CI-green and Bugbot-clean. Do not merge. Do not deploy.

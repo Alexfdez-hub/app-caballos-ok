@@ -207,13 +207,14 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No services catalog or eligibility UI
 - No single `users.role` model
 
-Migration `019_zero_sessions_authorizations.sql` (this branch) adds
-`zero_sessions` and `rider_equine_authorizations`. Product Owner
-2026-09-02 named authorization status `ACTIVE|REVOKED` and
-evaluator/issuer authority. No client CRUD. No eligibility, calendar
-or booking RPC. Remote remains aligned through `018`; this agent does
-not deploy. The next planned SQL migration is `020` and is **not**
-started.
+Migration `019_zero_sessions_authorizations.sql` is on Ready PR #20.
+This branch adds `020_calendar.sql`: `equine_availability_rules` and
+`equine_calendar_blocks`. Availability is potential; calendar blocks
+are canonical occupancy. ACTIVE same-equine overlapping ranges are
+excluded. Authority is effective `MANAGE_AVAILABILITY`. No client CRUD.
+No bookings table or `confirm_booking()`. Remote remains aligned
+through `018`; this agent does not deploy. The next planned SQL
+migration is `021` and is **not** started.
 
 ## Historical records
 
