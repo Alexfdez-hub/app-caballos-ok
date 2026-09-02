@@ -126,7 +126,8 @@ begin
         on namespace.oid = procedure.pronamespace
      where namespace.nspname = 'public'
        and procedure.proname in (
-         'approve_zero_session'
+         'approve_zero_session',
+         'waive_booking_requirement'
        )
   ) then
     raise exception '021 must not add approve_zero_session';
@@ -255,6 +256,20 @@ begin
     when insufficient_privilege then null;
   end;
 
+  begin
+    insert into public.bookings (
+      participant_person_id, booked_by_account_id, equine_id, center_id,
+      service_id, starts_at, ends_at, status, eligibility_status
+    ) values (
+      rider_person_id, rider_account_id, equine_id, center_a_id,
+      service_a_id, window_start, window_start + interval '1 hour',
+      'REQUESTED', 'READY'
+    );
+    raise exception 'Invented eligibility token was allowed';
+  exception
+    when check_violation then null;
+  end;
+
   insert into public.bookings (
     participant_person_id, booked_by_account_id, equine_id, center_id,
     service_id, starts_at, ends_at, status, eligibility_status
@@ -266,6 +281,15 @@ begin
 
   begin
     update public.bookings
+       set participant_person_id = other_person_id
+     where id = booking_id;
+    raise exception 'Booking identity was retargeted';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.bookings
        set status = 'CONFIRMED',
            confirmed_at = now()
      where id = booking_id;
@@ -274,29 +298,55 @@ begin
     when insufficient_privilege then null;
   end;
 
+  begin
+    insert into public.booking_requirements (
+      booking_id, requirement_type, source_type, status
+    ) values (
+      booking_id, 'LIABILITY_WAIVER', 'POLICY', 'PENDING'
+    );
+    raise exception 'Invented requirement type was allowed';
+  exception
+    when check_violation then null;
+  end;
+
   insert into public.booking_requirements (
     booking_id, requirement_type, source_type, status
   ) values (
     booking_id, 'GUARDIAN_CONSENT', 'GUARDIAN', 'PENDING'
   );
 
+  insert into public.booking_requirements (
+    booking_id, requirement_type, source_type, status, resolved_at
+  ) values (
+    booking_id, 'POLICY_ACCEPTANCE', 'POLICY', 'WAIVED', now()
+  );
+
+  insert into public.guardian_relationships (
+    guardian_person_id, minor_person_id, relationship_type,
+    verification_status
+  ) values (
+    guardian_person_id, minor_person_id, 'PARENT', 'PENDING'
+  );
+
   begin
-    insert into public.booking_requirements (
-      booking_id, requirement_type, source_type, status, resolved_at
+    insert into public.bookings (
+      participant_person_id, booked_by_account_id, equine_id, center_id,
+      service_id, starts_at, ends_at, status
     ) values (
-      booking_id, 'POLICY_ACCEPTANCE', 'POLICY', 'WAIVED', now()
+      minor_person_id, guardian_account_id, equine_id, center_a_id,
+      service_a_id, window_start + interval '2 hours',
+      window_start + interval '3 hours', 'REQUESTED'
     );
-    raise exception 'WAIVED requirement was allowed';
+    raise exception 'Unverified guardian booked a minor';
   exception
     when insufficient_privilege then null;
   end;
 
-  insert into public.guardian_relationships (
-    guardian_person_id, minor_person_id, relationship_type,
-    verification_status, verified_at
-  ) values (
-    guardian_person_id, minor_person_id, 'PARENT', 'VERIFIED', now()
-  );
+  update public.guardian_relationships
+     set verification_status = 'VERIFIED',
+         verified_at = now()
+   where public.guardian_relationships.guardian_person_id = guardian_person_id
+     and public.guardian_relationships.minor_person_id = minor_person_id;
 
   insert into public.bookings (
     participant_person_id, booked_by_account_id, equine_id, center_id,

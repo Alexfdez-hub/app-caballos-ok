@@ -19,17 +19,21 @@ This PR targets the 020 branch. Do not merge. Do not deploy `021`.
   may still be pending at request time.
 - Booking statuses are the frozen Architecture 2.1 set.
   `CONFIRMED | ACTIVE | COMPLETED` cannot be inserted or transitioned
-  to in 021.
+  to in 021. 022 may replace the authority trigger to confirm.
 - `eligibility_status` uses the frozen Architecture 2.1 tokens.
 - Requirement types: equine types plus `GUARDIAN_CONSENT` and
   `POLICY_ACCEPTANCE`.
 - Requirement source types: `OWNER | CENTER | MARKET | EQUINE |
   SERVICE | GUARDIAN | POLICY`.
-- Requirement status includes `WAIVED` but there is no waive path.
-- Confirmed history cannot be silently rewritten. `ends_at > starts_at`.
+- `WAIVED` is a stored frozen status. There is no waive RPC.
+- `confirmed_at` / `cancelled_at` / `completed_at` are nullable
+  without invented status pairing.
+- Identity cannot be retargeted. Confirmed history cannot be
+  silently rewritten. `ends_at > starts_at`.
 - Service must belong to the booking Center.
-- No `check_booking_eligibility`, `create_booking_request` or
-  `confirm_booking` in 021. No client CRUD.
+- No `check_booking_eligibility`, `create_booking_request`,
+  `confirm_booking` or `waive_booking_requirement` in 021.
+  No client CRUD.
 
 ## Access
 
