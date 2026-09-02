@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 3F — Equines foundation
+**Baseline:** Phase 4A — Equine ownership and management (stacked on 3F)
 **Date:** 2026-09-02
 
 ## Summary
@@ -11,8 +11,9 @@ adds Auth → account → person identity. Phase 3B adds guardian relationships.
 Phase 3C adds person-owned rider profiles and Passport. Phase 3D adds the
 Center organization foundation. Phase 3E adds Center-scoped memberships
 without client grant/revoke or first-admin bootstrap. Phase 3F adds equine
-identity and media metadata without ownership, management, client mutation
-or public directory. The application shell remains a single authenticated
+identity and media metadata. Phase 4A adds ownership and management
+relationships without collapsing them onto `equines` and without a public
+directory. The application shell remains a single authenticated
 app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
@@ -89,6 +90,17 @@ visibility is stored intent only and does not grant SELECT. `equine_media`
 stores unique `storage_path` metadata only; 011 does not create a Storage
 bucket. Provisioning remains controlled outside the app.
 
+Migration `012_equine_ownership_management.sql` (stacked, not on `main`)
+adds `equine_ownerships` and `equine_management_assignments` with PERSON|
+CENTER XOR FKs, strictly positive percentage, Product Owner approved
+`ACTIVE|ENDED`, and at most one active `PRIMARY_MANAGER`. Caller-scoped
+`list_my_equine_ownerships()` / `list_my_equine_management_assignments()`
+derive PERSON from `auth.uid()` and expose stored status plus
+`is_currently_effective`. Profile → Mis equinos / Equinos que
+gestiono load those RPCs. Center membership does not grant equine
+authority. `has_active_equine_management_role` is server-internal and
+requires `valid_from <= now()`.
+
 `has_active_center_role(person_id, center_id, role_code)` remains
 server-internal and is not executable by `anon` or `authenticated`. Center
 membership does not grant equine authority.
@@ -123,8 +135,8 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No single `users.role` model
 
 The next planned SQL migration after Product Owner authorization is
-`012_equine_ownership_management.sql`. Migration 011 is not deployed on the
-linked development project. Phase 012 has not been started.
+`013_equine_center_relations.sql`. Migrations 011 and 012 are not deployed
+on the linked development project. Phase 013 has not been started.
 
 ## Historical records
 

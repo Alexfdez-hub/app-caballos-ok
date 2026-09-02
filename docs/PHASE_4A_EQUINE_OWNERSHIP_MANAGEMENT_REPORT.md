@@ -1,0 +1,97 @@
+# Phase 4A — Equine ownership and management foundation
+
+**Project:** app-caballos-ok
+**Phase:** 4A — Equine ownership and management
+**Migration:** `supabase/migrations/012_equine_ownership_management.sql`
+**Date:** 2026-09-02
+**Architecture:** Data Architecture 2.1
+**Parent:** Draft/Ready PR #11 `refactor/phase-3f-equines-foundation`
+**Branch:** `refactor/phase-4a-equine-ownership-management`
+
+This PR is stacked on Phase 3F. It must not merge before PR #11. Product
+Owner will retarget after the parent merges. This agent will not retarget
+or merge.
+
+## Design selected
+
+- OWNERSHIP ≠ MANAGEMENT ≠ CENTER ASSIGNMENT ≠ CENTER PERMISSION.
+- PERSON | CENTER XOR owner/manager FKs. No generic party in MVP0.
+- No `owner_id` / `manager_id` / `center_id` on `equines`.
+- An owner may also be a manager.
+- Center membership and rider profile do not grant equine authority.
+- At most one active `PRIMARY_MANAGER` per equine.
+- Ownership shares are `0 < percentage <= 100`. Architecture 2.1 names
+  `0..100` as a column constraint, not an aggregate 100% rule. This
+  foundation does not enforce that shares sum to 100 (not concurrency-safe
+  as a table CHECK without a constraint trigger).
+- Provisioning stays outside Expo. No mutation RPC. No self-assignment.
+
+## Lifecycle
+
+Product Owner approved `ACTIVE | ENDED` for ownership and management
+(2026-09-02). This is the stored lifecycle, copied from the frozen 010
+membership pattern. Stored status is not rewritten for display.
+
+| Value | Ownership | Management |
+|---|---|---|
+| `ACTIVE` | Stored in force. `ended_at` null. Currently effective only when `started_at <= now()`. | Stored in force. `valid_until` null. Currently effective only when `valid_from <= now()`. |
+| `ENDED` | Historical. `ended_at` required and `>= started_at`. | Historical. `valid_until` required and `>= valid_from`. |
+
+`now()` is not placed in a table CHECK. Invitation, suspension and
+verification tokens are not included.
+
+`has_active_equine_management_role(...)` requires stored `ACTIVE`,
+`valid_until` null, and `valid_from <= now()`. Caller list RPCs return
+stored `status` plus derived `is_currently_effective`. Profile screens
+display that derived flag; a future-dated stored ACTIVE row is not shown
+as currently effective.
+
+## Migration contents
+
+`012_equine_ownership_management.sql` creates:
+
+### `equine_ownerships`
+
+PERSON/CENTER XOR, percentage, lifecycle, unique active person/center per
+equine. Index on `equine_id`.
+
+### `equine_management_assignments`
+
+PERSON/CENTER XOR, roles `PRIMARY_MANAGER | CO_MANAGER | AUTHORIZED_MANAGER`,
+`granted_by_person_id`, unique active PRIMARY_MANAGER, unique active
+person/center+role per equine.
+
+### Access
+
+RLS on, no client policies, `REVOKE ALL` from `anon`/`authenticated`.
+
+- `has_active_equine_management_role(...)` — server-internal DEFINER,
+  `search_path` fixed, execute revoked from PUBLIC/anon/authenticated.
+- `list_my_equine_ownerships()` / `list_my_equine_management_assignments()`
+  — caller PERSON from `auth.uid()` via `user_accounts`. No `person_id`
+  argument. Does not expose other owners/managers or CENTER-owned rows.
+  Execute granted to `authenticated` only.
+
+## Frontend
+
+Smallest truthful Profile slice:
+
+- Profile → Mis equinos loads the caller ownership RPC.
+- Profile → Equinos que gestiono loads the caller management RPC.
+
+No public directory. No create/edit. Empty states are truthful.
+
+## Tests
+
+`npm run test:ownership` is appended to `npm run test:sql`. Inherited
+migrations at the parent SHA must remain unchanged; 012 is a new file.
+009/010/011 SQL tests allow 012 tables and still forbid 013+.
+
+P0 coverage includes: future management not effective; manager PERSON both
+FKs / neither FK / type-FK mismatch rejected; valid CENTER manager
+accepted; ownership `ended_at < started_at` and management
+`valid_until < valid_from` rejected; historical ENDED ownership and
+management preserved; authenticated UPDATE/DELETE denied on both tables;
+membership alone does not create management; list RPCs do not expose
+another person’s rows; helper inaccessible to PUBLIC/anon/authenticated;
+no `now()` in a table CHECK; no mutation RPCs.

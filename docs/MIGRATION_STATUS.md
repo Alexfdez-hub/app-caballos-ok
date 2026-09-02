@@ -1,144 +1,53 @@
 # MIGRATION STATUS
 
-PHASE: 3F — Equines foundation
-STATUS: IMPLEMENTADO — draft PR against `main`; migration 011 NOT deployed
+PHASE: 4A — Equine ownership and management
+STATUS: IMPLEMENTADO — stacked PR against `refactor/phase-3f-equines-foundation`; 012 NOT deployed
 DATE: 2026-09-02
 
-Phase 3F Equines foundation is implemented on
-`refactor/phase-3f-equines-foundation`. Migration `011_equines.sql` is local
-only. Migrations `001–010` were not modified.
+Phase 4A is stacked on Ready PR #11 (`011_equines.sql`). Do not merge this
+PR before #11. Do not deploy 012. Product Owner will retarget later.
 
-## Approved starting state
-
-- `main` `9ac317295a5a983c6b74284af17f7e9fb305a8c7` (docs PR #10; Phase 3E
-  merged and documented).
-- Migrations 001–010 exist locally and on the linked development project
-  `efkauegdlmfkonzwyyiv`.
-- Next unused migration number was `011`.
-- Roadmap assigns `011_equines.sql` to the Equines foundation.
+Parent HEAD at branch creation: `8262306bad8252713691fdcde8fff5be1dfbc8e1`.
+Baseline `main`: `9ac317295a5a983c6b74284af17f7e9fb305a8c7`.
 
 ## Files created
 
-- `supabase/migrations/011_equines.sql`
-- `supabase/tests/011_equines_test.sql`
-- `scripts/run-equines-sql-tests.cjs`
-- `docs/PHASE_3F_EQUINES_FOUNDATION_REPORT.md`
-- `.github/workflows/quality-gate.yml`
+- `supabase/migrations/012_equine_ownership_management.sql`
+- `supabase/tests/012_equine_ownership_management_test.sql`
+- `scripts/run-ownership-sql-tests.cjs`
+- `docs/PHASE_4A_EQUINE_OWNERSHIP_MANAGEMENT_REPORT.md`
+- `src/features/equines/*`
+- `src/screens/MyEquinesScreen.tsx`
+- `src/screens/MyManagedEquinesScreen.tsx`
 
 ## Files modified
 
-- `package.json`
-- `src/screens/ExploreScreen.tsx`
+- `package.json` (`test:ownership` appended to `test:sql`)
 - `src/screens/ProfileScreen.tsx`
-- `supabase/tests/009_centers_test.sql` (regression compatibility only;
-  migration `009_centers.sql` is unchanged)
-- `supabase/tests/010_center_memberships_test.sql` (regression compatibility
-  only; migration `010_center_memberships.sql` is unchanged)
+- `src/app/navigation/types.ts`
+- `src/app/navigation/AuthenticatedTabs.tsx`
+- `supabase/tests/009_centers_test.sql` (allow 012 tables; still forbid 013+)
+- `supabase/tests/010_center_memberships_test.sql` (same)
+- `supabase/tests/011_equines_test.sql` (same)
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-## Migration created
+Inherited migrations present on the parent branch, including `011`, are
+unchanged.
 
-`011_equines.sql`:
+## Lifecycle
 
-- `equines` as UUID equine identity; `HORSE | PONY` types;
-- lifecycle `ACTIVE | INACTIVE | ARCHIVED | DECEASED` (Product Owner
-  confirmed; `DECEASED ≠ ARCHIVED`; `RETIRED` rejected);
-- `birth_date` null or `<= (created_at AT TIME ZONE 'UTC')::date`; age is
-  not stored;
-- visibility `PRIVATE | PUBLIC` as stored intent only;
-- `equine_media` metadata with `PHOTO` only and unique `storage_path`;
-- RLS deny-by-default, no client table policies or grants;
-- no client RPC; no Storage bucket, objects or policies.
+Product Owner approved `ACTIVE | ENDED` for ownership and management
+(2026-09-02). Stored lifecycle is distinct from effective-at-time
+authority (`valid_from <= now()` / `started_at <= now()`). `now()` is
+not used in a table CHECK.
 
-## Equine enumeration decision
+## Security
 
-**Product Owner, 2026-09-02.** Confirmed `equines.status`:
-
-- `ACTIVE` (default)
-- `INACTIVE`
-- `ARCHIVED` — living equine withdrawn from operational use
-- `DECEASED` — the equine has died; distinct from `ARCHIVED`
-
-Do not add `RETIRED`. Architecture 2.1 still names `visibility_status` and
-`media_type` without enumerating values. The 011 foundation set remains:
-
-- Visibility: `PRIVATE` (default), `PUBLIC`. PUBLIC does not grant SELECT.
-- Media: `PHOTO` only. Architecture does not mention VIDEO for equine_media.
-
-Do not add ownership, management, center assignment or public-directory
-tokens. Later tokens need a new forward migration. 011 does not enforce
-transition triggers. Ordinary clients cannot change status. Historical rows
-are retained.
-
-## Application state
-
-- Explore → Caballos y ponis remains coming-soon: domain exists; public
-  discovery, availability, booking and media upload are not in the app.
-- Profile → Mis equinos remains coming-soon: domain exists; ownership
-  listing is not in the app.
-- Profile → Equinos que gestiono remains coming-soon: domain exists;
-  management, center assignment and booking are not in the app.
-- No create/edit/upload/directory UI and no fabricated equine cards.
-
-## Remote
-
-Linked development project: `efkauegdlmfkonzwyyiv`.
-
-Migration `011` was **not** created on the remote project and was **not**
-deployed. Local and remote histories remain aligned through `010`. Do not
-deploy 011 from this correction pass.
-
-## Security Advisor (record only — do not fix)
-
-When 011 is applied locally or remotely, `rls_enabled_no_policy` on
-`equines` and `equine_media` is intentional (RLS on, privileges revoked, no
-client policies, no client RPC). Do not add permissive policies to silence
-the advisor. Do not grant Data API SELECT to make PostgREST see the tables.
-
-Separate future task: Security Advisor "Leaked Password Protection
-Disabled". Not a Phase 3F defect and not caused by 011. Do not change Auth
-config.
-
-## Local / app verification
-
-GitHub Actions is the permanent automated quality gate
-(`.github/workflows/quality-gate.yml`, every `pull_request` plus
-`workflow_dispatch`). It uses `contents: read`, no project secrets, and
-local Docker/Supabase only. Inherited migrations at the PR base must remain
-unchanged; new files are allowed. PostgreSQL quality runs `npm run test:sql`.
-
-Proven green: run
-https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
-on `93788a208b50c8e5f652b9c94ee3c1d230c840e7`. Conclusion: success.
-App quality PASS. PostgreSQL quality PASS (`test:identity`, `test:guardians`
-including two-session concurrency, `test:riders`, `test:centers`,
-`test:memberships`, `test:equines`).
-
-### Checks Grok ran in the cloud workspace
-
-- `npm ci` PASS
-- `npm run test:auth` PASS — 38/38
-- `npm run typecheck` PASS
-- `npx expo-doctor` PASS — 18/18
-- `git diff --check` PASS
-- `001–010` vs `origin/main` PASS — unchanged
-
-SQL suites were not executed in this cloud clone (no Docker).
-
-### Checks executed by GitHub Actions
-
-Quality gate `33629791578` PASS (both jobs). See
-`docs/PHASE_3F_EQUINES_FOUNDATION_REPORT.md` for job URLs.
-
-### Checks not executed in the cloud workspace
-
-This cloud clone has no Docker; SQL tests were not executed against
-PostgreSQL here. Docker was not installed. Those suites ran on
-GitHub-hosted runners and passed.
+RLS on both tables, no client policies, no mutation RPC, no
+`person_id` argument on list RPCs, no PUBLIC execute on the internal helper.
 
 ## Next phase
 
-Do not start 012 equine ownership/management until Product Owner authorizes
-it. Do not merge this draft. Do not deploy 011 remotely.
+`013_equine_center_relations`. Do not start 015. Do not merge. Do not deploy.

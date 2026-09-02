@@ -11,6 +11,8 @@ import ExploreScreen from '../../screens/ExploreScreen';
 import GuardianRelationshipsScreen from '../../screens/GuardianRelationshipsScreen';
 import HomeScreen from '../../screens/HomeScreen';
 import MyCentersScreen from '../../screens/MyCentersScreen';
+import MyEquinesScreen from '../../screens/MyEquinesScreen';
+import MyManagedEquinesScreen from '../../screens/MyManagedEquinesScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
 import { colors } from '../ui/theme';
 import type {
@@ -124,6 +126,26 @@ function ProfileStack() {
         component={MyCentersScreen}
         options={{
           title: 'Mis centros',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
+      />
+      <ProfileStackNavigator.Screen
+        name="MyEquines"
+        component={MyEquinesScreen}
+        options={{
+          title: 'Mis equinos',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
+      />
+      <ProfileStackNavigator.Screen
+        name="MyManagedEquines"
+        component={MyManagedEquinesScreen}
+        options={{
+          title: 'Equinos que gestiono',
           headerTintColor: colors.text,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,

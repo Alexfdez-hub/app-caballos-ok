@@ -3,11 +3,13 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3F Equines foundation implemented on
-`refactor/phase-3f-equines-foundation` (draft PR). Migration `011` is local
-only and is not deployed. Phase 3E remains merged on `main`; remote history
-is aligned through `010`. Ownership/management and later equine phases are
-not started.
+**Estado:** Phase 4A Equine ownership/management implemented on
+`refactor/phase-4a-equine-ownership-management` (stacked PR #12 on #11).
+Migrations `011` and `012` are local only and are not deployed. Phase 3E
+remains merged on `main`; remote history is aligned through `010`. Product
+Owner approved ownership/management lifecycle `ACTIVE|ENDED` (2026-09-02).
+Stored lifecycle is distinct from effective-at-time authority. Center
+relations (`013`) and later equine phases are not started on this branch.
 
 ## 1. Método
 
@@ -186,9 +188,11 @@ booking and media upload remain deferred.
 Architecture Phase 4 grouped equines + ownership + management + center
 relations. Implementation numbering splits them:
 
-- `011_equines` — foundation (this phase)
-- `012_equine_ownership_management` — not started
-- `013_equine_center_relations` — not started
+- `011_equines` — foundation (PR #11)
+- `012_equine_ownership_management` — stacked PR #12 on #11. Product Owner
+  approved stored lifecycle `ACTIVE|ENDED` (2026-09-02). Effective
+  management also requires `valid_from <= now()`; `now()` is not in a CHECK.
+- `013_equine_center_relations` — not started on this branch
 
 Do not collapse ownership or management onto `equines`. Do not invent
 owner/manager/center columns. Do not migrate legacy `horses` (retired in
@@ -306,8 +310,9 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 3F:**
-equine ownership / management according to the current roadmap
-(`012_equine_ownership_management.sql`).
-Do not start that phase. Migration `011` has not been deployed remotely.
-Do not merge the Phase 3F draft until Product Owner review.
+**Siguiente fase prevista tras Phase 4A:**
+equine–center relations according to the current roadmap
+(`013_equine_center_relations.sql`).
+Do not start that phase on this branch. Migrations `011` and `012` have not
+been deployed remotely. Do not merge or retarget stacked PRs until Product
+Owner review. Do not start 015.

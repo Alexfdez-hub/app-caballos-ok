@@ -155,8 +155,6 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'equine_ownerships',
-         'equine_management_assignments',
          'equine_center_assignments',
          'equine_center_permissions',
          'equine_availability_rules',
@@ -898,7 +896,13 @@ begin
        and procedure.proname like '%equine%'
        and (
          has_function_privilege('anon', procedure.oid, 'execute')
-         or has_function_privilege('authenticated', procedure.oid, 'execute')
+         or (
+           has_function_privilege('authenticated', procedure.oid, 'execute')
+           and procedure.proname not in (
+             'list_my_equine_ownerships',
+             'list_my_equine_management_assignments'
+           )
+         )
        )
   ) then
     raise exception 'Client execute was granted on an equine function';
