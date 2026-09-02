@@ -243,7 +243,9 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 
 ## 13. Phase 8 — Requirements/services/trust
 
-Crear equine requirements, center services, service-equines, Zero Sessions y rider-equine authorizations.
+`017_equine_requirements.sql` is implemented on
+`refactor/phase-8a-equine-requirements`. Center services, Zero Sessions
+and rider-equine authorizations remain later (`018` / `019`).
 
 ## 14. Phase 9 — Calendar
 
