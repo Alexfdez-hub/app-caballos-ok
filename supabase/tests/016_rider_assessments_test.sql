@@ -94,7 +94,6 @@ begin
        and table_name in (
          'zero_sessions',
          'rider_equine_authorizations',
-         'center_services',
          'bookings',
          'sessions'
        )
