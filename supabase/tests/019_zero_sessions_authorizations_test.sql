@@ -669,7 +669,7 @@ begin
      set status = 'ENDED', ended_at = now()
    where equine_id = person_owned_id
      and owner_type = 'PERSON'
-     and owner_person_id = owner_person_id;
+     and equine_ownerships.owner_person_id = owner_person_id;
 
   begin
     update public.rider_equine_authorizations
