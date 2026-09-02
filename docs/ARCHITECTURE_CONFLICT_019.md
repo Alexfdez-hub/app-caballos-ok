@@ -1,10 +1,10 @@
 # ARCHITECTURE_CONFLICT — 019–022 preflight
 
-**Project:** app-caballos-ok  
-**Date:** 2026-09-02  
-**Architecture:** Data Architecture 2.1 Frozen  
-**Baseline:** `origin/main` `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18)  
-**Branch:** `docs/architecture-conflict-019`  
+**Project:** app-caballos-ok
+**Date:** 2026-09-02
+**Architecture:** Data Architecture 2.1 Frozen
+**Baseline:** `origin/main` `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18)
+**Branch:** `docs/architecture-conflict-019`
 **Decision:** STOP before migration `019`. No `019`–`022` SQL. No stacked implementation PRs.
 
 This document is the durable conflict report. Historical phase reports
