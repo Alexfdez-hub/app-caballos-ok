@@ -2,8 +2,6 @@ name: Quality gate
 
 on:
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -53,26 +51,55 @@ jobs:
             git diff --check origin/main
           fi
 
-      - name: Migrations 001-010 unchanged versus PR base
+      - name: Inherited migrations unchanged versus PR base
         run: |
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags origin "$BASE_SHA"
           else
             git fetch --no-tags origin main
             BASE_SHA="$(git rev-parse origin/main)"
           fi
-          echo "Comparing migrations 001-010 against $BASE_SHA"
-          git diff --exit-code "$BASE_SHA" -- \
-            supabase/migrations/001_extensions_and_core.sql \
-            supabase/migrations/002_markets.sql \
-            supabase/migrations/003_persons_accounts.sql \
-            supabase/migrations/004_policies.sql \
-            supabase/migrations/005_legacy_retirement.sql \
-            supabase/migrations/006_identity_integration.sql \
-            supabase/migrations/007_guardians.sql \
-            supabase/migrations/008_rider_profiles.sql \
-            supabase/migrations/009_centers.sql \
-            supabase/migrations/010_center_memberships.sql
+          echo "Comparing inherited migrations against $BASE_SHA"
+          changed=0
+          while IFS=$'\t' read -r status path extra; do
+            [ -z "${status:-}" ] && continue
+            case "$status" in
+              A)
+                echo "New migration allowed: $path"
+                ;;
+              M|D|T|U)
+                echo "Inherited migration must not be $status: $path"
+                changed=1
+                ;;
+              R*)
+                echo "Inherited migration must not be renamed: $path -> ${extra:-}"
+                changed=1
+                ;;
+              C*)
+                echo "Inherited migration must not be copied as a replacement: $path"
+                changed=1
+                ;;
+              *)
+                echo "Unexpected migration diff status $status for $path"
+                changed=1
+                ;;
+            esac
+          done < <(git diff --name-status -M "$BASE_SHA" -- supabase/migrations)
+          if [ "$changed" -ne 0 ]; then
+            echo "A migration that already existed at the PR base was modified, deleted, or renamed."
+            exit 1
+          fi
+          while IFS= read -r inherited; do
+            [ -z "$inherited" ] && continue
+            if [ ! -f "$inherited" ]; then
+              echo "Inherited migration missing from HEAD: $inherited"
+              exit 1
+            fi
+            git diff --exit-code "$BASE_SHA" -- "$inherited"
+          done < <(git ls-tree -r --name-only "$BASE_SHA" -- supabase/migrations)
+          echo "Inherited migrations unchanged; new migration files are allowed."
 
   postgres-quality:
     name: PostgreSQL quality
@@ -97,37 +124,20 @@ jobs:
       - name: Reset local database
         run: npx --yes supabase@2.116.0 db reset --local --yes
 
-      - name: Identity SQL tests
-        run: npm run test:identity
+      - name: SQL suites
+        run: npm run test:sql
 
-      - name: Guardian SQL tests including concurrency
-        run: npm run test:guardians
-
-      - name: Rider SQL tests
-        run: npm run test:riders
-
-      - name: Center SQL tests
-        run: npm run test:centers
-
-      - name: Membership SQL tests
-        run: npm run test:memberships
-
-      - name: Equine SQL tests
-        run: npm run test:equines
-
-      - name: Diagnose local Docker and Supabase
+      - name: Diagnose local Docker
         if: failure()
         run: |
           echo "docker ps"
           docker ps -a || true
-          echo "supabase status (pretty, not env)"
-          npx --yes supabase@2.116.0 status --output pretty || true
-          echo "container logs (tail)"
+          echo "container logs (tail, credentials filtered)"
           docker ps -aq | while read -r id; do
             name="$(docker inspect -f '{{.Name}}' "$id" 2>/dev/null || echo "$id")"
             echo "===== logs: $name ====="
             docker logs --tail 80 "$id" 2>&1 | sed -E \
-              '/SERVICE_ROLE|service_role|SECRET|PASSWORD|password|anon.key|JWT_SECRET|API_KEY/d' \
+              '/SERVICE_ROLE|service_role|SECRET|secret|PASSWORD|password|passwd|anon[_-]?key|JWT_SECRET|JWT|API_KEY|api[_-]?key|Bearer |postgres:\/\/|postgresql:\/\/|DATABASE_URL|DB_URL|DB_PASSWORD|AWS_|S3_|s3:\/\/|SUPABASE_ACCESS|linked project|project_ref|eyJ[A-Za-z0-9_-]{10,}/d' \
               || true
           done
 

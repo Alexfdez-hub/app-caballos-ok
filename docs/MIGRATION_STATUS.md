@@ -104,9 +104,10 @@ config.
 ## Local / app verification
 
 GitHub Actions is the permanent automated quality gate
-(`.github/workflows/quality-gate.yml`, `pull_request` to `main` plus
+(`.github/workflows/quality-gate.yml`, every `pull_request` plus
 `workflow_dispatch`). It uses `contents: read`, no project secrets, and
-local Docker/Supabase only.
+local Docker/Supabase only. Inherited migrations at the PR base must remain
+unchanged; new files are allowed. PostgreSQL quality runs `npm run test:sql`.
 
 Proven green: run
 https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578

@@ -100,13 +100,16 @@ rider-profile, center, membership or equine tables.
 Usual development: `npm run start:local`. Remote: `npm run start:remote`.
 
 GitHub Actions (`.github/workflows/quality-gate.yml`) is the permanent
-automated quality gate for pull requests targeting `main`. App quality and
-local PostgreSQL/SQL suites run on GitHub-hosted runners with
-`contents: read`, no project secrets, and no linked/remote Supabase. The
-cloud clone does not replace that gate. First proven-green run:
+automated quality gate for every pull request (including stacked PRs) plus
+`workflow_dispatch`. App quality and local PostgreSQL/SQL suites run on
+GitHub-hosted runners with `contents: read`, no project secrets, and no
+linked/remote Supabase. The cloud clone does not replace that gate. First
+proven-green run:
 https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
 (head `93788a208b50c8e5f652b9c94ee3c1d230c840e7`; App quality PASS;
-PostgreSQL quality PASS).
+PostgreSQL quality PASS). A3/A5 workflow generalization (no target-branch
+filter, inherited-migration check, `npm run test:sql`, no `supabase status`
+in diagnostics) is recorded after the replacement run on this branch.
 
 ## Current limitations by design
 

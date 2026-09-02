@@ -198,9 +198,14 @@ tables through PostgREST.
 ## Tests and checks
 
 GitHub Actions (`.github/workflows/quality-gate.yml`) is the permanent
-automated quality gate for pull requests targeting `main`. It uses
-`pull_request` (never `pull_request_target`), `contents: read`, no project
-secrets, and local Docker/Supabase only.
+automated quality gate. It triggers on every `pull_request` (no target-branch
+filter, so stacked PRs run) plus `workflow_dispatch`. It uses `pull_request`
+(never `pull_request_target`), `contents: read`, no project secrets, and
+local Docker/Supabase only. Inherited migrations already present at the PR
+base SHA must not be modified, deleted or renamed; new migration files are
+allowed. PostgreSQL quality runs `npm run test:sql` after local
+`db reset --local`. Failure diagnostics are Docker ps plus filtered
+container logs; they do not print `supabase status`.
 
 Proven green: Quality gate run
 https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578
@@ -232,14 +237,11 @@ Workflow: Quality gate. Event: `pull_request`. Conclusion: **success**.
 | PostgreSQL quality | PASS (3m11s) | https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629791578/job/100246131894 |
 
 App quality executed: `npm ci`, `npm run test:auth`, `npm run typecheck`,
-`npx expo-doctor`, `git diff --check`, migrations `001–010` unchanged versus
-PR base.
-
-PostgreSQL quality executed on local Docker/Supabase only (CLI `2.116.0`,
-`db reset --local`, never `--linked`): `npm run test:identity`,
-`npm run test:guardians` (includes the two-session concurrency test),
-`npm run test:riders`, `npm run test:centers`, `npm run test:memberships`,
-`npm run test:equines`. Local Supabase was stopped in an `always()` step.
+`npx expo-doctor`, `git diff --check`, inherited migrations unchanged versus
+PR base. PostgreSQL quality now runs `npm run test:sql` on later heads
+(identity, guardians including two-session concurrency, riders, centers,
+memberships, equines). Local Supabase is stopped in an `always()` step.
+Failure diagnostics do not print `supabase status`.
 
 Earlier failed run (superseded):
 https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33629287665
