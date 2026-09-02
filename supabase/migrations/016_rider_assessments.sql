@@ -215,6 +215,10 @@ begin
    where assessment.id = target_assessment;
 
   if parent_assessor is null then
+    if TG_OP = 'DELETE' then
+      return old;
+    end if;
+
     raise exception using
       errcode = '23503',
       message = 'Assessment does not exist';
