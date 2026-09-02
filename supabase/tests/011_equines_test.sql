@@ -896,7 +896,13 @@ begin
        and procedure.proname like '%equine%'
        and (
          has_function_privilege('anon', procedure.oid, 'execute')
-         or has_function_privilege('authenticated', procedure.oid, 'execute')
+         or (
+           has_function_privilege('authenticated', procedure.oid, 'execute')
+           and procedure.proname not in (
+             'list_my_equine_ownerships',
+             'list_my_equine_management_assignments'
+           )
+         )
        )
   ) then
     raise exception 'Client execute was granted on an equine function';
