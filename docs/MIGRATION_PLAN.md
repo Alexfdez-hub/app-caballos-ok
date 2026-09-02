@@ -3,9 +3,11 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 3E Center memberships mergeada en `main` (PR #9);
-migration `010` desplegada en el proyecto linked `efkauegdlmfkonzwyyiv`.
-Equines y fases posteriores no iniciadas.
+**Estado:** Phase 3F Equines foundation implemented on
+`refactor/phase-3f-equines-foundation` (draft PR). Migration `011` is local
+only and is not deployed. Phase 3E remains merged on `main`; remote history
+is aligned through `010`. Ownership/management and later equine phases are
+not started.
 
 ## 1. Método
 
@@ -161,12 +163,34 @@ roles `ADMIN|MANAGER|INSTRUCTOR|ASSESSOR`. Product Owner froze lifecycle
 migration. Caller-context read via `list_my_center_memberships()`.
 Server-internal `has_active_center_role(...)`. No client
 grant/revoke/bootstrap RPC. Invitations, first-admin onboarding, Center
-Policy activation, assessments, equines, services and bookings remain
-deferred.
+Policy activation, assessments, services and bookings remain deferred.
+Equines foundation is implemented separately as Phase 3F / migration `011`.
 
-## 9. Phase 4 — Equines
+## 8e. Phase 3F — Equines foundation
 
-Crear equines/media/ownership/management/center assignments/permissions. Migrar horses progresivamente. No inventar datos ausentes.
+**IMPLEMENTADA EN `refactor/phase-3f-equines-foundation` (draft PR).**
+Migration `011_equines.sql` is local only and has not been deployed.
+
+Creates `equines` and `equine_media`. Frozen types `HORSE|PONY`. Lifecycle
+`ACTIVE|INACTIVE|ARCHIVED` and visibility `PRIVATE|PUBLIC` are Phase 3F
+implementation decisions pending Product Owner confirmation before remote
+deployment. Media type `PHOTO` only. RLS deny-by-default; no client table
+grants; no client RPC. PUBLIC visibility is stored intent only. Ownership,
+management, center assignment, public directory, availability, booking and
+media upload remain deferred.
+
+## 9. Phase 4 — Equines ownership / center relations (histórico)
+
+Architecture Phase 4 grouped equines + ownership + management + center
+relations. Implementation numbering splits them:
+
+- `011_equines` — foundation (this phase)
+- `012_equine_ownership_management` — not started
+- `013_equine_center_relations` — not started
+
+Do not collapse ownership or management onto `equines`. Do not invent
+owner/manager/center columns. Do not migrate legacy `horses` (retired in
+005). Do not invent absent data.
 
 ## 10. Phase 5 — Disciplines / qualifications
 
@@ -280,6 +304,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 3E:**
-equines / ownership according to the current roadmap (`011_equines.sql`).
-Do not start that phase. Phase 011 has not been created or deployed.
+**Siguiente fase prevista tras Phase 3F:**
+equine ownership / management according to the current roadmap
+(`012_equine_ownership_management.sql`).
+Do not start that phase. Migration `011` has not been deployed remotely.
+Do not merge the Phase 3F draft until Product Owner review.

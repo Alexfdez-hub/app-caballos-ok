@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 3E — Center memberships
+**Baseline:** Phase 3F — Equines foundation
 **Date:** 2026-09-02
 
 ## Summary
@@ -10,8 +10,10 @@ The repository is an Expo/React Native client backed by Supabase. Phase 3A
 adds Auth → account → person identity. Phase 3B adds guardian relationships.
 Phase 3C adds person-owned rider profiles and Passport. Phase 3D adds the
 Center organization foundation. Phase 3E adds Center-scoped memberships
-without client grant/revoke or first-admin bootstrap. The application shell
-remains a single authenticated app without role selectors.
+without client grant/revoke or first-admin bootstrap. Phase 3F adds equine
+identity and media metadata without ownership, management, client mutation
+or public directory. The application shell remains a single authenticated
+app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -63,24 +65,33 @@ Profile → Mis centros reads only the caller’s memberships through
 coming-soon copy. There is no Center creation, verification, invitation or
 directory UI.
 
+Explore → Caballos y ponis and Profile → Mis equinos / Equinos que gestiono
+remain truthful coming-soon copy. The equine domain exists; public
+discovery, ownership, management, center assignment, availability, booking
+and media upload are not in the app. There is no equine create/edit/upload
+UI and no fabricated catalog.
+
 ## Database target
 
-Migrations 001–009 cover identity, policies, guardians, rider profiles and
-Centers. Migration `010_center_memberships.sql` adds:
+Migrations 001–010 cover identity, policies, guardians, rider profiles,
+Centers and Center memberships. Migration `011_equines.sql` adds:
 
-- `public.center_memberships`
+- `public.equines`
+- `public.equine_media`
 
-A membership is a PERSON + CENTER relationship, not a global account role.
-Row existence does not create Center Policy acceptance, equine rights,
-assessments or bookings. Clients have no table privileges. Grant, revoke and
-first-ADMIN bootstrap remain controlled outside the app.
+An equine row is a domain identity with type `HORSE` or `PONY`. It is not
+ownership, management, center assignment, availability or booking rights.
+Clients have no table privileges. There is no client RPC. PUBLIC visibility
+is stored intent only and does not grant SELECT. Provisioning remains
+controlled outside the app.
 
-`has_active_center_role(person_id, center_id, role_code)` is server-internal
-and is not executable by `anon` or `authenticated`.
+`has_active_center_role(person_id, center_id, role_code)` remains
+server-internal and is not executable by `anon` or `authenticated`. Center
+membership does not grant equine authority.
 
 No `service_role` credential is present in the application. Clients do not
 receive table `INSERT`/`UPDATE`/`DELETE`/`SELECT` on identity, guardian,
-rider-profile, center or membership tables.
+rider-profile, center, membership or equine tables.
 
 Usual development: `npm run start:local`. Remote: `npm run start:remote`.
 
@@ -90,15 +101,17 @@ Usual development: `npm run start:local`. Remote: `npm run start:remote`.
 - No public Center directory or map
 - No Center self-service onboarding, self-verification or invitations
 - No client membership grant/revoke or first-admin bootstrap
-- No equine, booking, assessment, payment, or review UI
+- No public equine directory, ownership listing, management UI, media upload,
+  availability or booking UI
+- No booking, assessment, payment, or review UI
 - No single `users.role` model
 
 The next planned SQL migration after Product Owner authorization is
-`011_equines.sql`. Migration 010 is deployed on the linked development
-project. Phase 011 has not been started.
+`012_equine_ownership_management.sql`. Migration 011 is not deployed on the
+linked development project. Phase 012 has not been started.
 
 ## Historical records
 
 `docs/REMOTE_DATABASE_INVENTORY.md` remains the authoritative historical
-inventory of the retired legacy schema. Phase 3A–3D reports remain
+inventory of the retired legacy schema. Phase 3A–3E reports remain
 historical. Git history preserves the deleted prototype application.
