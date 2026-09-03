@@ -64,13 +64,16 @@ Product Owner closed the 019–022 conflicts on docs PR #19
     of one `policy_code` fail closed. Obsolete documents do not satisfy.
   - Guardian `EQUESTRIAN_ACTIVITY` consent and required current policy
     acceptances are independent. No waiver.
-- Confirm is atomic: revalidate, persist every applicable evaluated
-  requirement (SATISFIED or unmet) with source identity, insert a
-  `BOOKING` calendar block (`block_type BOOKING`, `source_type BOOKING`,
-  `source_id = booking.id`), snapshot the exact documents/acceptances
-  used (document id, policy code/type, locale, version) in deterministic
-  JSON, set `CONFIRMED` + `confirmed_at`. Confirmed requirement rows and
-  the policy snapshot are then immutable. Any failure rolls back.
+  - Confirm materializes one eligibility evaluation and one policy
+    snapshot, then persists every applicable evaluated requirement
+    (SATISFIED or unmet) with source identity from that same snapshot.
+    It does not re-run the collector after deciding eligibility. It
+    then inserts a BOOKING calendar block (`block_type BOOKING`,
+    `source_type BOOKING`, `source_id = booking.id`) using the 020
+    gist exclusion as the occupancy guard, and sets `CONFIRMED` +
+    `confirmed_at`. CONFIRMED bookings cannot retain PENDING
+    requirement rows. Confirmed requirement rows and the policy
+    snapshot are then immutable. Any failure rolls back.
 - Concurrent conflicting confirms cannot both succeed. Sequential
   revalidation sees occupancy; the 020 gist exclusion remains the
   concurrency barrier.

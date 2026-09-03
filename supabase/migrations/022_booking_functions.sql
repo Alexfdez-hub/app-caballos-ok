@@ -1796,6 +1796,102 @@ comment on function public.persist_booking_requirement_rows(uuid, uuid, uuid, uu
 revoke all on function public.persist_booking_requirement_rows(uuid, uuid, uuid, uuid, timestamptz, timestamptz, uuid, uuid, uuid)
   from public, anon, authenticated;
 
+create function public.persist_booking_requirement_eval_rows(
+  p_booking_id uuid,
+  p_eval_rows jsonb,
+  p_policy_snapshot jsonb,
+  p_resolved_by_account_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+#variable_conflict use_variable
+declare
+  booking_status text;
+  eligibility_row jsonb;
+begin
+  if p_booking_id is null or p_eval_rows is null then
+    raise exception using
+      errcode = '22023',
+      message = 'Booking id and eligibility rows are required';
+  end if;
+
+  select booking.status
+    into booking_status
+    from public.bookings as booking
+   where booking.id = p_booking_id;
+
+  if booking_status in ('CONFIRMED', 'ACTIVE', 'COMPLETED') then
+    raise exception using
+      errcode = '42501',
+      message = 'Confirmed booking requirements cannot be rewritten';
+  end if;
+
+  delete from public.booking_requirements
+   where booking_id = p_booking_id;
+
+  for eligibility_row in
+    select value
+      from jsonb_array_elements(p_eval_rows) as eval(value)
+     where eval.value ? 'requirement_type'
+       and eval.value ->> 'requirement_type' is not null
+     order by
+       eval.value ->> 'requirement_type',
+       eval.value ->> 'source_type',
+       eval.value ->> 'source_id'
+  loop
+    insert into public.booking_requirements (
+      booking_id,
+      requirement_type,
+      source_type,
+      source_id,
+      status,
+      resolved_at,
+      resolved_by_account_id,
+      metadata
+    ) values (
+      p_booking_id,
+      eligibility_row ->> 'requirement_type',
+      eligibility_row ->> 'source_type',
+      nullif(eligibility_row ->> 'source_id', '')::uuid,
+      case
+        when (eligibility_row ->> 'is_met')::boolean then 'SATISFIED'
+        else 'PENDING'
+      end,
+      case
+        when (eligibility_row ->> 'is_met')::boolean then now()
+        else null
+      end,
+      case
+        when (eligibility_row ->> 'is_met')::boolean then p_resolved_by_account_id
+        else null
+      end,
+      jsonb_strip_nulls(
+        jsonb_build_object(
+          'detail', eligibility_row ->> 'detail',
+          'source_id', nullif(eligibility_row ->> 'source_id', '')::uuid,
+          'source_type', eligibility_row ->> 'source_type',
+          'policy_documents',
+          case
+            when eligibility_row ->> 'requirement_type' = 'POLICY_ACCEPTANCE'
+            then coalesce(p_policy_snapshot -> 'documents', '[]'::jsonb)
+            else null
+          end
+        )
+      )
+    );
+  end loop;
+end;
+$$;
+
+comment on function public.persist_booking_requirement_eval_rows(uuid, jsonb, jsonb, uuid) is
+  'Writes booking_requirements from one already-materialized eligibility evaluation. Does not re-run the collector. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.persist_booking_requirement_eval_rows(uuid, jsonb, jsonb, uuid)
+  from public, anon, authenticated;
+
 create function public.check_booking_eligibility(
   p_participant_person_id uuid,
   p_equine_id uuid,
@@ -2033,17 +2129,18 @@ language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
   current_auth_user_id uuid := auth.uid();
   caller_account uuid;
   caller_person uuid;
   booking_row public.bookings%rowtype;
-  booker_person uuid;
-  policy_person uuid;
   overall text;
   policy_snapshot jsonb;
   market_code text;
   guardian_required boolean := false;
+  eval_rows jsonb;
+  eval_row jsonb;
 begin
   if current_auth_user_id is null then
     raise exception using
@@ -2103,86 +2200,33 @@ begin
       message = 'Confirming a booking requires a Center ADMIN or MANAGER with effective MANAGE_BOOKINGS for this equine at this Center';
   end if;
 
-  select account.person_id
-    into booker_person
-    from public.user_accounts as account
-   where account.id = booking_row.booked_by_account_id;
-
-  policy_person := public.resolve_eligibility_policy_person(
-    booking_row.participant_person_id,
-    booker_person
-  );
-
   perform set_config('app.confirming_booking', '1', true);
 
-  overall := public.booking_eligibility_overall(
-    booking_row.participant_person_id,
-    booking_row.equine_id,
-    booking_row.center_id,
-    booking_row.starts_at,
-    booking_row.ends_at,
-    booking_row.service_id,
-    policy_person
-  );
-
-  if overall not in ('ELIGIBLE', 'ELIGIBLE_WITH_SUPERVISION') then
-    raise exception using
-      errcode = '42501',
-      message = 'Booking is not currently eligible to confirm';
+  if current_setting('app.confirm_pause_after_eval', true) = '1' then
+    perform pg_advisory_lock(22022021);
+    raise notice 'confirm_eval_lock_held';
   end if;
 
-  if public.has_active_equine_boolean_requirement(
-       booking_row.equine_id,
-       'ZERO_SESSION_REQUIRED'
-     )
-     and not public.has_effective_rider_equine_authorization(
-       booking_row.participant_person_id,
-       booking_row.equine_id,
-       'ZERO_SESSION'
-     ) then
-    raise exception using
-      errcode = '42501',
-      message = 'ZERO_SESSION_REQUIRED is not satisfied by a Zero Session result alone';
-  end if;
-
-  if public.has_active_equine_boolean_requirement(
-       booking_row.equine_id,
-       'OWNER_APPROVAL_REQUIRED'
-     )
-     and not public.has_effective_rider_equine_authorization(
-       booking_row.participant_person_id,
-       booking_row.equine_id,
-       'OWNER_APPROVAL'
-     ) then
-    raise exception using
-      errcode = '42501',
-      message = 'OWNER_APPROVAL_REQUIRED needs a currently effective OWNER_APPROVAL authorization';
-  end if;
-
-  if public.has_active_equine_boolean_requirement(
-       booking_row.equine_id,
-       'CENTER_ASSESSMENT_REQUIRED'
-     )
-     and not public.has_current_valid_rider_assessment(
-       booking_row.participant_person_id,
-       booking_row.center_id
-     ) then
-    raise exception using
-      errcode = '42501',
-      message = 'CENTER_ASSESSMENT_REQUIRED needs a current VALID assessment at this Center';
-  end if;
-
-  perform public.persist_booking_requirement_rows(
-    booking_row.id,
-    booking_row.participant_person_id,
-    booking_row.equine_id,
-    booking_row.center_id,
-    booking_row.starts_at,
-    booking_row.ends_at,
-    booking_row.service_id,
-    policy_person,
-    caller_account
-  );
+  select coalesce(
+    jsonb_agg(
+      to_jsonb(eligibility)
+      order by
+        eligibility.requirement_type nulls last,
+        eligibility.source_type,
+        eligibility.source_id
+    ),
+    '[]'::jsonb
+  )
+    into eval_rows
+    from public.collect_booking_eligibility(
+      booking_row.participant_person_id,
+      booking_row.equine_id,
+      booking_row.center_id,
+      booking_row.starts_at,
+      booking_row.ends_at,
+      booking_row.service_id,
+      booking_row.participant_person_id
+    ) as eligibility;
 
   select center.country_code
     into market_code
@@ -2208,6 +2252,65 @@ begin
     booking_row.starts_at,
     guardian_required
   );
+
+  if current_setting('app.confirm_pause_after_eval', true) = '1' then
+    raise notice 'confirm_eval_ready';
+    -- Wait until session B holds the persist gate so the post-eval
+    -- mutation is guaranteed to land between collect and persist.
+    while not exists (
+      select 1
+        from pg_locks as advisory_lock
+       where advisory_lock.locktype = 'advisory'
+         and advisory_lock.classid = 0
+         and advisory_lock.objid = 22022022
+         and advisory_lock.granted
+    ) loop
+      perform pg_sleep(0.05);
+    end loop;
+    perform pg_advisory_unlock(22022021);
+    perform pg_advisory_lock(22022022);
+    perform pg_advisory_unlock(22022022);
+  end if;
+
+  overall := 'ELIGIBLE';
+  for eval_row in
+    select value
+      from jsonb_array_elements(eval_rows) as eval(value)
+  loop
+    overall := public.worse_booking_eligibility_token(
+      overall,
+      eval_row ->> 'overall_status'
+    );
+  end loop;
+
+  if overall not in ('ELIGIBLE', 'ELIGIBLE_WITH_SUPERVISION')
+     or exists (
+       select 1
+         from jsonb_array_elements(eval_rows) as eval(value)
+        where (eval.value ->> 'is_met')::boolean is not true
+     ) then
+    raise exception using
+      errcode = '42501',
+      message = 'Booking is not currently eligible to confirm';
+  end if;
+
+  perform public.persist_booking_requirement_eval_rows(
+    booking_row.id,
+    eval_rows,
+    policy_snapshot,
+    caller_account
+  );
+
+  if exists (
+    select 1
+      from public.booking_requirements as requirement
+     where requirement.booking_id = booking_row.id
+       and requirement.status = 'PENDING'
+  ) then
+    raise exception using
+      errcode = '42501',
+      message = 'A CONFIRMED booking cannot persist PENDING requirement rows';
+  end if;
 
   begin
     insert into public.equine_calendar_blocks (
@@ -2251,7 +2354,7 @@ end;
 $$;
 
 comment on function public.confirm_booking(uuid) is
-  'Authenticated confirm. Requires effective MANAGE_BOOKINGS. Accepts only APPROVED. Revalidates eligibility, consent, participant-context policies, authorization and availability; persists every evaluated requirement; snapshots exact documents/acceptances; inserts a BOOKING calendar block; sets CONFIRMED. Confirmed requirement rows and policy snapshot are then immutable. Rolls back on any failure. Booker-alone is not enough.';
+  'Authenticated confirm. Requires effective MANAGE_BOOKINGS. Accepts only APPROVED. Materializes one eligibility evaluation and one policy snapshot, then persists and confirms from that same snapshot. Does not re-run the collector after deciding eligibility. The 020 gist exclusion remains the occupancy guard. Confirmed bookings cannot retain PENDING requirement rows. Rolls back on any failure.';
 
 revoke all on function public.confirm_booking(uuid)
   from public, anon, authenticated;

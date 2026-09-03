@@ -664,6 +664,15 @@ begin
     raise exception 'Successful confirm did not retain SATISFIED policy requirement rows';
   end if;
 
+  if exists (
+    select 1
+      from public.booking_requirements as requirement
+     where requirement.booking_id = current_setting('app.created_booking_id')::uuid
+       and requirement.status = 'PENDING'
+  ) then
+    raise exception 'CONFIRMED booking stored PENDING requirement rows';
+  end if;
+
   perform set_config(
     'app.confirmed_policy_snapshot',
     (
@@ -2099,6 +2108,11 @@ begin
      or has_function_privilege(
        'authenticated',
        'public.has_ambiguous_current_policy_versions(text,text,timestamptz)',
+       'execute'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.persist_booking_requirement_eval_rows(uuid,jsonb,jsonb,uuid)',
        'execute'
      )
   then
