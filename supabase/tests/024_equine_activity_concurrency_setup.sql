@@ -1,4 +1,5 @@
--- Two-connection start_session setup. Commits so both sessions can see it.
+-- Two-connection record_equine_activity setup. Commits so both
+-- connections can see the started session.
 
 select pg_advisory_unlock_all();
 
@@ -7,103 +8,103 @@ set session_replication_role = replica;
 delete from public.equine_activities
  where session_id in (
    select id from public.sessions
-    where booking_id = '88100000-0000-0000-0000-00000000b001'
+    where booking_id = '88300000-0000-0000-0000-00000000b001'
  );
 delete from public.session_evidence
  where session_id in (
    select id from public.sessions
-    where booking_id = '88100000-0000-0000-0000-00000000b001'
+    where booking_id = '88300000-0000-0000-0000-00000000b001'
  );
 delete from public.session_events
  where session_id in (
    select id from public.sessions
-    where booking_id = '88100000-0000-0000-0000-00000000b001'
+    where booking_id = '88300000-0000-0000-0000-00000000b001'
  );
 delete from public.session_permits
- where booking_id = '88100000-0000-0000-0000-00000000b001';
+ where booking_id = '88300000-0000-0000-0000-00000000b001';
 delete from public.sessions
- where booking_id = '88100000-0000-0000-0000-00000000b001';
+ where booking_id = '88300000-0000-0000-0000-00000000b001';
 delete from public.booking_requirements
- where booking_id = '88100000-0000-0000-0000-00000000b001';
+ where booking_id = '88300000-0000-0000-0000-00000000b001';
 delete from public.equine_calendar_blocks
- where source_id = '88100000-0000-0000-0000-00000000b001';
+ where source_id = '88300000-0000-0000-0000-00000000b001';
 delete from public.bookings
- where id = '88100000-0000-0000-0000-00000000b001';
+ where id = '88300000-0000-0000-0000-00000000b001';
 
 delete from public.service_equines
  where equine_id in (
-   select id from public.equines where name = 'phase12a-conc-school'
+   select id from public.equines where name = 'phase12b-conc-school'
  );
 delete from public.equine_availability_rules
  where equine_id in (
-   select id from public.equines where name = 'phase12a-conc-school'
+   select id from public.equines where name = 'phase12b-conc-school'
  );
 delete from public.equine_center_permissions
  where equine_id in (
-   select id from public.equines where name = 'phase12a-conc-school'
+   select id from public.equines where name = 'phase12b-conc-school'
  );
 delete from public.equine_center_assignments
  where equine_id in (
-   select id from public.equines where name = 'phase12a-conc-school'
+   select id from public.equines where name = 'phase12b-conc-school'
  );
 delete from public.equine_ownerships
  where equine_id in (
-   select id from public.equines where name = 'phase12a-conc-school'
+   select id from public.equines where name = 'phase12b-conc-school'
  );
-delete from public.equines where name = 'phase12a-conc-school';
+delete from public.equines where name = 'phase12b-conc-school';
 delete from public.center_services
  where center_id in (
-   select id from public.equestrian_centers where slug = 'phase12a-conc'
+   select id from public.equestrian_centers where slug = 'phase12b-conc'
  );
 delete from public.center_memberships
  where center_id in (
-   select id from public.equestrian_centers where slug = 'phase12a-conc'
+   select id from public.equestrian_centers where slug = 'phase12b-conc'
  );
 delete from public.center_languages
  where center_id in (
-   select id from public.equestrian_centers where slug = 'phase12a-conc'
+   select id from public.equestrian_centers where slug = 'phase12b-conc'
  );
-delete from public.equestrian_centers where slug = 'phase12a-conc';
+delete from public.equestrian_centers where slug = 'phase12b-conc';
 
 delete from public.policy_acceptances
  where user_account_id in (
    select id from public.user_accounts
     where auth_user_id in (
-      '88100000-0000-0000-0000-000000000001'::uuid,
-      '88100000-0000-0000-0000-000000000005'::uuid
+      '88300000-0000-0000-0000-000000000001'::uuid,
+      '88300000-0000-0000-0000-000000000005'::uuid
     )
  );
 delete from public.policy_documents
- where policy_code = 'TERMS_ZS' and market_code = 'ZS';
+ where policy_code = 'TERMS_ZU' and market_code = 'ZU';
 delete from public.user_accounts
  where auth_user_id in (
-   '88100000-0000-0000-0000-000000000001'::uuid,
-   '88100000-0000-0000-0000-000000000005'::uuid,
-   '88100000-0000-0000-0000-000000000007'::uuid
+   '88300000-0000-0000-0000-000000000001'::uuid,
+   '88300000-0000-0000-0000-000000000005'::uuid,
+   '88300000-0000-0000-0000-000000000007'::uuid
  );
 delete from public.persons
- where first_name = 'Conc12A'
+ where first_name = 'Conc12B'
    and last_name in ('Rider', 'Staff', 'Owner');
-delete from public.market_age_rules where country_code = 'ZS';
-delete from public.markets where country_code = 'ZS';
+delete from public.market_age_rules where country_code = 'ZU';
+delete from public.markets where country_code = 'ZU';
 delete from auth.users
  where id in (
-   '88100000-0000-0000-0000-000000000001'::uuid,
-   '88100000-0000-0000-0000-000000000005'::uuid,
-   '88100000-0000-0000-0000-000000000007'::uuid
+   '88300000-0000-0000-0000-000000000001'::uuid,
+   '88300000-0000-0000-0000-000000000005'::uuid,
+   '88300000-0000-0000-0000-000000000007'::uuid
  );
 
 set session_replication_role = origin;
 
-insert into public.markets (country_code, status) values ('ZS', 'ACTIVE');
+insert into public.markets (country_code, status) values ('ZU', 'ACTIVE');
 insert into public.market_age_rules (
   country_code, legal_adult_age, guardian_consent_required, effective_from
-) values ('ZS', 18, true, date '2000-01-01');
+) values ('ZU', 18, true, date '2000-01-01');
 
 insert into auth.users (id) values
-  ('88100000-0000-0000-0000-000000000001'),
-  ('88100000-0000-0000-0000-000000000005'),
-  ('88100000-0000-0000-0000-000000000007');
+  ('88300000-0000-0000-0000-000000000001'),
+  ('88300000-0000-0000-0000-000000000005'),
+  ('88300000-0000-0000-0000-000000000007');
 
 do $$
 declare
@@ -119,30 +120,30 @@ declare
 begin
   select person_id, id into rider_person_id, rider_account_id
     from public.user_accounts
-   where auth_user_id = '88100000-0000-0000-0000-000000000001';
+   where auth_user_id = '88300000-0000-0000-0000-000000000001';
   select person_id, id into staff_person_id, staff_account_id
     from public.user_accounts
-   where auth_user_id = '88100000-0000-0000-0000-000000000005';
+   where auth_user_id = '88300000-0000-0000-0000-000000000005';
   select person_id into owner_person_id
     from public.user_accounts
-   where auth_user_id = '88100000-0000-0000-0000-000000000007';
+   where auth_user_id = '88300000-0000-0000-0000-000000000007';
 
   update public.persons
-     set first_name = 'Conc12A', last_name = 'Rider', date_of_birth = date '1990-01-01'
+     set first_name = 'Conc12B', last_name = 'Rider', date_of_birth = date '1990-01-01'
    where id = rider_person_id;
   update public.persons
-     set first_name = 'Conc12A', last_name = 'Staff', date_of_birth = date '1985-01-01'
+     set first_name = 'Conc12B', last_name = 'Staff', date_of_birth = date '1985-01-01'
    where id = staff_person_id;
   update public.persons
-     set first_name = 'Conc12A', last_name = 'Owner', date_of_birth = date '1975-01-01'
+     set first_name = 'Conc12B', last_name = 'Owner', date_of_birth = date '1975-01-01'
    where id = owner_person_id;
 
   insert into public.equestrian_centers (name, slug, country_code, status)
-  values ('Phase12A Conc', 'phase12a-conc', 'ZS', 'ACTIVE')
+  values ('Phase12B Conc', 'phase12b-conc', 'ZU', 'ACTIVE')
   returning id into center_id;
 
   insert into public.equines (name, equine_type)
-  values ('phase12a-conc-school', 'HORSE')
+  values ('phase12b-conc-school', 'HORSE')
   returning id into equine_id;
 
   insert into public.center_memberships (center_id, person_id, role_code)
@@ -183,7 +184,7 @@ begin
     policy_code, policy_type, market_code, locale, version, title, content,
     effective_from, status, requires_reacceptance
   ) values (
-    'TERMS_ZS', 'TERMS_OF_SERVICE', 'ZS', 'es', '1',
+    'TERMS_ZU', 'TERMS_OF_SERVICE', 'ZU', 'es', '1',
     'Terms', 'Conc terms', now() - interval '1 day', 'ACTIVE', false
   ) returning id into terms_id;
 
@@ -195,7 +196,7 @@ begin
     id, participant_person_id, booked_by_account_id, equine_id, center_id,
     service_id, starts_at, ends_at, status, eligibility_status
   ) values (
-    '88100000-0000-0000-0000-00000000b001',
+    '88300000-0000-0000-0000-00000000b001',
     rider_person_id,
     rider_account_id,
     equine_id,
@@ -210,11 +211,21 @@ end;
 $$;
 
 begin;
-select set_config('request.jwt.claim.sub', '88100000-0000-0000-0000-000000000005', true);
+select set_config('request.jwt.claim.sub', '88300000-0000-0000-0000-000000000005', true);
 select set_config(
   'request.jwt.claims',
-  '{"sub":"88100000-0000-0000-0000-000000000005","role":"authenticated"}',
+  '{"sub":"88300000-0000-0000-0000-000000000005","role":"authenticated"}',
   true
 );
-select public.confirm_booking('88100000-0000-0000-0000-00000000b001') as confirmed_id;
+select public.confirm_booking('88300000-0000-0000-0000-00000000b001') as confirmed_id;
+commit;
+
+begin;
+select set_config('request.jwt.claim.sub', '88300000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"88300000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+select public.start_session('88300000-0000-0000-0000-00000000b001') as started_id;
 commit;

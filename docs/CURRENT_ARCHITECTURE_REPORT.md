@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 12A — Verified sessions (stacked; `main` still through 022)
+**Baseline:** Phase 12B — Equine activity (stacked on accepted 023; `main` still through 022)
 **Date:** 2026-09-03
 
 ## Summary
@@ -209,15 +209,13 @@ in diagnostics) is recorded after the replacement run on this branch.
 
 Migration `019_zero_sessions_authorizations.sql` is merged (PR #20).
 020 calendar is merged (PR #21). 021 bookings is merged (PR #22).
-022 booking functions is merged (PR #23). This branch adds
-`023_sessions.sql`: `sessions`, `session_events`, `session_evidence`,
-`session_permits`, plus `start_session` / `end_session` /
-`issue_session_permit` / `attach_session_evidence`. Official timestamps
-are `clock_timestamp()` (server wall clock). Offline start requires a server-issued
-confirmed-booking permit. Evidence metadata is private; 023 does not
-create a Storage bucket. No `equine_activities`, reviews, incidents or
-audit. Remote remains aligned through `022`. Do not start 024 until
-this Quality Gate is green.
+022 booking functions is merged (PR #23). 023 verified sessions is
+accepted on PR #25 (`d037b62`). This branch adds
+`024_equine_activity.sql`: `equine_activities` plus
+`record_equine_activity`. Context is copied from the canonical session.
+`activity_type` / `status` / `source` have no invented CHECK catalogs.
+No reviews, incidents, audit or Storage. Remote remains aligned through
+`022`. Do not start 025 until this Quality Gate is green.
 
 ## Historical records
 
