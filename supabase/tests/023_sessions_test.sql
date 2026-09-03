@@ -1205,7 +1205,11 @@ begin
      or has_table_privilege('authenticated', 'public.session_evidence', 'select')
      or has_table_privilege('authenticated', 'public.session_permits', 'select')
      or has_table_privilege('authenticated', 'public.session_evidence', 'insert')
-     or not has_function_privilege(
+  then
+    raise exception '023 client table privileges must stay revoked';
+  end if;
+
+  if not has_function_privilege(
        'authenticated',
        'public.start_session(uuid,boolean,uuid,double precision,double precision,text,timestamptz)',
        'execute'
@@ -1220,7 +1224,11 @@ begin
        'public.start_session(uuid,boolean,uuid,double precision,double precision,text,timestamptz)',
        'execute'
      )
-     or has_function_privilege(
+  then
+    raise exception '023 public RPCs must be executable by authenticated only';
+  end if;
+
+  if has_function_privilege(
        'authenticated',
        'public.caller_can_operate_session(uuid,uuid,uuid,uuid)',
        'execute'
@@ -1245,15 +1253,24 @@ begin
        'public.enforce_session_immutability()',
        'execute'
      )
-     or pg_get_functiondef(
-          'public.start_session(uuid,boolean,uuid,double precision,double precision,text,timestamptz)'::regprocedure
-        ) not like '%search_path = pg_catalog, public%'
-     or pg_get_functiondef('public.end_session(uuid,boolean,double precision,double precision,text,timestamptz)'::regprocedure)
-        not like '%search_path = pg_catalog, public%'
-     or pg_get_functiondef('public.issue_session_permit(uuid)'::regprocedure)
-        not like '%SECURITY DEFINER%'
   then
-    raise exception '023 RPC grants, search_path or table privileges are wrong';
+    raise exception '023 internal session helpers must not be executable by clients';
+  end if;
+
+  if (
+    select count(*)
+      from pg_catalog.pg_proc as procedure
+     where procedure.oid in (
+       'public.start_session(uuid,boolean,uuid,double precision,double precision,text,timestamptz)'::regprocedure,
+       'public.end_session(uuid,boolean,double precision,double precision,text,timestamptz)'::regprocedure,
+       'public.issue_session_permit(uuid)'::regprocedure,
+       'public.attach_session_evidence(uuid,text,text,timestamptz,double precision,double precision)'::regprocedure,
+       'public.set_session_transition(boolean)'::regprocedure
+     )
+       and procedure.prosecdef
+       and procedure.proconfig @> array['search_path=pg_catalog, public']
+  ) <> 5 then
+    raise exception '023 session functions lack SECURITY DEFINER or search_path';
   end if;
 end;
 $$;
