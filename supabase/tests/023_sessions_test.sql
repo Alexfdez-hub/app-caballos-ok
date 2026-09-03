@@ -8,6 +8,7 @@ begin;
 set session_replication_role = replica;
 
 do $$
+#variable_conflict use_variable
 declare
   fixture_auth uuid[] := array[
     '88000000-0000-0000-0000-000000000001'::uuid,
@@ -394,6 +395,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   created_id uuid;
 begin
@@ -423,6 +425,7 @@ $$;
 reset role;
 
 do $$
+#variable_conflict use_variable
 declare
   pending_id uuid;
 begin
@@ -526,6 +529,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid;
   device_time timestamptz := timestamptz '2020-01-01 00:00:00+00';
@@ -546,6 +550,7 @@ $$;
 reset role;
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid := current_setting('app.rider_session_id')::uuid;
   started_at timestamptz;
@@ -599,6 +604,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid := current_setting('app.rider_session_id')::uuid;
   replay_id uuid;
@@ -624,6 +630,7 @@ $$;
 reset role;
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid := current_setting('app.rider_session_id')::uuid;
 begin
@@ -646,6 +653,7 @@ $$;
 
 -- Transition tampering and evidence immutability.
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid := current_setting('app.rider_session_id')::uuid;
 begin
@@ -697,6 +705,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   ended_id uuid;
 begin
@@ -715,6 +724,7 @@ $$;
 reset role;
 
 do $$
+#variable_conflict use_variable
 declare
   ended_id uuid := current_setting('app.rider_session_id')::uuid;
   ended_at timestamptz;
@@ -759,6 +769,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   ended_id uuid := current_setting('app.rider_session_id')::uuid;
   replay_id uuid;
@@ -794,6 +805,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000003');
 
 do $$
+#variable_conflict use_variable
 declare
   minor_booking uuid;
 begin
@@ -839,6 +851,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000003');
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid;
 begin
@@ -868,6 +881,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000003');
 
 do $$
+#variable_conflict use_variable
 declare
   minor_self_booking uuid;
 begin
@@ -897,6 +911,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000004');
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid;
 begin
@@ -911,6 +926,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   offline_booking uuid;
 begin
@@ -940,6 +956,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   permit_id uuid;
   replay_permit uuid;
@@ -987,6 +1004,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid;
 begin
@@ -1031,6 +1049,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   ready_booking uuid;
   ready_session uuid;
@@ -1069,6 +1088,7 @@ $$;
 reset role;
 
 do $$
+#variable_conflict use_variable
 declare
   ready_session uuid;
 begin
@@ -1100,6 +1120,7 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
 declare
   staff_booking uuid;
 begin
@@ -1119,6 +1140,7 @@ reset role;
 set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000005');
 do $$
+#variable_conflict use_variable
 declare
   session_id uuid;
 begin
