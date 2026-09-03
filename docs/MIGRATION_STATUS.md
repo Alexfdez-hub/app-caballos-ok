@@ -1,44 +1,40 @@
 # MIGRATION STATUS
 
-PHASE: 12B — Equine activity
-STATUS: IMPLEMENTADO — stacked PR against accepted 023 HEAD; 024 NOT deployed
+PHASE: 13A — Reviews and incidents
+STATUS: IMPLEMENTADO — stacked PR against accepted 024 HEAD; 025 NOT deployed
 DATE: 2026-09-03
 
-Parent is accepted 023 HEAD `d037b62c83db44ee339688b35c2e8e0fe5f56a27`
-(PR #25 Quality Gate green). Live `main` remains
+Parent is accepted 024 HEAD `cb213e8031089b5f2dd90122d7cd4219d860fca3`
+(PR #26 Quality Gate green). Live `main` remains
 `188ed3f356c0da67126dd5da715e2765be7cf4a5` through `022`. Do not merge
-this PR. Do not deploy 024. Do not start 025 until the complete Quality
+this PR. Do not deploy 025. Do not start 026 until the complete Quality
 Gate is green.
 
 ## Files created
 
-- `supabase/migrations/024_equine_activity.sql`
-- `supabase/tests/024_equine_activity_test.sql`
-- `supabase/tests/024_equine_activity_concurrency_setup.sql`
-- `supabase/tests/024_equine_activity_concurrency_session_a.sql`
-- `supabase/tests/024_equine_activity_concurrency_session_b.sql`
-- `supabase/tests/024_equine_activity_concurrency_assert.sql`
-- `supabase/tests/024_equine_activity_concurrency_cleanup.sql`
-- `scripts/run-activity-sql-tests.cjs`
-- `scripts/run-activity-concurrency-test.cjs`
-- `docs/PHASE_12B_EQUINE_ACTIVITY_REPORT.md`
+- `supabase/migrations/025_reviews_incidents.sql`
+- `supabase/tests/025_reviews_incidents_test.sql`
+- `supabase/tests/025_reviews_incidents_concurrency_setup.sql`
+- `supabase/tests/025_reviews_incidents_concurrency_session_a.sql`
+- `supabase/tests/025_reviews_incidents_concurrency_session_b.sql`
+- `supabase/tests/025_reviews_incidents_concurrency_assert.sql`
+- `supabase/tests/025_reviews_incidents_concurrency_cleanup.sql`
+- `scripts/run-reviews-incidents-sql-tests.cjs`
+- `scripts/run-reviews-incidents-concurrency-test.cjs`
+- `docs/PHASE_13A_REVIEWS_INCIDENTS_REPORT.md`
 
 ## Files modified
 
 - `package.json`
-- inherited tests `008`–`023` (allow `equine_activities`; still forbid
-  `reviews`, `incidents`, `audit_events`)
-- `supabase/tests/023_sessions_concurrency_setup.sql`
-- `supabase/tests/023_sessions_concurrency_cleanup.sql`
+- inherited tests `008`–`024` (allow `reviews` and `incidents`; still
+  forbid `audit_events`; 023/024 cleanups delete those rows first)
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-Inherited migrations `001`–`023` are unchanged versus the 023 parent.
-023 tests now allow `equine_activities` and still forbid `reviews`,
-`incidents` and `audit_events`.
+Inherited migrations `001`–`024` are unchanged versus the 024 parent.
 
 ## Next phase
 
-`025` is out of scope until this Quality Gate is green. Stop after
+`026` is out of scope until this Quality Gate is green. Stop after
 Ready + CI-green. Do not merge. Do not deploy.

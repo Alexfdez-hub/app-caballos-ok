@@ -3,17 +3,17 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 12B equine activity implemented on
-`refactor/phase-12b-equine-activity` stacked on accepted 023 HEAD
-`d037b62c83db44ee339688b35c2e8e0fe5f56a27`. Do not merge. Do not
-deploy `024`. Do not start 025 until the complete Quality Gate is green.
+**Estado:** Phase 13A reviews/incidents implemented on
+`refactor/phase-13a-reviews-incidents` stacked on accepted 024 HEAD
+`cb213e8031089b5f2dd90122d7cd4219d860fca3`. Do not merge. Do not
+deploy `025`. Do not start 026 until the complete Quality Gate is green.
 
 **Current baseline (verified 2026-09-03):** `origin/main` HEAD is
 `188ed3f356c0da67126dd5da715e2765be7cf4a5` (merge of PR #23). PRs
 #19–#23 are merged. Migrations `001`–`022` exist on `main`. Product
 Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
 exact version `022`. This agent does not deploy and does not modify
-remote. `023` is accepted on PR #25. `024` is implemented on this branch and is not deployed.
+remote. `023` is accepted on PR #25. `024` is accepted on PR #26. `025` is implemented on this branch and is not deployed.
 
 **Historical (Phase 5A branch time):** earlier text described `011`–`014`
 as stacked/not deployed and remote aligned through `010`. That was true
@@ -250,7 +250,8 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 `021_bookings.sql` is merged (PR #22).
 `022_booking_functions.sql` is merged (PR #23).
 `023_sessions.sql` is accepted on PR #25.
-`024_equine_activity.sql` is implemented on this branch.
+`024_equine_activity.sql` is accepted on PR #26.
+`025_reviews_incidents.sql` is implemented on this branch.
 
 ## 14. Phase 9 — Calendar
 
@@ -270,9 +271,11 @@ booking permit.
 
 ## 17. Phase 12 — Equine activity / reviews / incidents / audit
 
-`024_equine_activity.sql` is implemented on this branch. Activity is
-session-linked and append-only. Do not start 025 until the Quality Gate
-is green.
+`024_equine_activity.sql` is accepted on PR #26. Activity is
+session-linked and append-only.
+`025_reviews_incidents.sql` is implemented on this branch. Rating is
+frozen 1..5. Incident type/severity/status catalogs are not invented.
+Do not start 026 until the Quality Gate is green.
 
 ## 18. Phase 13 — Storage security
 
@@ -350,5 +353,5 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 12B:**
-Stop. Do not start `025` until this Quality Gate is green. Do not merge. Do not deploy.
+**Siguiente fase prevista tras Phase 13A:**
+Stop. Do not start `026` until this Quality Gate is green. Do not merge. Do not deploy.
