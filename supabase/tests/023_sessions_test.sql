@@ -528,12 +528,7 @@ select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 do $$
 declare
   session_id uuid;
-  replay_id uuid;
-  started_at timestamptz;
   device_time timestamptz := timestamptz '2020-01-01 00:00:00+00';
-  event_device timestamptz;
-  event_server timestamptz;
-  evidence_id uuid;
 begin
   session_id := public.start_session(
     current_setting('app.rider_booking_id')::uuid,
@@ -545,11 +540,24 @@ begin
     device_time
   );
   perform set_config('app.rider_session_id', session_id::text, true);
+end;
+$$;
 
+reset role;
+
+do $$
+declare
+  session_id uuid := current_setting('app.rider_session_id')::uuid;
+  started_at timestamptz;
+  device_time timestamptz := timestamptz '2020-01-01 00:00:00+00';
+  event_device timestamptz;
+  event_server timestamptz;
+begin
   select session.started_at
     into started_at
     from public.sessions as session
    where session.id = session_id;
+  perform set_config('app.rider_started_at', started_at::text, true);
 
   if started_at is null or started_at = device_time then
     raise exception 'start_session used client/device time as authority';
@@ -584,12 +592,41 @@ begin
   if event_server = device_time then
     raise exception 'received_at_server used device time';
   end if;
+end;
+$$;
 
+set local role authenticated;
+select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
+
+do $$
+declare
+  session_id uuid := current_setting('app.rider_session_id')::uuid;
+  replay_id uuid;
+  evidence_id uuid;
+begin
   replay_id := public.start_session(current_setting('app.rider_booking_id')::uuid);
   if replay_id is distinct from session_id then
     raise exception 'Replay start created a second session';
   end if;
 
+  evidence_id := public.attach_session_evidence(
+    session_id,
+    'START_PHOTO',
+    'session-evidence/phase12a/start.jpg',
+    timestamptz '2020-01-01 00:00:00+00',
+    40.4,
+    -3.7
+  );
+  perform set_config('app.evidence_id', evidence_id::text, true);
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  session_id uuid := current_setting('app.rider_session_id')::uuid;
+begin
   if (
     select count(*) from public.sessions
      where booking_id = current_setting('app.rider_booking_id')::uuid
@@ -601,23 +638,11 @@ begin
     select session.started_at
       from public.sessions as session
      where session.id = session_id
-  ) is distinct from started_at then
+  ) is distinct from current_setting('app.rider_started_at')::timestamptz then
     raise exception 'Replay start mutated started_at';
   end if;
-
-  evidence_id := public.attach_session_evidence(
-    session_id,
-    'START_PHOTO',
-    'session-evidence/phase12a/start.jpg',
-    device_time,
-    40.4,
-    -3.7
-  );
-  perform set_config('app.evidence_id', evidence_id::text, true);
 end;
 $$;
-
-reset role;
 
 -- Transition tampering and evidence immutability.
 do $$
@@ -674,9 +699,6 @@ select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 do $$
 declare
   ended_id uuid;
-  replay_id uuid;
-  ended_at timestamptz;
-  device_time timestamptz := timestamptz '2019-01-01 00:00:00+00';
 begin
   ended_id := public.end_session(
     current_setting('app.rider_session_id')::uuid,
@@ -684,9 +706,20 @@ begin
     40.5,
     -3.8,
     'device-1',
-    device_time
+    timestamptz '2019-01-01 00:00:00+00'
   );
+  perform set_config('app.rider_session_id', ended_id::text, true);
+end;
+$$;
 
+reset role;
+
+do $$
+declare
+  ended_id uuid := current_setting('app.rider_session_id')::uuid;
+  ended_at timestamptz;
+  device_time timestamptz := timestamptz '2019-01-01 00:00:00+00';
+begin
   select session.ended_at
     into ended_at
     from public.sessions as session
@@ -719,7 +752,17 @@ begin
   ) is distinct from 'COMPLETED' then
     raise exception 'end_session did not complete the booking';
   end if;
+end;
+$$;
 
+set local role authenticated;
+select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
+
+do $$
+declare
+  ended_id uuid := current_setting('app.rider_session_id')::uuid;
+  replay_id uuid;
+begin
   replay_id := public.end_session(ended_id);
   if replay_id is distinct from ended_id then
     raise exception 'Replay end created a different session';
@@ -800,14 +843,22 @@ declare
   session_id uuid;
 begin
   session_id := public.start_session(current_setting('app.minor_booking_id')::uuid);
+  perform set_config('app.minor_session_id', session_id::text, true);
+  perform public.end_session(session_id);
+end;
+$$;
+
+reset role;
+
+do $$
+begin
   if (
     select session.participant_person_id
       from public.sessions as session
-     where session.id = session_id
+     where session.id = current_setting('app.minor_session_id')::uuid
   ) is distinct from current_setting('app.minor_person_id')::uuid then
     raise exception 'Minor session participant was not the minor PERSON';
   end if;
-  perform public.end_session(session_id);
 end;
 $$;
 
@@ -914,7 +965,14 @@ begin
   if replay_permit is distinct from permit_id then
     raise exception 'Permit issue was not idempotent';
   end if;
+  perform set_config('app.offline_permit_id', permit_id::text, true);
+end;
+$$;
 
+reset role;
+
+do $$
+begin
   if (
     select session.status
       from public.sessions as session
@@ -922,7 +980,16 @@ begin
   ) is distinct from 'READY' then
     raise exception 'Permit did not create a READY session';
   end if;
+end;
+$$;
 
+set local role authenticated;
+select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
+
+do $$
+declare
+  session_id uuid;
+begin
   begin
     perform public.start_session(
       current_setting('app.offline_booking_id')::uuid,
@@ -937,18 +1004,24 @@ begin
   session_id := public.start_session(
     current_setting('app.offline_booking_id')::uuid,
     true,
-    permit_id
+    current_setting('app.offline_permit_id')::uuid
   );
+  perform set_config('app.offline_session_id', session_id::text, true);
+  perform public.end_session(session_id);
+end;
+$$;
 
+reset role;
+
+do $$
+begin
   if (
     select session.started_offline
       from public.sessions as session
-     where session.id = session_id
+     where session.id = current_setting('app.offline_session_id')::uuid
   ) is not true then
     raise exception 'Offline start did not record started_offline';
   end if;
-
-  perform public.end_session(session_id);
 end;
 $$;
 
@@ -988,17 +1061,32 @@ set local role authenticated;
 select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
 
 do $$
+begin
+  perform public.issue_session_permit(current_setting('app.ready_booking_id')::uuid);
+end;
+$$;
+
+reset role;
+
+do $$
 declare
   ready_session uuid;
 begin
-  perform public.issue_session_permit(current_setting('app.ready_booking_id')::uuid);
   select session.id
     into ready_session
     from public.sessions as session
    where session.booking_id = current_setting('app.ready_booking_id')::uuid;
+  perform set_config('app.ready_session_id', ready_session::text, true);
+end;
+$$;
 
+set local role authenticated;
+select pg_temp.set_auth('88000000-0000-0000-0000-000000000001');
+
+do $$
+begin
   begin
-    perform public.end_session(ready_session);
+    perform public.end_session(current_setting('app.ready_session_id')::uuid);
     raise exception 'READY session was ended before start';
   exception
     when check_violation then null;
