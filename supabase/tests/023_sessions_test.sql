@@ -5,6 +5,8 @@
 
 begin;
 
+set session_replication_role = replica;
+
 do $$
 declare
   fixture_auth uuid[] := array[
@@ -39,7 +41,6 @@ begin
    where equine_id = any(fixture_equine_ids)
       or center_id = any(fixture_center_ids);
 
-  perform set_config('session_replication_role', 'replica', true);
   delete from public.session_evidence where session_id = any(fixture_session_ids);
   delete from public.session_events where session_id = any(fixture_session_ids);
   delete from public.session_permits
@@ -106,9 +107,10 @@ begin
   delete from public.market_age_rules where country_code = 'ZR';
   delete from public.markets where country_code = 'ZR';
   delete from auth.users where id = any(fixture_auth);
-  perform set_config('session_replication_role', 'origin', true);
 end;
 $$;
+
+set session_replication_role = origin;
 
 insert into public.markets (country_code, status) values ('ZR', 'ACTIVE');
 insert into public.market_age_rules (
