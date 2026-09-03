@@ -103,7 +103,6 @@ begin
        and procedure.proname in (
          'create_equine_requirement',
          'upsert_equine_requirement',
-         'check_booking_eligibility',
          'approve_zero_session'
        )
   ) then

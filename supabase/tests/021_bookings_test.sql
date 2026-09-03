@@ -1,5 +1,5 @@
 -- Phase 11A local booking foundation tests.
--- Assumes migrations 001-021. Eligibility RPCs and sessions remain deferred.
+-- Assumes migrations 001-021. approve_zero_session and sessions remain deferred.
 -- Booker is own PERSON or a current VERIFIED guardian. No confirm path.
 -- Runnable without psql meta-commands.
 
@@ -127,13 +127,10 @@ begin
      where namespace.nspname = 'public'
        and procedure.proname in (
          'approve_zero_session',
-         'check_booking_eligibility',
-         'create_booking_request',
-         'confirm_booking',
          'waive_booking_requirement'
        )
   ) then
-    raise exception '021 must not add eligibility or booking RPCs';
+    raise exception '021 must not add approve_zero_session or a waive RPC';
   end if;
 
   if (

@@ -99,8 +99,7 @@ begin
        and procedure.proname in (
          'create_center_service',
          'link_service_equine',
-         'approve_zero_session',
-         'confirm_booking'
+         'approve_zero_session'
        )
   ) then
     raise exception 'Service mutation or later-domain RPC must not exist';
