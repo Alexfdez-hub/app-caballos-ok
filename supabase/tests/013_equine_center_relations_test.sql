@@ -56,12 +56,6 @@ declare
   second_center_id uuid;
   permission_count integer;
 begin
-  if exists (
-    select 1 from information_schema.tables
-     where table_schema = 'public' and table_name in ('audit_events')
-  ) then
-    raise exception 'Later domains must remain deferred';
-  end if;
 
   if exists (
     select 1 from pg_catalog.pg_proc as procedure

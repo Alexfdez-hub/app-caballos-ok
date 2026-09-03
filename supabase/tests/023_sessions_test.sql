@@ -1,5 +1,5 @@
 -- Phase 12A local verified-session tests.
--- Assumes migrations 001-023. audit_events and approve_zero_session remain deferred.
+-- Assumes migrations 001-023. approve_zero_session remains deferred.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -169,13 +169,6 @@ begin
     raise exception '023 must add session tables';
   end if;
 
-  if exists (
-    select 1 from information_schema.tables
-     where table_schema = 'public'
-       and table_name in ('audit_events')
-  ) then
-    raise exception 'Audit must remain deferred';
-  end if;
 
   if exists (
     select 1 from pg_catalog.pg_proc as procedure

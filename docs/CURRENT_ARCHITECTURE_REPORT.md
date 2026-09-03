@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 13A — Reviews and incidents (stacked on accepted 024; `main` still through 022)
+**Baseline:** Phase 13B — Audit (stacked on accepted 025; `main` still through 022)
 **Date:** 2026-09-03
 
 ## Summary
@@ -211,12 +211,12 @@ Migration `019_zero_sessions_authorizations.sql` is merged (PR #20).
 020 calendar is merged (PR #21). 021 bookings is merged (PR #22).
 022 booking functions is merged (PR #23). 023 verified sessions is
 accepted on PR #25 (`d037b62`). 024 equine activity is accepted on PR
-#26 (`cb213e8`). This branch adds `025_reviews_incidents.sql`:
-`reviews` and `incidents` plus `submit_review` / `report_incident`.
-Rating is frozen 1..5. Review comment is public-classified; incident
-text is private. No invented moderation, incident-type or severity
-catalogs. No audit or Storage. Remote remains aligned through `022`.
-Do not start 026 until this Quality Gate is green.
+#26 (`cb213e8`). 025 reviews/incidents is accepted on PR #27
+(`ccbfdff`). This branch adds `026_audit.sql`: append-only
+`audit_events` for session started/completed, activity recorded, review
+submitted and incident reported. Clients cannot read or write audit.
+Earlier phases are not retrofitted. No Storage. Remote remains aligned
+through `022`. Do not start 027.
 
 ## Historical records
 

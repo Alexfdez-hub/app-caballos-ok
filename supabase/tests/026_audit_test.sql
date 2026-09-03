@@ -1,5 +1,6 @@
--- Phase 13A local reviews/incidents tests.
--- Assumes migrations 001-025. approve_zero_session remains deferred. Runnable without psql meta-commands.
+-- Phase 13B local audit tests.
+-- Assumes migrations 001-026. approve_zero_session remains deferred.
+-- Runnable without psql meta-commands.
 
 begin;
 
@@ -9,11 +10,11 @@ do $$
 #variable_conflict use_variable
 declare
   fixture_auth uuid[] := array[
-    '88400000-0000-0000-0000-000000000001'::uuid,
-    '88400000-0000-0000-0000-000000000002'::uuid,
-    '88400000-0000-0000-0000-000000000005'::uuid,
-    '88400000-0000-0000-0000-000000000007'::uuid,
-    '88400000-0000-0000-0000-000000000008'::uuid
+    '88600000-0000-0000-0000-000000000001'::uuid,
+    '88600000-0000-0000-0000-000000000002'::uuid,
+    '88600000-0000-0000-0000-000000000005'::uuid,
+    '88600000-0000-0000-0000-000000000007'::uuid,
+    '88600000-0000-0000-0000-000000000008'::uuid
   ];
   fixture_center_ids uuid[];
   fixture_equine_ids uuid[];
@@ -21,20 +22,27 @@ declare
   fixture_document_ids uuid[];
   fixture_session_ids uuid[];
   linked_person_ids uuid[];
+  fixture_account_ids uuid[];
 begin
   select coalesce(array_agg(id), '{}') into fixture_center_ids
-    from public.equestrian_centers where slug like 'phase13a-%';
+    from public.equestrian_centers where slug like 'phase13b-%';
   select coalesce(array_agg(id), '{}') into fixture_equine_ids
-    from public.equines where name like 'phase13a-%';
+    from public.equines where name like 'phase13b-%';
   select coalesce(array_agg(id), '{}') into fixture_service_ids
     from public.center_services where center_id = any(fixture_center_ids);
   select coalesce(array_agg(id), '{}') into fixture_document_ids
-    from public.policy_documents where market_code = 'ZV';
+    from public.policy_documents where market_code = 'ZX';
   select coalesce(array_agg(id), '{}') into fixture_session_ids
     from public.sessions
    where equine_id = any(fixture_equine_ids)
       or center_id = any(fixture_center_ids);
+  select coalesce(array_agg(id), '{}') into fixture_account_ids
+    from public.user_accounts
+   where auth_user_id = any(fixture_auth);
 
+  delete from public.audit_events
+   where actor_account_id = any(fixture_account_ids)
+      or entity_id = any(fixture_session_ids);
   delete from public.reviews
    where booking_id in (
      select id from public.bookings
@@ -92,25 +100,25 @@ begin
    where auth_user_id = any(fixture_auth);
   delete from public.user_accounts where auth_user_id = any(fixture_auth);
   delete from public.persons where id = any(linked_person_ids);
-  delete from public.market_age_rules where country_code = 'ZV';
-  delete from public.markets where country_code = 'ZV';
+  delete from public.market_age_rules where country_code = 'ZX';
+  delete from public.markets where country_code = 'ZX';
   delete from auth.users where id = any(fixture_auth);
 end;
 $$;
 
 set session_replication_role = origin;
 
-insert into public.markets (country_code, status) values ('ZV', 'ACTIVE');
+insert into public.markets (country_code, status) values ('ZX', 'ACTIVE');
 insert into public.market_age_rules (
   country_code, legal_adult_age, guardian_consent_required, effective_from
-) values ('ZV', 18, true, date '2000-01-01');
+) values ('ZX', 18, true, date '2000-01-01');
 
 insert into auth.users (id) values
-  ('88400000-0000-0000-0000-000000000001'),
-  ('88400000-0000-0000-0000-000000000002'),
-  ('88400000-0000-0000-0000-000000000005'),
-  ('88400000-0000-0000-0000-000000000007'),
-  ('88400000-0000-0000-0000-000000000008');
+  ('88600000-0000-0000-0000-000000000001'),
+  ('88600000-0000-0000-0000-000000000002'),
+  ('88600000-0000-0000-0000-000000000005'),
+  ('88600000-0000-0000-0000-000000000007'),
+  ('88600000-0000-0000-0000-000000000008');
 
 do $$
 #variable_conflict use_variable
@@ -124,19 +132,16 @@ declare
   instructor_person_id uuid;
   center_a_id uuid;
   equine_id uuid;
-  other_equine_id uuid;
   service_a_id uuid;
   terms_id uuid;
   window_start timestamptz := timestamptz '2026-12-01 10:00:00+00';
 begin
   if not exists (
     select 1 from information_schema.tables
-     where table_schema = 'public'
-       and table_name in ('reviews', 'incidents')
+     where table_schema = 'public' and table_name = 'audit_events'
   ) then
-    raise exception '025 must add reviews and incidents';
+    raise exception '026 must add audit_events';
   end if;
-
 
   if exists (
     select 1 from pg_catalog.pg_proc as procedure
@@ -145,60 +150,56 @@ begin
      where namespace.nspname = 'public'
        and procedure.proname = 'approve_zero_session'
   ) then
-    raise exception '025 must not add approve_zero_session';
+    raise exception '026 must not add approve_zero_session';
   end if;
 
-  if (
-    select count(*) from pg_catalog.pg_class
-     where oid in ('public.reviews'::regclass, 'public.incidents'::regclass)
-       and relrowsecurity
-  ) <> 2 then
-    raise exception '025 RLS is not enabled';
+  if not (
+    select relrowsecurity
+      from pg_catalog.pg_class
+     where oid = 'public.audit_events'::regclass
+  ) then
+    raise exception '026 RLS is not enabled';
   end if;
 
   select person_id, id into rider_person_id, rider_account_id
     from public.user_accounts
-   where auth_user_id = '88400000-0000-0000-0000-000000000001';
+   where auth_user_id = '88600000-0000-0000-0000-000000000001';
   select person_id into other_person_id
     from public.user_accounts
-   where auth_user_id = '88400000-0000-0000-0000-000000000002';
+   where auth_user_id = '88600000-0000-0000-0000-000000000002';
   select person_id, id into staff_person_id, staff_account_id
     from public.user_accounts
-   where auth_user_id = '88400000-0000-0000-0000-000000000005';
+   where auth_user_id = '88600000-0000-0000-0000-000000000005';
   select person_id into owner_person_id
     from public.user_accounts
-   where auth_user_id = '88400000-0000-0000-0000-000000000007';
+   where auth_user_id = '88600000-0000-0000-0000-000000000007';
   select person_id into instructor_person_id
     from public.user_accounts
-   where auth_user_id = '88400000-0000-0000-0000-000000000008';
+   where auth_user_id = '88600000-0000-0000-0000-000000000008';
 
   update public.persons
-     set first_name = 'Rider13A', last_name = 'Adult', date_of_birth = date '1990-01-01'
+     set first_name = 'Rider13B', last_name = 'Adult', date_of_birth = date '1990-01-01'
    where id = rider_person_id;
   update public.persons
-     set first_name = 'Other13A', last_name = 'Adult', date_of_birth = date '1988-01-01'
+     set first_name = 'Other13B', last_name = 'Adult', date_of_birth = date '1988-01-01'
    where id = other_person_id;
   update public.persons
-     set first_name = 'Staff13A', last_name = 'Manager', date_of_birth = date '1985-01-01'
+     set first_name = 'Staff13B', last_name = 'Manager', date_of_birth = date '1985-01-01'
    where id = staff_person_id;
   update public.persons
-     set first_name = 'Owner13A', last_name = 'Person', date_of_birth = date '1975-01-01'
+     set first_name = 'Owner13B', last_name = 'Person', date_of_birth = date '1975-01-01'
    where id = owner_person_id;
   update public.persons
-     set first_name = 'Instructor13A', last_name = 'One', date_of_birth = date '1984-01-01'
+     set first_name = 'Instructor13B', last_name = 'One', date_of_birth = date '1984-01-01'
    where id = instructor_person_id;
 
   insert into public.equestrian_centers (name, slug, country_code, status)
-  values ('Phase13A Alpha', 'phase13a-alpha', 'ZV', 'ACTIVE')
+  values ('Phase13B Alpha', 'phase13b-alpha', 'ZX', 'ACTIVE')
   returning id into center_a_id;
 
   insert into public.equines (name, equine_type)
-  values ('phase13a-school', 'HORSE')
+  values ('phase13b-school', 'HORSE')
   returning id into equine_id;
-
-  insert into public.equines (name, equine_type)
-  values ('phase13a-other', 'HORSE')
-  returning id into other_equine_id;
 
   insert into public.center_memberships (center_id, person_id, role_code)
   values
@@ -221,7 +222,7 @@ begin
     (equine_id, center_a_id, staff_person_id, 'MANAGE_REQUIREMENTS');
 
   insert into public.center_services (center_id, service_type, name)
-  values (center_a_id, 'EQUINE_SESSION', 'Phase13A ride')
+  values (center_a_id, 'EQUINE_SESSION', 'Phase13B ride')
   returning id into service_a_id;
 
   insert into public.service_equines (service_id, equine_id, enabled, status)
@@ -240,8 +241,8 @@ begin
     policy_code, policy_type, market_code, locale, version, title, content,
     effective_from, status, requires_reacceptance
   ) values (
-    'TERMS_ZV', 'TERMS_OF_SERVICE', 'ZV', 'es', '1',
-    'Terms', 'Phase 13A terms', now() - interval '1 day', 'ACTIVE', false
+    'TERMS_ZX', 'TERMS_OF_SERVICE', 'ZX', 'es', '1',
+    'Terms', 'Phase 13B terms', now() - interval '1 day', 'ACTIVE', false
   ) returning id into terms_id;
 
   insert into public.policy_acceptances (
@@ -252,10 +253,9 @@ begin
   perform set_config('app.rider_account_id', rider_account_id::text, true);
   perform set_config('app.other_person_id', other_person_id::text, true);
   perform set_config('app.staff_person_id', staff_person_id::text, true);
-  perform set_config('app.instructor_person_id', instructor_person_id::text, true);
+  perform set_config('app.staff_account_id', staff_account_id::text, true);
   perform set_config('app.center_a_id', center_a_id::text, true);
   perform set_config('app.equine_id', equine_id::text, true);
-  perform set_config('app.other_equine_id', other_equine_id::text, true);
   perform set_config('app.service_a_id', service_a_id::text, true);
   perform set_config('app.window_start', window_start::text, true);
 end;
@@ -278,7 +278,7 @@ $$;
 grant execute on function pg_temp.set_auth(uuid) to authenticated, postgres;
 
 set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000001');
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
 
 do $$
 #variable_conflict use_variable
@@ -299,7 +299,7 @@ $$;
 
 reset role;
 set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000005');
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000005');
 
 do $$
 begin
@@ -309,49 +309,99 @@ $$;
 
 reset role;
 set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000001');
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
 
 do $$
 #variable_conflict use_variable
 declare
   session_id uuid;
+  replay_id uuid;
+  activity_id uuid;
 begin
   session_id := public.start_session(current_setting('app.rider_booking_id')::uuid);
   perform set_config('app.rider_session_id', session_id::text, true);
 
-  begin
-    perform public.submit_review(
-      current_setting('app.rider_booking_id')::uuid,
-      current_setting('app.center_a_id')::uuid,
-      5
-    );
-    raise exception 'Review accepted before the booking was completed';
-  exception
-    when check_violation then null;
-  end;
+  replay_id := public.start_session(current_setting('app.rider_booking_id')::uuid);
+  if replay_id is distinct from session_id then
+    raise exception 'Start replay created a second session';
+  end if;
+
+  activity_id := public.record_equine_activity(session_id);
+  perform set_config('app.activity_id', activity_id::text, true);
+
+  if public.record_equine_activity(session_id) is distinct from activity_id then
+    raise exception 'Activity replay created a second row';
+  end if;
 end;
 $$;
 
 reset role;
+
+do $$
+#variable_conflict use_variable
+declare
+  session_id uuid := current_setting('app.rider_session_id')::uuid;
+  activity_id uuid := current_setting('app.activity_id')::uuid;
+  rider_account uuid := current_setting('app.rider_account_id')::uuid;
+begin
+  if (
+    select count(*) from public.audit_events
+     where entity_id = session_id and event_type = 'session_started'
+  ) <> 1 then
+    raise exception 'Expected one session_started audit';
+  end if;
+
+  if (
+    select actor_account_id from public.audit_events
+     where entity_id = session_id and event_type = 'session_started'
+  ) is distinct from rider_account then
+    raise exception 'Session start actor was not the caller ACCOUNT';
+  end if;
+
+  if (
+    select count(*) from public.audit_events
+     where entity_id = activity_id and event_type = 'equine_activity_recorded'
+  ) <> 1 then
+    raise exception 'Expected one equine_activity_recorded audit';
+  end if;
+
+  if exists (
+    select 1 from public.audit_events
+     where entity_id = current_setting('app.rider_booking_id')::uuid
+  ) then
+    raise exception '026 must not retrofit booking confirm audit';
+  end if;
+end;
+$$;
+
 set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000001');
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
 
 do $$
 begin
+  perform public.end_session(current_setting('app.rider_session_id')::uuid);
   perform public.end_session(current_setting('app.rider_session_id')::uuid);
 end;
 $$;
 
 reset role;
-set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000001');
 
 do $$
-#variable_conflict use_variable
-declare
-  review_id uuid;
-  replay_id uuid;
-  incident_id uuid;
+begin
+  if (
+    select count(*) from public.audit_events
+     where entity_id = current_setting('app.rider_session_id')::uuid
+       and event_type = 'session_completed'
+  ) <> 1 then
+    raise exception 'Expected one session_completed audit after end replay';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
+
+do $$
 begin
   begin
     perform public.submit_review(
@@ -363,18 +413,32 @@ begin
   exception
     when check_violation then null;
   end;
+end;
+$$;
 
-  begin
-    perform public.submit_review(
-      current_setting('app.rider_booking_id')::uuid,
-      current_setting('app.center_a_id')::uuid,
-      6
-    );
-    raise exception 'Rating 6 was accepted';
-  exception
-    when check_violation then null;
-  end;
+reset role;
 
+do $$
+begin
+  if exists (
+    select 1 from public.audit_events
+     where event_type = 'review_submitted'
+       and metadata->>'booking_id' = current_setting('app.rider_booking_id')
+  ) then
+    raise exception 'Failed review wrote audit';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
+
+do $$
+#variable_conflict use_variable
+declare
+  review_id uuid;
+  incident_id uuid;
+begin
   review_id := public.submit_review(
     current_setting('app.rider_booking_id')::uuid,
     current_setting('app.center_a_id')::uuid,
@@ -383,26 +447,14 @@ begin
   );
   perform set_config('app.review_id', review_id::text, true);
 
-  replay_id := public.submit_review(
+  if public.submit_review(
     current_setting('app.rider_booking_id')::uuid,
     current_setting('app.center_a_id')::uuid,
     4,
     'mutated'
-  );
-  if replay_id is distinct from review_id then
+  ) is distinct from review_id then
     raise exception 'Replay review created a second row';
   end if;
-
-  begin
-    perform public.submit_review(
-      current_setting('app.rider_booking_id')::uuid,
-      current_setting('app.other_equine_id')::uuid,
-      5
-    );
-    raise exception 'Cross-context review subject was accepted';
-  exception
-    when check_violation then null;
-  end;
 
   incident_id := public.report_incident(
     current_setting('app.rider_booking_id')::uuid,
@@ -411,17 +463,11 @@ begin
   );
   perform set_config('app.incident_id', incident_id::text, true);
 
-  begin
-    perform public.report_incident(
-      current_setting('app.rider_booking_id')::uuid,
-      current_setting('app.rider_session_id')::uuid,
-      'cross equine',
-      current_setting('app.other_equine_id')::uuid
-    );
-    raise exception 'Cross-context incident equine was accepted';
-  exception
-    when check_violation then null;
-  end;
+  perform public.report_incident(
+    current_setting('app.rider_booking_id')::uuid,
+    current_setting('app.rider_session_id')::uuid,
+    'Second incident'
+  );
 end;
 $$;
 
@@ -432,47 +478,54 @@ do $$
 declare
   review_id uuid := current_setting('app.review_id')::uuid;
   incident_id uuid := current_setting('app.incident_id')::uuid;
+  session_id uuid := current_setting('app.rider_session_id')::uuid;
 begin
   if (
-    select review.rating from public.reviews as review where review.id = review_id
-  ) is distinct from 5 then
-    raise exception 'Replay review mutated rating';
+    select count(*) from public.audit_events
+     where entity_id = review_id and event_type = 'review_submitted'
+  ) <> 1 then
+    raise exception 'Expected one review_submitted audit';
   end if;
 
   if (
-    select review.comment from public.reviews as review where review.id = review_id
-  ) is distinct from 'Public review comment' then
-    raise exception 'Replay review mutated comment';
+    select audit.metadata->>'rating'
+      from public.audit_events as audit
+     where audit.entity_id = review_id
+  ) is distinct from '5' then
+    raise exception 'Review audit rating was missing or mutated';
+  end if;
+
+  if exists (
+    select 1 from public.audit_events as audit
+     where audit.entity_id = review_id
+       and audit.metadata ? 'comment'
+  ) then
+    raise exception 'Review comment must not be stored in audit metadata';
   end if;
 
   if (
-    select review.reviewer_person_id
-      from public.reviews as review
-     where review.id = review_id
-  ) is distinct from current_setting('app.rider_person_id')::uuid then
-    raise exception 'Reviewer was not the caller PERSON';
+    select count(*) from public.audit_events
+     where event_type = 'incident_reported'
+       and metadata->>'session_id' = session_id::text
+  ) <> 2 then
+    raise exception 'Expected two incident_reported audits';
   end if;
 
-  if (
-    select incident.description
-      from public.incidents as incident
-     where incident.id = incident_id
-  ) is distinct from 'Private incident description' then
-    raise exception 'Incident description was not stored';
-  end if;
-
-  if (
-    select incident.equine_id
-      from public.incidents as incident
-     where incident.id = incident_id
-  ) is distinct from current_setting('app.equine_id')::uuid then
-    raise exception 'Incident equine was not copied from the session';
+  if exists (
+    select 1 from public.audit_events as audit
+     where audit.event_type = 'incident_reported'
+       and (
+         audit.metadata ? 'description'
+         or audit.metadata::text ilike '%Private incident%'
+       )
+  ) then
+    raise exception 'Incident description must not be stored in audit metadata';
   end if;
 end;
 $$;
 
 set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000002');
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000002');
 
 do $$
 begin
@@ -501,104 +554,148 @@ end;
 $$;
 
 reset role;
-set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000008');
-
-do $$
-begin
-  begin
-    perform public.submit_review(
-      current_setting('app.rider_booking_id')::uuid,
-      current_setting('app.center_a_id')::uuid,
-      5
-    );
-    raise exception 'Instructor submitted a review';
-  exception
-    when insufficient_privilege then null;
-  end;
-end;
-$$;
-
-reset role;
-set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000005');
 
 do $$
 #variable_conflict use_variable
 declare
-  staff_incident uuid;
+  after_unrelated integer;
 begin
-  begin
-    perform public.submit_review(
-      current_setting('app.rider_booking_id')::uuid,
-      current_setting('app.center_a_id')::uuid,
-      5
-    );
-    raise exception 'Center staff submitted a review';
-  exception
-    when insufficient_privilege then null;
-  end;
+  -- Inspect as postgres; authenticated cannot SELECT audit_events.
+  select count(*) into after_unrelated
+    from public.audit_events
+   where actor_account_id = (
+     select id from public.user_accounts
+      where auth_user_id = '88600000-0000-0000-0000-000000000002'
+   );
 
-  staff_incident := public.report_incident(
+  if after_unrelated <> 0 then
+    raise exception 'Unauthorized caller wrote audit';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000005');
+
+do $$
+begin
+  perform public.report_incident(
     current_setting('app.rider_booking_id')::uuid,
     current_setting('app.rider_session_id')::uuid,
     'Staff safety note'
   );
-  if staff_incident is null then
-    raise exception 'Center staff could not report an incident';
+end;
+$$;
+
+reset role;
+
+do $$
+begin
+  if (
+    select count(*) from public.audit_events
+     where event_type = 'incident_reported'
+       and actor_account_id = current_setting('app.staff_account_id')::uuid
+  ) <> 1 then
+    raise exception 'Staff incident was not audited';
   end if;
 end;
 $$;
 
 reset role;
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
 
 do $$
+#variable_conflict use_variable
+declare
+  spoof_id uuid;
 begin
   begin
-    update public.reviews set comment = 'tampered' where id = current_setting('app.review_id')::uuid;
-    raise exception 'Direct review update succeeded';
+    insert into public.audit_events (
+      event_type, entity_type, entity_id
+    ) values (
+      'session_started',
+      'session',
+      current_setting('app.rider_session_id')::uuid
+    );
+    raise exception 'Direct audit insert succeeded';
   exception
     when insufficient_privilege then null;
   end;
 
   begin
-    delete from public.reviews where id = current_setting('app.review_id')::uuid;
-    raise exception 'Direct review delete succeeded';
+    update public.audit_events
+       set event_type = 'tampered'
+     where entity_id = current_setting('app.rider_session_id')::uuid;
+    raise exception 'Direct audit update succeeded';
   exception
     when insufficient_privilege then null;
   end;
 
   begin
-    update public.incidents set description = 'tampered' where id = current_setting('app.incident_id')::uuid;
-    raise exception 'Direct incident update succeeded';
+    delete from public.audit_events
+     where entity_id = current_setting('app.rider_session_id')::uuid;
+    raise exception 'Direct audit delete succeeded';
   exception
     when insufficient_privilege then null;
   end;
 
   begin
-    delete from public.incidents where id = current_setting('app.incident_id')::uuid;
-    raise exception 'Direct incident delete succeeded';
+    perform public.record_audit_event(
+      'session_started',
+      'session',
+      current_setting('app.rider_session_id')::uuid,
+      jsonb_build_object('jwt', 'secret-value')
+    );
+    raise exception 'Secret metadata was accepted';
   exception
-    when insufficient_privilege then null;
+    when check_violation then null;
   end;
+
+  perform public.set_audit_write(true);
+  insert into public.audit_events (
+    actor_account_id,
+    actor_person_id,
+    event_type,
+    entity_type,
+    entity_id,
+    metadata
+  ) values (
+    current_setting('app.staff_account_id')::uuid,
+    current_setting('app.staff_person_id')::uuid,
+    'session_started',
+    'session',
+    current_setting('app.rider_session_id')::uuid,
+    jsonb_build_object('booking_id', current_setting('app.rider_booking_id')::uuid)
+  ) returning id into spoof_id;
+  perform public.set_audit_write(false);
+
+  if (
+    select actor_account_id from public.audit_events where id = spoof_id
+  ) is distinct from current_setting('app.rider_account_id')::uuid then
+    raise exception 'Spoofed audit actor was stored';
+  end if;
 end;
 $$;
 
 set local role authenticated;
-select pg_temp.set_auth('88400000-0000-0000-0000-000000000001');
+select pg_temp.set_auth('88600000-0000-0000-0000-000000000001');
 
 do $$
 begin
   begin
-    perform * from public.reviews;
-    raise exception 'Authenticated selected reviews';
+    perform * from public.audit_events;
+    raise exception 'Authenticated selected audit_events';
   exception
     when insufficient_privilege then null;
   end;
 
   begin
-    perform * from public.incidents;
-    raise exception 'Authenticated selected incidents';
+    perform public.record_audit_event(
+      'session_started',
+      'session',
+      current_setting('app.rider_session_id')::uuid
+    );
+    raise exception 'Authenticated executed record_audit_event';
   exception
     when insufficient_privilege then null;
   end;
@@ -612,15 +709,8 @@ select set_config('request.jwt.claims', '{"role":"anon"}', true);
 do $$
 begin
   begin
-    perform * from public.reviews;
-    raise exception 'Anon selected reviews';
-  exception
-    when insufficient_privilege then null;
-  end;
-
-  begin
-    perform * from public.incidents;
-    raise exception 'Anon selected incidents';
+    perform * from public.audit_events;
+    raise exception 'Anon selected audit_events';
   exception
     when insufficient_privilege then null;
   end;
@@ -631,69 +721,47 @@ reset role;
 
 do $$
 begin
-  if has_table_privilege('anon', 'public.reviews', 'select')
-     or has_table_privilege('authenticated', 'public.reviews', 'select')
-     or has_table_privilege('authenticated', 'public.reviews', 'insert')
-     or has_table_privilege('authenticated', 'public.incidents', 'select')
-     or has_table_privilege('authenticated', 'public.incidents', 'insert')
+  if has_table_privilege('anon', 'public.audit_events', 'select')
+     or has_table_privilege('authenticated', 'public.audit_events', 'select')
+     or has_table_privilege('authenticated', 'public.audit_events', 'insert')
   then
-    raise exception '025 client table privileges must stay revoked';
-  end if;
-
-  if not has_function_privilege(
-       'authenticated',
-       'public.submit_review(uuid,uuid,integer,text,text)',
-       'execute'
-     )
-     or not has_function_privilege(
-       'authenticated',
-       'public.report_incident(uuid,uuid,text,uuid,uuid)',
-       'execute'
-     )
-     or has_function_privilege(
-       'anon',
-       'public.submit_review(uuid,uuid,integer,text,text)',
-       'execute'
-     )
-  then
-    raise exception '025 public RPCs must be executable by authenticated only';
+    raise exception '026 client table privileges must stay revoked';
   end if;
 
   if has_function_privilege(
        'authenticated',
-       'public.set_review_write(boolean)',
+       'public.record_audit_event(text,text,uuid,jsonb)',
        'execute'
      )
      or has_function_privilege(
        'authenticated',
-       'public.set_incident_write(boolean)',
+       'public.set_audit_write(boolean)',
        'execute'
      )
      or has_function_privilege(
-       'authenticated',
-       'public.caller_can_submit_review(uuid,uuid)',
+       'anon',
+       'public.record_audit_event(text,text,uuid,jsonb)',
        'execute'
      )
   then
-    raise exception '025 internal helpers must not be executable by clients';
+    raise exception '026 helpers must not be executable by clients';
   end if;
 
   if (
     select count(*)
       from pg_catalog.pg_proc as procedure
      where procedure.oid in (
-       'public.submit_review(uuid,uuid,integer,text,text)'::regprocedure,
-       'public.report_incident(uuid,uuid,text,uuid,uuid)'::regprocedure
+       'public.record_audit_event(text,text,uuid,jsonb)'::regprocedure,
+       'public.emit_session_audit()'::regprocedure
      )
        and procedure.prosecdef
        and procedure.proconfig @> array['search_path=pg_catalog, public']
   ) <> 2 then
-    raise exception '025 RPCs lack SECURITY DEFINER or search_path';
+    raise exception '026 functions lack SECURITY DEFINER or search_path';
   end if;
 
-  if current_setting('app.review_write', true) = '1'
-     or current_setting('app.incident_write', true) = '1' then
-    raise exception '025 RPCs left write GUCs enabled';
+  if current_setting('app.audit_write', true) = '1' then
+    raise exception '026 left audit write GUC enabled';
   end if;
 end;
 $$;

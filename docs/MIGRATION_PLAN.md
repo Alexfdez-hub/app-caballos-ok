@@ -3,17 +3,19 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 13A reviews/incidents implemented on
-`refactor/phase-13a-reviews-incidents` stacked on accepted 024 HEAD
-`cb213e8031089b5f2dd90122d7cd4219d860fca3`. Do not merge. Do not
-deploy `025`. Do not start 026 until the complete Quality Gate is green.
+**Estado:** Phase 13B audit implemented on
+`refactor/phase-13b-audit` stacked on accepted 025 HEAD
+`ccbfdffdc73bc5b58e4ec0e38b8e818a2fd85842`. Do not merge. Do not
+deploy `026`. Do not start 027.
 
 **Current baseline (verified 2026-09-03):** `origin/main` HEAD is
 `188ed3f356c0da67126dd5da715e2765be7cf4a5` (merge of PR #23). PRs
 #19–#23 are merged. Migrations `001`–`022` exist on `main`. Product
 Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
 exact version `022`. This agent does not deploy and does not modify
-remote. `023` is accepted on PR #25. `024` is accepted on PR #26. `025` is implemented on this branch and is not deployed.
+remote. `023` is accepted on PR #25. `024` is accepted on PR #26. `025` is
+accepted on PR #27. `026` is implemented on this branch and is not
+deployed.
 
 **Historical (Phase 5A branch time):** earlier text described `011`–`014`
 as stacked/not deployed and remote aligned through `010`. That was true
@@ -273,9 +275,10 @@ booking permit.
 
 `024_equine_activity.sql` is accepted on PR #26. Activity is
 session-linked and append-only.
-`025_reviews_incidents.sql` is implemented on this branch. Rating is
-frozen 1..5. Incident type/severity/status catalogs are not invented.
-Do not start 026 until the Quality Gate is green.
+`025_reviews_incidents.sql` is accepted on PR #27. Rating is frozen
+1..5. Incident type/severity/status catalogs are not invented.
+`026_audit.sql` is implemented on this branch. Only 023–025 critical
+transitions are audited. Do not start 027.
 
 ## 18. Phase 13 — Storage security
 
