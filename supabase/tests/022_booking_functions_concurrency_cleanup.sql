@@ -1,3 +1,9 @@
+-- Best-effort teardown of committed confirm fixtures. Product triggers
+-- forbid deleting CONFIRMED booking_requirements and calendar blocks;
+-- replica role is test-only so this suite can drop its own rows.
+
+set session_replication_role = replica;
+
 delete from public.booking_requirements
  where booking_id = '99100000-0000-0000-0000-00000000b001';
 delete from public.equine_calendar_blocks
@@ -69,5 +75,7 @@ delete from auth.users
    '99100000-0000-0000-0000-000000000005'::uuid,
    '99100000-0000-0000-0000-000000000007'::uuid
  );
+
+set session_replication_role = origin;
 select pg_advisory_unlock_all();
 select 'concurrency_cleanup_done' as marker;
