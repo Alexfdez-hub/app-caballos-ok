@@ -984,14 +984,14 @@ as $$
 #variable_conflict use_variable
 declare
   overall text := 'ELIGIBLE';
-  market_code text;
+  center_market_code text;
   birth_date date;
   minority_row record;
   service_center uuid;
   service_status text;
   service_link public.service_equines%rowtype;
   requested_minutes numeric;
-  policy_type text;
+  required_policy_type text;
   requirement_row public.equine_requirements%rowtype;
   age_years integer;
   guardian_required boolean := false;
@@ -1022,11 +1022,11 @@ begin
   end if;
 
   select center.country_code
-    into market_code
+    into center_market_code
     from public.equestrian_centers as center
    where center.id = p_center_id;
 
-  if market_code is null then
+  if center_market_code is null then
     raise exception using
       errcode = 'P0002',
       message = 'Center not found';
@@ -1187,7 +1187,7 @@ begin
         into minority_row
         from public.evaluate_person_minority(
           p_participant_person_id,
-          market_code,
+          center_market_code,
           (timezone('utc', p_starts_at))::date
         );
 
@@ -1255,7 +1255,7 @@ begin
     end;
   end if;
 
-  foreach policy_type in array array[
+  foreach required_policy_type in array array[
     'TERMS_OF_SERVICE',
     'PRIVACY_POLICY',
     'RIDER_POLICY',
@@ -1265,8 +1265,8 @@ begin
     if exists (
       select 1
         from public.policy_documents as document
-       where document.policy_type = policy_type
-         and document.market_code = market_code
+       where document.policy_type = required_policy_type
+         and document.market_code = center_market_code
          and public.policy_document_is_effective_at(
            document.effective_from,
            document.effective_to,
@@ -1275,8 +1275,8 @@ begin
          )
     ) then
       if public.has_ambiguous_current_policy_versions(
-        policy_type,
-        market_code,
+        required_policy_type,
+        center_market_code,
         p_starts_at
       ) then
         overall := public.worse_booking_eligibility_token(
@@ -1290,14 +1290,14 @@ begin
         is_met := false;
         detail := format(
           'Ambiguous current versions for %s; locales of one version are not a conflict',
-          policy_type
+          required_policy_type
         );
         return next;
       else
       policy_ok := public.has_participant_accepted_required_policy(
         p_participant_person_id,
-        policy_type,
-        market_code,
+        required_policy_type,
+        center_market_code,
         p_starts_at,
         guardian_required
       );
@@ -1313,7 +1313,7 @@ begin
         is_met := false;
         detail := format(
           'Required %s is not accepted for the participant',
-          policy_type
+          required_policy_type
         );
         return next;
       else
@@ -1324,7 +1324,7 @@ begin
         is_met := true;
         detail := format(
           'Required %s is accepted for the participant',
-          policy_type
+          required_policy_type
         );
         return next;
       end if;
