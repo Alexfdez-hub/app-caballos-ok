@@ -1,5 +1,5 @@
 -- Phase 9A local Zero Session and authorization foundation tests.
--- Assumes migrations 001-019. Calendar, bookings and eligibility remain deferred.
+-- Assumes migrations 001-019. Bookings and eligibility remain deferred.
 -- CENTER OWNER_APPROVAL requires ADMIN or MANAGER plus APPROVE_RIDERS;
 -- INSTRUCTOR plus APPROVE_RIDERS is rejected.
 -- Runnable without psql meta-commands.
@@ -102,8 +102,6 @@ begin
     select 1 from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'equine_availability_rules',
-         'equine_calendar_blocks',
          'bookings',
          'sessions'
        )

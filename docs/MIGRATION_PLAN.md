@@ -3,10 +3,10 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 9A Zero Sessions / authorizations implemented on
-`refactor/phase-9a-zero-sessions-authorizations` targeting `main`.
-Do not merge. Do not deploy `019`. Do not start 020 until 019 is Ready,
-CI-green and Bugbot-clean.
+**Estado:** Phase 10A calendar implemented on
+`refactor/phase-10a-calendar` targeting the 019 branch (PR #20 Ready).
+Do not merge. Do not deploy `020`. Do not start 021 until this PR is
+Ready, CI-green and Bugbot-clean.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
@@ -246,11 +246,14 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 
 `017_equine_requirements.sql` is merged (PR #17).
 `018_center_services.sql` is merged (PR #18).
-`019_zero_sessions_authorizations.sql` is implemented on this branch.
+`019_zero_sessions_authorizations.sql` is Ready on PR #20.
+`020_calendar.sql` is implemented on this branch.
 
 ## 14. Phase 9 — Calendar
 
-Crear availability rules + calendar blocks. Calendar blocks = ocupación canónica. Añadir exclusión/race protection en PostgreSQL. Test concurrencia obligatorio.
+`020_calendar.sql` adds availability rules and calendar blocks. Calendar
+blocks are canonical occupancy. ACTIVE same-equine overlapping
+`tstzrange`s are excluded with gist. Recurrence is stored, not expanded.
 
 ## 15. Phase 10 — Bookings/eligibility
 
@@ -340,6 +343,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 9A:**
-`020_calendar.sql` on `refactor/phase-10a-calendar` after this PR is
+**Siguiente fase prevista tras Phase 10A:**
+`021_bookings.sql` on `refactor/phase-11a-bookings` after this PR is
 Ready, CI-green and Bugbot-clean. Do not merge. Do not deploy.
