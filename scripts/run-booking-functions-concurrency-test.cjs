@@ -10,6 +10,14 @@ const files = {
   sessionA: path.join(testsDir, '022_booking_functions_concurrency_session_a.sql'),
   sessionB: path.join(testsDir, '022_booking_functions_concurrency_session_b.sql'),
   assert: path.join(testsDir, '022_booking_functions_concurrency_assert.sql'),
+  policySessionB: path.join(
+    testsDir,
+    '022_booking_functions_concurrency_policy_session_b.sql',
+  ),
+  policyAssert: path.join(
+    testsDir,
+    '022_booking_functions_concurrency_policy_assert.sql',
+  ),
   cleanup: path.join(testsDir, '022_booking_functions_concurrency_cleanup.sql'),
 };
 
@@ -205,23 +213,15 @@ function isConfirmSuccess(result) {
   );
 }
 
-async function main() {
-  const container = findContainer();
-  if (!container) {
-    console.error('Could not find the local Supabase database container.');
-    process.exit(1);
-  }
-
-  console.log(`Using database container ${container}`);
-  console.log(
-    'Arrangement: session A materializes one confirm evaluation, then waits; session B inserts MIN_AGE between eval and persist.',
-  );
+async function runHandshake(container, testCase) {
+  console.log(`\n----- ${testCase.name} -----`);
+  console.log(testCase.arrangement);
 
   const setup = runSqlFile(container, files.setup);
-  printResult('setup', setup);
+  printResult(`${testCase.name} setup`, setup);
   if (setup.status !== 0) {
     runSqlFile(container, files.cleanup);
-    process.exit(1);
+    return [`${testCase.name}: setup failed.`];
   }
 
   let sessionA;
@@ -233,10 +233,10 @@ async function main() {
     });
     await a.granted;
     console.log(
-      `Session A held the eval lock after ${Date.now() - a.startedAt}ms; starting session B.`,
+      `${testCase.name}: session A held the eval lock after ${Date.now() - a.startedAt}ms; starting session B.`,
     );
 
-    const b = runSession(container, files.sessionB, {
+    const b = runSession(container, testCase.sessionB, {
       timeoutMs: 20000,
     });
 
@@ -244,25 +244,27 @@ async function main() {
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     runSqlFile(container, files.cleanup);
-    process.exit(1);
+    return [
+      `${testCase.name}: handshake aborted before both sessions finished.`,
+    ];
   }
 
-  printResult('session A', sessionA);
-  printResult('session B', sessionB);
+  printResult(`${testCase.name} session A`, sessionA);
+  printResult(`${testCase.name} session B`, sessionB);
 
   const failures = [];
 
   if (sessionA.timedOut || sessionB.timedOut) {
-    failures.push('A session timed out; possible hang or deadlock.');
+    failures.push(`${testCase.name}: a session timed out.`);
   }
   if (isDeadlock(sessionA) || isDeadlock(sessionB)) {
-    failures.push('Deadlock detected.');
+    failures.push(`${testCase.name}: deadlock detected.`);
   }
   if (isLockTimeout(sessionA) || isLockTimeout(sessionB)) {
-    failures.push('Lock timeout fired; sessions did not serialize within 20s.');
+    failures.push(`${testCase.name}: lock timeout fired.`);
   }
   if (sessionB.status !== 0) {
-    failures.push('Session B did not insert the post-eval MIN_AGE requirement.');
+    failures.push(testCase.sessionBFailure);
   }
 
   const aConfirmed = isConfirmSuccess(sessionA);
@@ -270,20 +272,70 @@ async function main() {
 
   if (!aConfirmed && !aFailedClosed) {
     failures.push(
-      'Session A neither confirmed from the earlier snapshot nor failed closed.',
+      `${testCase.name}: session A neither confirmed from the earlier snapshot nor failed closed.`,
     );
   }
 
-  const assertion = runSqlFile(container, files.assert);
-  printResult('final rows', assertion);
+  const assertion = runSqlFile(container, testCase.assert);
+  printResult(`${testCase.name} final rows`, assertion);
   if (assertion.status !== 0) {
-    failures.push('Final row assertions failed.');
+    failures.push(`${testCase.name}: final row assertions failed.`);
   }
 
   const cleanup = runSqlFile(container, files.cleanup);
-  printResult('cleanup', cleanup);
+  printResult(`${testCase.name} cleanup`, cleanup);
   if (cleanup.status !== 0) {
-    failures.push('Cleanup failed.');
+    failures.push(`${testCase.name}: cleanup failed.`);
+  }
+
+  if (failures.length === 0) {
+    console.log(
+      aConfirmed
+        ? `${testCase.name}: CONFIRMED from the earlier snapshot.`
+        : `${testCase.name}: fail-closed; later mutation did not leave CONFIRMED + PENDING.`,
+    );
+  }
+
+  return failures;
+}
+
+async function main() {
+  const container = findContainer();
+  if (!container) {
+    console.error('Could not find the local Supabase database container.');
+    process.exit(1);
+  }
+
+  console.log(`Using database container ${container}`);
+  console.log(
+    'Pause lives only in the test-only probe, not in public.confirm_booking.',
+  );
+
+  const cases = [
+    {
+      name: 'MIN_AGE',
+      arrangement:
+        'Session A materializes one confirm evaluation; session B inserts MIN_AGE before persist.',
+      sessionB: files.sessionB,
+      assert: files.assert,
+      sessionBFailure:
+        'MIN_AGE: session B did not insert the post-eval MIN_AGE requirement.',
+    },
+    {
+      name: 'policy-revocation',
+      arrangement:
+        'Session A materializes eligibility + policy snapshot; session B deletes that acceptance before persist.',
+      sessionB: files.policySessionB,
+      assert: files.policyAssert,
+      sessionBFailure:
+        'policy-revocation: session B did not revoke the post-eval policy acceptance.',
+    },
+  ];
+
+  const failures = [];
+  for (const testCase of cases) {
+    const caseFailures = await runHandshake(container, testCase);
+    failures.push(...caseFailures);
   }
 
   if (failures.length > 0) {
@@ -295,11 +347,6 @@ async function main() {
   }
 
   console.log('\n022 booking-functions concurrency tests passed.');
-  console.log(
-    aConfirmed
-      ? 'Outcome=CONFIRMED from the earlier snapshot; no PENDING rows from the later MIN_AGE.'
-      : 'Outcome=fail-closed; later MIN_AGE did not leave CONFIRMED + PENDING.',
-  );
 }
 
 main().catch((error) => {

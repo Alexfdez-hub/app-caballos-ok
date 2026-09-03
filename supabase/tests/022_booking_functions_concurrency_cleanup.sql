@@ -1,3 +1,5 @@
+drop function if exists public.confirm_booking_concurrency_probe(uuid);
+
 -- Best-effort teardown of committed confirm fixtures. Product triggers
 -- forbid deleting CONFIRMED booking_requirements and calendar blocks;
 -- replica role is test-only so this suite can drop its own rows.

@@ -611,9 +611,26 @@ begin
     when insufficient_privilege then null;
   end;
 
+  perform set_config('app.confirm_pause_after_eval', '1', true);
+  perform set_config('statement_timeout', '5s', true);
+
   confirmed_id := public.confirm_booking(
     current_setting('app.created_booking_id')::uuid
   );
+
+  perform set_config('statement_timeout', '0', true);
+
+  if exists (
+    select 1
+      from pg_locks as advisory_lock
+     where advisory_lock.locktype = 'advisory'
+       and advisory_lock.classid = 0
+       and advisory_lock.objid in (22022021, 22022022)
+       and advisory_lock.granted
+       and advisory_lock.pid = pg_backend_pid()
+  ) then
+    raise exception 'confirm_booking honored a caller-controlled pause GUC';
+  end if;
 
   if confirmed_id is distinct from current_setting('app.created_booking_id')::uuid then
     raise exception 'confirm_booking did not return the booking id';
@@ -2115,6 +2132,19 @@ begin
        'public.persist_booking_requirement_eval_rows(uuid,jsonb,jsonb,uuid)',
        'execute'
      )
+     or has_function_privilege(
+       'authenticated',
+       'public.materialize_booking_confirm_eval(uuid,uuid,uuid,timestamptz,timestamptz,uuid)',
+       'execute'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.apply_booking_confirm_eval(uuid,jsonb,jsonb,uuid)',
+       'execute'
+     )
+     or to_regprocedure('public.confirm_booking_concurrency_probe(uuid)') is not null
+     or pg_get_functiondef('public.confirm_booking(uuid)'::regprocedure)
+        ~ 'confirm_pause_after_eval|pg_advisory_lock\\(22022021\\)|pg_sleep'
   then
     raise exception '022 RPC grants or table privileges are wrong';
   end if;

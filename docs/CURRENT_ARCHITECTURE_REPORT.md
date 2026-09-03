@@ -216,7 +216,8 @@ MIN_QUALIFICATION / MIN_EXPERIENCE, activity-time guardian consent, and
 participant-subject policy acceptance (translations are not conflicting
 policies). Confirm occupies the equine with a BOOKING calendar block and
 keeps SATISFIED requirement rows plus a deterministic policy snapshot
-immutable. No `approve_zero_session`. No `sessions`. Remote remains
+immutable. Confirm materializes eligibility and that snapshot in one
+SQL statement. No `approve_zero_session`. No `sessions`. Remote remains
 aligned through `018`. Do not start 023.
 
 ## Historical records

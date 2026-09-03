@@ -28,10 +28,12 @@
 --   guardian/staff own acceptances never substitute;
 --   multiple active locales/codes of one type are not an automatic fail;
 --   confirm snapshots every evaluated requirement and the exact policy
---   documents/acceptances used;
+--   documents/acceptances used, materialized in one SQL statement;
 --   confirm is atomic: revalidate, occupy with a BOOKING calendar
 --   block, snapshot, set CONFIRMED; rollback on any failure;
---   concurrent conflicting confirms cannot both succeed (020 gist).
+--   concurrent conflicting confirms cannot both succeed (020 gist);
+--   no caller-controlled pause GUC or advisory-lock test hook in
+--   the deployable confirm RPC.
 -- now() is not used in a table CHECK. This migration adds no tables.
 --
 -- Access model follows migrations 006–021:
@@ -1892,6 +1894,187 @@ comment on function public.persist_booking_requirement_eval_rows(uuid, jsonb, js
 revoke all on function public.persist_booking_requirement_eval_rows(uuid, jsonb, jsonb, uuid)
   from public, anon, authenticated;
 
+create function public.materialize_booking_confirm_eval(
+  p_participant_person_id uuid,
+  p_equine_id uuid,
+  p_center_id uuid,
+  p_starts_at timestamptz,
+  p_ends_at timestamptz,
+  p_service_id uuid
+)
+returns table (
+  eval_rows jsonb,
+  policy_snapshot jsonb
+)
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select
+    coalesce(
+      (
+        select jsonb_agg(
+          to_jsonb(eligibility)
+          order by
+            eligibility.requirement_type nulls last,
+            eligibility.source_type,
+            eligibility.source_id
+        )
+          from public.collect_booking_eligibility(
+            p_participant_person_id,
+            p_equine_id,
+            p_center_id,
+            p_starts_at,
+            p_ends_at,
+            p_service_id,
+            p_participant_person_id
+          ) as eligibility
+      ),
+      '[]'::jsonb
+    ) as eval_rows,
+    public.snapshot_required_policy_acceptances(
+      p_participant_person_id,
+      center.country_code,
+      p_starts_at,
+      coalesce(minority.guardian_consent_required, false)
+    ) as policy_snapshot
+    from public.equestrian_centers as center
+    left join lateral public.evaluate_person_minority(
+      p_participant_person_id,
+      center.country_code,
+      (timezone('utc', p_starts_at))::date
+    ) as minority on true
+   where center.id = p_center_id;
+$$;
+
+comment on function public.materialize_booking_confirm_eval(uuid, uuid, uuid, timestamptz, timestamptz, uuid) is
+  'One SQL statement: eligibility rows and the exact policy snapshot at the same evaluation point. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.materialize_booking_confirm_eval(uuid, uuid, uuid, timestamptz, timestamptz, uuid)
+  from public, anon, authenticated;
+
+create function public.apply_booking_confirm_eval(
+  p_booking_id uuid,
+  p_eval_rows jsonb,
+  p_policy_snapshot jsonb,
+  p_caller_account_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+#variable_conflict use_variable
+declare
+  booking_row public.bookings%rowtype;
+  overall text;
+  eval_row jsonb;
+begin
+  if p_booking_id is null or p_eval_rows is null or p_policy_snapshot is null then
+    raise exception using
+      errcode = '22023',
+      message = 'Booking id, eligibility rows and policy snapshot are required';
+  end if;
+
+  select *
+    into booking_row
+    from public.bookings as booking
+   where booking.id = p_booking_id;
+
+  if booking_row.id is null then
+    raise exception using
+      errcode = 'P0002',
+      message = 'Booking not found';
+  end if;
+
+  overall := 'ELIGIBLE';
+  for eval_row in
+    select value
+      from jsonb_array_elements(p_eval_rows) as eval(value)
+  loop
+    overall := public.worse_booking_eligibility_token(
+      overall,
+      eval_row ->> 'overall_status'
+    );
+  end loop;
+
+  if overall not in ('ELIGIBLE', 'ELIGIBLE_WITH_SUPERVISION')
+     or exists (
+       select 1
+         from jsonb_array_elements(p_eval_rows) as eval(value)
+        where (eval.value ->> 'is_met')::boolean is not true
+     ) then
+    raise exception using
+      errcode = '42501',
+      message = 'Booking is not currently eligible to confirm';
+  end if;
+
+  perform public.persist_booking_requirement_eval_rows(
+    booking_row.id,
+    p_eval_rows,
+    p_policy_snapshot,
+    p_caller_account_id
+  );
+
+  if exists (
+    select 1
+      from public.booking_requirements as requirement
+     where requirement.booking_id = booking_row.id
+       and requirement.status = 'PENDING'
+  ) then
+    raise exception using
+      errcode = '42501',
+      message = 'A CONFIRMED booking cannot persist PENDING requirement rows';
+  end if;
+
+  begin
+    insert into public.equine_calendar_blocks (
+      equine_id,
+      center_id,
+      starts_at,
+      ends_at,
+      block_type,
+      source_type,
+      source_id,
+      status,
+      created_by_account_id
+    ) values (
+      booking_row.equine_id,
+      booking_row.center_id,
+      booking_row.starts_at,
+      booking_row.ends_at,
+      'BOOKING',
+      'BOOKING',
+      booking_row.id,
+      'ACTIVE',
+      p_caller_account_id
+    );
+  exception
+    when exclusion_violation then
+      raise exception using
+        errcode = '23P01',
+        message = 'Conflicting ACTIVE calendar occupancy';
+  end;
+
+  update public.bookings
+     set status = 'CONFIRMED',
+         confirmed_at = now(),
+         eligibility_status = overall,
+         booking_policy_snapshot = p_policy_snapshot,
+         updated_at = now()
+   where id = booking_row.id;
+
+  return booking_row.id;
+end;
+$$;
+
+comment on function public.apply_booking_confirm_eval(uuid, jsonb, jsonb, uuid) is
+  'Persists and confirms from one already-materialized eligibility evaluation and policy snapshot. Does not re-run the collector or snapshot. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.apply_booking_confirm_eval(uuid, jsonb, jsonb, uuid)
+  from public, anon, authenticated;
+
 create function public.check_booking_eligibility(
   p_participant_person_id uuid,
   p_equine_id uuid,
@@ -2135,12 +2318,8 @@ declare
   caller_account uuid;
   caller_person uuid;
   booking_row public.bookings%rowtype;
-  overall text;
-  policy_snapshot jsonb;
-  market_code text;
-  guardian_required boolean := false;
   eval_rows jsonb;
-  eval_row jsonb;
+  policy_snapshot jsonb;
 begin
   if current_auth_user_id is null then
     raise exception using
@@ -2202,159 +2381,36 @@ begin
 
   perform set_config('app.confirming_booking', '1', true);
 
-  if current_setting('app.confirm_pause_after_eval', true) = '1' then
-    perform pg_advisory_lock(22022021);
-    raise notice 'confirm_eval_lock_held';
-  end if;
-
-  select coalesce(
-    jsonb_agg(
-      to_jsonb(eligibility)
-      order by
-        eligibility.requirement_type nulls last,
-        eligibility.source_type,
-        eligibility.source_id
-    ),
-    '[]'::jsonb
-  )
-    into eval_rows
-    from public.collect_booking_eligibility(
+  select
+    evaluation.eval_rows,
+    evaluation.policy_snapshot
+    into eval_rows, policy_snapshot
+    from public.materialize_booking_confirm_eval(
       booking_row.participant_person_id,
       booking_row.equine_id,
       booking_row.center_id,
       booking_row.starts_at,
       booking_row.ends_at,
-      booking_row.service_id,
-      booking_row.participant_person_id
-    ) as eligibility;
+      booking_row.service_id
+    ) as evaluation;
 
-  select center.country_code
-    into market_code
-    from public.equestrian_centers as center
-   where center.id = booking_row.center_id;
-
-  begin
-    select evaluate.guardian_consent_required
-      into guardian_required
-      from public.evaluate_person_minority(
-        booking_row.participant_person_id,
-        market_code,
-        (timezone('utc', booking_row.starts_at))::date
-      ) as evaluate;
-  exception
-    when others then
-      guardian_required := false;
-  end;
-
-  policy_snapshot := public.snapshot_required_policy_acceptances(
-    booking_row.participant_person_id,
-    market_code,
-    booking_row.starts_at,
-    guardian_required
-  );
-
-  if current_setting('app.confirm_pause_after_eval', true) = '1' then
-    raise notice 'confirm_eval_ready';
-    -- Wait until session B holds the persist gate so the post-eval
-    -- mutation is guaranteed to land between collect and persist.
-    while not exists (
-      select 1
-        from pg_locks as advisory_lock
-       where advisory_lock.locktype = 'advisory'
-         and advisory_lock.classid = 0
-         and advisory_lock.objid = 22022022
-         and advisory_lock.granted
-    ) loop
-      perform pg_sleep(0.05);
-    end loop;
-    perform pg_advisory_unlock(22022021);
-    perform pg_advisory_lock(22022022);
-    perform pg_advisory_unlock(22022022);
-  end if;
-
-  overall := 'ELIGIBLE';
-  for eval_row in
-    select value
-      from jsonb_array_elements(eval_rows) as eval(value)
-  loop
-    overall := public.worse_booking_eligibility_token(
-      overall,
-      eval_row ->> 'overall_status'
-    );
-  end loop;
-
-  if overall not in ('ELIGIBLE', 'ELIGIBLE_WITH_SUPERVISION')
-     or exists (
-       select 1
-         from jsonb_array_elements(eval_rows) as eval(value)
-        where (eval.value ->> 'is_met')::boolean is not true
-     ) then
+  if eval_rows is null or policy_snapshot is null then
     raise exception using
-      errcode = '42501',
-      message = 'Booking is not currently eligible to confirm';
+      errcode = 'P0002',
+      message = 'Confirm evaluation could not be materialized';
   end if;
 
-  perform public.persist_booking_requirement_eval_rows(
+  return public.apply_booking_confirm_eval(
     booking_row.id,
     eval_rows,
     policy_snapshot,
     caller_account
   );
-
-  if exists (
-    select 1
-      from public.booking_requirements as requirement
-     where requirement.booking_id = booking_row.id
-       and requirement.status = 'PENDING'
-  ) then
-    raise exception using
-      errcode = '42501',
-      message = 'A CONFIRMED booking cannot persist PENDING requirement rows';
-  end if;
-
-  begin
-    insert into public.equine_calendar_blocks (
-      equine_id,
-      center_id,
-      starts_at,
-      ends_at,
-      block_type,
-      source_type,
-      source_id,
-      status,
-      created_by_account_id
-    ) values (
-      booking_row.equine_id,
-      booking_row.center_id,
-      booking_row.starts_at,
-      booking_row.ends_at,
-      'BOOKING',
-      'BOOKING',
-      booking_row.id,
-      'ACTIVE',
-      caller_account
-    );
-  exception
-    when exclusion_violation then
-      raise exception using
-        errcode = '23P01',
-        message = 'Conflicting ACTIVE calendar occupancy';
-  end;
-
-  update public.bookings
-     set status = 'CONFIRMED',
-         confirmed_at = now(),
-         eligibility_status = overall,
-         booking_policy_snapshot = policy_snapshot,
-         updated_at = now()
-   where id = booking_row.id;
-
-  return booking_row.id;
 end;
 $$;
 
 comment on function public.confirm_booking(uuid) is
-  'Authenticated confirm. Requires effective MANAGE_BOOKINGS. Accepts only APPROVED. Materializes one eligibility evaluation and one policy snapshot, then persists and confirms from that same snapshot. Does not re-run the collector after deciding eligibility. The 020 gist exclusion remains the occupancy guard. Confirmed bookings cannot retain PENDING requirement rows. Rolls back on any failure.';
+  'Authenticated confirm. Requires effective MANAGE_BOOKINGS. Accepts only APPROVED. Materializes eligibility rows and the policy snapshot in one SQL statement, then persists and confirms only from that materialization. No caller-controlled pause GUC. The 020 gist exclusion remains the occupancy guard. Confirmed bookings cannot retain PENDING requirement rows. Rolls back on any failure.';
 
 revoke all on function public.confirm_booking(uuid)
   from public, anon, authenticated;

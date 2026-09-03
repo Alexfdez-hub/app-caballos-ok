@@ -64,10 +64,12 @@ Product Owner closed the 019–022 conflicts on docs PR #19
     of one `policy_code` fail closed. Obsolete documents do not satisfy.
   - Guardian `EQUESTRIAN_ACTIVITY` consent and required current policy
     acceptances are independent. No waiver.
-  - Confirm materializes one eligibility evaluation and one policy
-    snapshot, then persists every applicable evaluated requirement
-    (SATISFIED or unmet) with source identity from that same snapshot.
-    It does not re-run the collector after deciding eligibility. It
+  - Confirm materializes eligibility rows and the exact policy
+    snapshot in **one SQL statement**, then persists every applicable
+    evaluated requirement (SATISFIED or unmet) from that same
+    materialization. It does not re-run the collector or snapshot
+    after deciding eligibility. There is no caller-controlled pause
+    GUC and no advisory-lock test hook in the deployable RPC. It
     then inserts a BOOKING calendar block (`block_type BOOKING`,
     `source_type BOOKING`, `source_id = booking.id`) using the 020
     gist exclusion as the occupancy guard, and sets `CONFIRMED` +
@@ -77,6 +79,11 @@ Product Owner closed the 019–022 conflicts on docs PR #19
 - Concurrent conflicting confirms cannot both succeed. Sequential
   revalidation sees occupancy; the 020 gist exclusion remains the
   concurrency barrier.
+- Two-session confirm tests (MIN_AGE insert and policy-acceptance
+  revocation) pause only inside a test-only probe created by the
+  concurrency setup SQL, revoked from PUBLIC/anon/authenticated,
+  and dropped on cleanup. `public.confirm_booking` ignores session
+  GUCs such as `app.confirm_pause_after_eval`.
 - `MIN_QUALIFICATION` / `MIN_EXPERIENCE` are evaluated. Unmet rows still
   emit `QUALIFICATION_NOT_VERIFIED`. No Galope engine is invented.
 - Missing `date_of_birth` does not invent adulthood.

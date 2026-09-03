@@ -1,7 +1,7 @@
 # MIGRATION STATUS
 
 PHASE: 11B — Booking functions
-STATUS: IMPLEMENTADO — PR #23 Codex P0 corrections on the 022 branch. 022 NOT deployed.
+STATUS: IMPLEMENTADO — PR #23 Codex P0 + confirm snapshot concurrency on the 022 branch. 022 NOT deployed.
 DATE: 2026-09-03
 
 021 branch HEAD is `69bceac9cff865e7e10fc533ad1cec956a2a7f9d`
