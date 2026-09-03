@@ -204,6 +204,7 @@ begin
 end;
 $$;
 
+begin;
 select set_config('request.jwt.claim.sub', '88100000-0000-0000-0000-000000000005', true);
 select set_config(
   'request.jwt.claims',
@@ -211,3 +212,4 @@ select set_config(
   true
 );
 select public.confirm_booking('88100000-0000-0000-0000-00000000b001') as confirmed_id;
+commit;
