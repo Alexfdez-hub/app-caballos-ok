@@ -59,8 +59,9 @@ Product Owner closed the 019–022 conflicts on docs PR #19
   - `MIN_EXPERIENCE` evaluates `rider_profiles.experience_start_year` at
     the activity date against the stored numeric requirement. No derived
     age/experience column is stored.
-  - Multiple current locales of the same `policy_code` are translations,
-    not conflicting policies. Obsolete documents do not satisfy.
+  - Multiple current locales of the same `policy_code`+version are
+    translations, not conflicting policies. Simultaneous current versions
+    of one `policy_code` fail closed. Obsolete documents do not satisfy.
   - Guardian `EQUESTRIAN_ACTIVITY` consent and required current policy
     acceptances are independent. No waiver.
 - Confirm is atomic: revalidate, persist every applicable evaluated

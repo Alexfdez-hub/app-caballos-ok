@@ -1712,6 +1712,49 @@ begin
 
   insert into public.policy_documents (
     policy_code, policy_type, market_code, locale, version, title, content,
+    effective_from, status, requires_reacceptance
+  ) values (
+    'TERMS_ZP', 'TERMS_OF_SERVICE', 'ZP', 'es', '2',
+    'Terms v2', 'Phase 11B terms v2', now() - interval '1 hour', 'ACTIVE', false
+  );
+
+  if public.has_person_accepted_required_policy(
+    current_setting('app.rider_person_id')::uuid,
+    'TERMS_OF_SERVICE',
+    'ZP',
+    current_setting('app.window_start')::timestamptz
+  ) then
+    raise exception 'Simultaneous current versions of one policy_code must fail closed';
+  end if;
+
+  select eligibility.overall_status
+    into overall
+    from public.collect_booking_eligibility(
+      current_setting('app.rider_person_id')::uuid,
+      current_setting('app.equine_id')::uuid,
+      current_setting('app.center_a_id')::uuid,
+      current_setting('app.window_start')::timestamptz + interval '18 hours',
+      current_setting('app.window_start')::timestamptz + interval '19 hours',
+      current_setting('app.service_a_id')::uuid,
+      current_setting('app.rider_person_id')::uuid
+    ) as eligibility
+   where eligibility.requirement_type = 'POLICY_ACCEPTANCE'
+     and eligibility.detail like '%Ambiguous current versions%'
+   limit 1;
+
+  if overall is distinct from 'NOT_ELIGIBLE' then
+    raise exception 'Ambiguous current policy versions must be NOT_ELIGIBLE, got %', overall;
+  end if;
+
+  update public.policy_documents
+     set effective_to = now()
+   where policy_code = 'TERMS_ZP'
+     and market_code = 'ZP'
+     and version = '2'
+     and status = 'ACTIVE';
+
+  insert into public.policy_documents (
+    policy_code, policy_type, market_code, locale, version, title, content,
     effective_from, effective_to, status, requires_reacceptance
   ) values (
     'RIDER_ZP', 'RIDER_POLICY', 'ZP', 'es', '1',
@@ -2051,6 +2094,11 @@ begin
      or has_function_privilege(
        'authenticated',
        'public.rider_satisfies_min_experience(uuid,numeric,timestamptz)',
+       'execute'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.has_ambiguous_current_policy_versions(text,text,timestamptz)',
        'execute'
      )
   then

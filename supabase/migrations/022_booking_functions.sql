@@ -236,6 +236,39 @@ comment on function public.policy_document_is_effective_at(timestamptz, timestam
 revoke all on function public.policy_document_is_effective_at(timestamptz, timestamptz, text, timestamptz)
   from public, anon, authenticated;
 
+create function public.has_ambiguous_current_policy_versions(
+  p_policy_type text,
+  p_market_code text,
+  p_reference_time timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+      from public.policy_documents as document
+     where document.policy_type = p_policy_type
+       and document.market_code = p_market_code
+       and public.policy_document_is_effective_at(
+         document.effective_from,
+         document.effective_to,
+         document.status,
+         p_reference_time
+       )
+     group by document.policy_code
+    having count(distinct document.version) > 1
+  );
+$$;
+
+comment on function public.has_ambiguous_current_policy_versions(text, text, timestamptz) is
+  'True when one policy_code of that type+market has more than one version simultaneously current at the reference time. Locales of the same version are not ambiguous. Fail closed; do not guess. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.has_ambiguous_current_policy_versions(text, text, timestamptz)
+  from public, anon, authenticated;
+
 create function public.has_verified_guardian_relationship_at(
   p_guardian_person_id uuid,
   p_minor_person_id uuid,
@@ -387,10 +420,19 @@ begin
     return true;
   end if;
 
-  -- One current policy_code may have several locales/versions. Locales are
-  -- translations, not conflicting policies. Every current code of this type
-  -- must have at least one accepted currently-effective document. Obsolete
-  -- documents never satisfy.
+  if public.has_ambiguous_current_policy_versions(
+    p_policy_type,
+    p_market_code,
+    p_reference_time
+  ) then
+    return false;
+  end if;
+
+  -- One current policy_code may have several locales. Locales are
+  -- translations, not conflicting policies. Simultaneous current versions
+  -- of the same policy_code already failed closed above. Every current
+  -- code of this type must have at least one accepted currently-effective
+  -- document. Obsolete documents never satisfy.
   select document.policy_code
     into missing_code
     from public.policy_documents as document
@@ -428,7 +470,7 @@ end;
 $$;
 
 comment on function public.has_person_accepted_required_policy(uuid, text, text, timestamptz) is
-  'Server-internal policy acceptance for a named PERSON at a reference time. Multiple current locales of the same policy_code are translations and do not fail closed. Each current policy_code of the type must be accepted on a currently effective document. Obsolete documents do not satisfy. Not executable by PUBLIC, anon or authenticated.';
+  'Server-internal policy acceptance for a named PERSON at a reference time. Multiple current locales of the same policy_code+version are translations and do not fail closed. Simultaneous current versions of one policy_code fail closed. Each current policy_code of the type must be accepted on a currently effective document. Obsolete documents do not satisfy. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.has_person_accepted_required_policy(uuid, text, text, timestamptz)
   from public, anon, authenticated;
@@ -494,6 +536,14 @@ begin
        )
   ) then
     return true;
+  end if;
+
+  if public.has_ambiguous_current_policy_versions(
+    p_policy_type,
+    p_market_code,
+    p_reference_time
+  ) then
+    return false;
   end if;
 
   if not p_require_guardian_acceptor then
@@ -1223,6 +1273,26 @@ begin
            p_starts_at
          )
     ) then
+      if public.has_ambiguous_current_policy_versions(
+        policy_type,
+        market_code,
+        p_starts_at
+      ) then
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'NOT_ELIGIBLE'
+        );
+        overall_status := overall;
+        requirement_type := 'POLICY_ACCEPTANCE';
+        source_type := 'POLICY';
+        source_id := null;
+        is_met := false;
+        detail := format(
+          'Ambiguous current versions for %s; locales of one version are not a conflict',
+          policy_type
+        );
+        return next;
+      else
       policy_ok := public.has_participant_accepted_required_policy(
         p_participant_person_id,
         policy_type,
@@ -1256,6 +1326,7 @@ begin
           policy_type
         );
         return next;
+      end if;
       end if;
     end if;
   end loop;
