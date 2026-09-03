@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 8A — Equine requirements foundation (stacked on 6A)
+**Baseline:** Phase 8B — Center services foundation (merged on `main`)
 **Date:** 2026-09-02
 
 ## Summary
@@ -21,8 +21,23 @@ equivalences. Phase 5B adds configurable qualification systems, levels
 and rider qualifications without seeding, without equivalences, and
 without assessments. Phase 6A adds Center-owned rider assessments with
 discipline observations and restriction JSON, without Zero Session,
-authorization or eligibility. The application shell remains a
-single authenticated app without role selectors.
+authorization or eligibility. Phase 8A adds equine requirements. Phase 8B
+adds Center services and service–equine links. The application shell
+remains a single authenticated app without role selectors.
+
+**Current baseline (verified 2026-09-02):** `origin/main` HEAD is
+`40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
+#15–#18 are merged. Migrations `001`–`018` exist on `main` and remain
+the live schema. Product Owner states remote project
+`efkauegdlmfkonzwyyiv` is aligned through `018`; remote schema/RLS
+verification passed; Android/Expo Go smoke PASS. Historical reports
+that described `015`–`018` as stacked and not deployed were true at
+those branch times; they are not rewritten. Product Owner closed the
+019–022 preflight conflicts (PR #19 comment `5516860208`,
+2026-09-02). Status: CLOSED / RESOLVED. Implementation of `019` is
+authorized on a separate branch
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`, not
+on docs PR #19. This agent does not deploy and does not modify remote.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -84,12 +99,14 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 ## Database target
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
-`6f916e7abb6834349cffef173bf307e51131123c` (merge of PR #14). PRs
-#11–#14 are merged into `main`. Migrations `001`–`014` exist on `main`.
-Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
-through `014`; remote schema/RLS verification passed; Android/Expo Go
-smoke PASS. Historical reports that described `011`–`014` as stacked and
-not deployed were true at those branch times; they are not rewritten.
+`40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
+#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`
+and remain the live schema. Remote project `efkauegdlmfkonzwyyiv` is
+aligned through `018` per Product Owner. Historical reports that
+described `015`–`018` as stacked and not deployed were true at those
+branch times; they are not rewritten. Product Owner closed the 019–022
+preflight conflicts (PR #19 comment `5516860208`). 019 implements on a
+separate branch targeting `main`, not on this docs PR.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:
@@ -137,7 +154,7 @@ allowed). Translations use BCP 47 locales. `experience_level` is optional
 free text, not a qualification. There is no client catalog or assign RPC
 and no Expo selector.
 
-Migration `015_qualifications.sql` (parent PR #15, not deployed) adds
+Migration `015_qualifications.sql` (merged PR #15) adds
 `qualification_systems`, `qualification_levels` and
 `rider_qualifications`. Systems may be market-scoped. Level codes are
 unique per system. `level_order` is a non-negative hint, not an
@@ -147,7 +164,7 @@ Verification states are exactly
 own qualification `VERIFIED`. `verified_by_person_id` does not imply
 Center authority. No seed, no equivalence tables, no client RPC.
 
-Migration `016_rider_assessments.sql` (stacked on 015, not deployed) adds
+Migration `016_rider_assessments.sql` (merged PR #16) adds
 `rider_assessments`, `rider_assessment_disciplines` and
 `rider_assessment_restrictions`. Types
 `ACCESS_TEST|RIDING_LESSON|COURSE|PRACTICAL_TEST|OTHER`. States
@@ -155,12 +172,12 @@ Migration `016_rider_assessments.sql` (stacked on 015, not deployed) adds
 themselves. Creating/validating requires active `ASSESSOR` membership at
 that Center. Historical rows remain after membership end. No client RPC.
 
-Migration `017_equine_requirements.sql` (stacked on 016, not deployed) adds
+Migration `017_equine_requirements.sql` (merged PR #17) adds
 `equine_requirements` attached to an equine. Types and sources follow
 Architecture 2.1. Typed value columns are mapped per type. No client CRUD,
 no eligibility evaluation, no stored rider age.
 
-Migration `018_center_services.sql` (stacked on 017, not deployed) adds
+Migration `018_center_services.sql` (merged PR #18) adds
 `center_services` and `service_equines`. Types are
 `EQUINE_SESSION|RIDER_ASSESSMENT|ZERO_SESSION`. `ZERO_SESSION` is a
 service kind, not a Zero Session record. Linking an equine requires
@@ -207,9 +224,13 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No services catalog, Zero Session records or eligibility UI
 - No single `users.role` model
 
-The next planned SQL migration is `019` and is **not** started. Do not
-merge. Do not deploy `015`/`016`/`017`/`018`. Remote remains aligned
-through `014`; this agent does not deploy.
+Product Owner 2026-09-02 closed the 019–022 preflight conflicts
+(PR #19 comment `5516860208`). See
+`docs/ARCHITECTURE_CONFLICT_019.md` (Closed section). Migration `019`
+is implemented on a separate branch
+`refactor/phase-9a-zero-sessions-authorizations`. This docs PR does not
+contain 019 SQL. Do not merge this docs PR as if it were 019. Remote
+remains aligned through `018`; this agent does not deploy.
 
 ## Historical records
 

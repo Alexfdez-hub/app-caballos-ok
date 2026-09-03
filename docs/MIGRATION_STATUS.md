@@ -1,39 +1,38 @@
 # MIGRATION STATUS
 
-PHASE: 8B — Center services foundation
-STATUS: IMPLEMENTADO — stacked PR against `refactor/phase-8a-equine-requirements`; 018 NOT deployed
+PHASE: 8B merged; 019–022 architecture conflicts CLOSED / RESOLVED
+STATUS: Product Owner 2026-09-02 closed the 019–022 preflight conflicts
+(PR #19 comment `5516860208`). Migrations `015`–`018` remain merged on
+`main`. Remote remains aligned through `018`. Conflicts are closed.
+Migration 019 is implementing on a **separate** branch
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`, not
+on this docs PR. This PR contains no SQL.
 DATE: 2026-09-02
 
-Parent is Ready PR #17 HEAD `7165b7c1eaae1eadaee4a8358195abaab5096980`.
-Do not merge this PR before #17 (and #16, #15). Do not deploy 018.
+`origin/main` HEAD is `40e1f1e7b201796c632ec480bfba07d43564d439`
+(merge of PR #18). PRs #15–#18 merged sequentially. Migrations
+`001`–`018` exist on `main`.
 
-## Files created
+Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
+through `018`. This agent does not deploy and does not modify remote.
 
-- `supabase/migrations/018_center_services.sql`
-- `supabase/tests/018_center_services_test.sql`
-- `scripts/run-center-services-sql-tests.cjs`
-- `docs/PHASE_8B_CENTER_SERVICES_REPORT.md`
+Phase reports for 015–018 remain historical branch-time records and are
+not rewritten.
 
-## Files modified
+## Files created (docs PR #19)
 
-- `package.json`
-- `supabase/tests/009_centers_test.sql`
-- `supabase/tests/010_center_memberships_test.sql`
-- `supabase/tests/011_equines_test.sql`
-- `supabase/tests/015_qualifications_test.sql`
-- `supabase/tests/016_rider_assessments_test.sql`
-- `supabase/tests/017_equine_requirements_test.sql`
+- `docs/ARCHITECTURE_CONFLICT_019.md`
+
+## Files modified (docs PR #19)
+
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-Inherited migrations including `017` are unchanged versus parent HEAD.
-
-Product Owner (2026-09-02) approved `ACTIVE|INACTIVE` for
-`center_services.status` and `service_equines.status`. Those CHECKs are
-in `018` only. 015/017 already used the same catalog pair. Do not
-rewrite 001–017.
+Inherited `001`–`018` unchanged versus `origin/main`.
 
 ## Next phase
 
-Do not start 019. Do not merge. Do not deploy.
+Implement `019_zero_sessions_authorizations.sql` on
+`refactor/phase-9a-zero-sessions-authorizations` targeting `main`.
+Do not put 019 SQL on this docs branch. Do not merge. Do not deploy.
