@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 8B — Center services foundation (merged on `main`)
+**Baseline:** Phase 9A — Zero Sessions and authorizations (on `main` through 018)
 **Date:** 2026-09-02
 
 ## Summary
@@ -21,23 +21,8 @@ equivalences. Phase 5B adds configurable qualification systems, levels
 and rider qualifications without seeding, without equivalences, and
 without assessments. Phase 6A adds Center-owned rider assessments with
 discipline observations and restriction JSON, without Zero Session,
-authorization or eligibility. Phase 8A adds equine requirements. Phase 8B
-adds Center services and service–equine links. The application shell
-remains a single authenticated app without role selectors.
-
-**Current baseline (verified 2026-09-02):** `origin/main` HEAD is
-`40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
-#15–#18 are merged. Migrations `001`–`018` exist on `main` and remain
-the live schema. Product Owner states remote project
-`efkauegdlmfkonzwyyiv` is aligned through `018`; remote schema/RLS
-verification passed; Android/Expo Go smoke PASS. Historical reports
-that described `015`–`018` as stacked and not deployed were true at
-those branch times; they are not rewritten. Product Owner closed the
-019–022 preflight conflicts (PR #19 comment `5516860208`,
-2026-09-02). Status: CLOSED / RESOLVED. Implementation of `019` is
-authorized on a separate branch
-`refactor/phase-9a-zero-sessions-authorizations` targeting `main`, not
-on docs PR #19. This agent does not deploy and does not modify remote.
+authorization or eligibility. The application shell remains a
+single authenticated app without role selectors.
 
 The application authenticates with email/password, provisions a person/account
 link without fabricating personal data, and gates navigation on whether the
@@ -100,13 +85,11 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
 `40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
-#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`
-and remain the live schema. Remote project `efkauegdlmfkonzwyyiv` is
-aligned through `018` per Product Owner. Historical reports that
-described `015`–`018` as stacked and not deployed were true at those
-branch times; they are not rewritten. Product Owner closed the 019–022
-preflight conflicts (PR #19 comment `5516860208`). 019 implements on a
-separate branch targeting `main`, not on this docs PR.
+#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`.
+Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
+through `018`; remote schema/RLS verification passed; Android/Expo Go
+smoke PASS. Historical reports that described `015`–`018` as stacked and
+not deployed were true at those branch times; they are not rewritten.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:
@@ -221,16 +204,16 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No discipline catalog UI, selector or seeded codes
 - No qualification catalog UI, selector, seed or equivalences
 - No booking, assessment mutation, payment, or review UI
-- No services catalog, Zero Session records or eligibility UI
+- No services catalog or eligibility UI
 - No single `users.role` model
 
-Product Owner 2026-09-02 closed the 019–022 preflight conflicts
-(PR #19 comment `5516860208`). See
-`docs/ARCHITECTURE_CONFLICT_019.md` (Closed section). Migration `019`
-is implemented on a separate branch
-`refactor/phase-9a-zero-sessions-authorizations`. This docs PR does not
-contain 019 SQL. Do not merge this docs PR as if it were 019. Remote
-remains aligned through `018`; this agent does not deploy.
+Migration `019_zero_sessions_authorizations.sql` (this branch) adds
+`zero_sessions` and `rider_equine_authorizations`. Product Owner
+2026-09-02 named authorization status `ACTIVE|REVOKED` and
+evaluator/issuer authority. No client CRUD. No eligibility, calendar
+or booking RPC. Remote remains aligned through `018`; this agent does
+not deploy. The next planned SQL migration is `020` and is **not**
+started.
 
 ## Historical records
 
