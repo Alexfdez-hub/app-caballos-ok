@@ -981,6 +981,7 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
   overall text := 'ELIGIBLE';
   market_code text;
