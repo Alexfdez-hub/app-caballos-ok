@@ -54,20 +54,8 @@ begin
     from public.rider_assessments
    where center_id = any(fixture_center_ids);
 
-  if to_regclass('storage.objects') is not null then
-    delete from storage.objects
-     where bucket_id in (
-       'avatars',
-       'equine-media',
-       'qualification-documents',
-       'session-evidence',
-       'assessment-documents'
-     )
-       and (
-         name like '88700000-%'
-         or name like '%/phase14a-%'
-       );
-  end if;
+  -- storage.protect_delete() blocks SQL DELETE. 027 tests run in one
+  -- rolled-back transaction and do not rewrite existing objects.
 
   delete from public.session_evidence where session_id = any(fixture_session_ids);
   delete from public.session_events where session_id = any(fixture_session_ids);
@@ -808,13 +796,23 @@ begin
     raise exception 'Storage upsert/update was allowed';
   end if;
 
-  delete from storage.objects
-   where bucket_id = 'session-evidence'
-     and name = current_setting('app.evidence_name');
-  get diagnostics updated = row_count;
-  if updated <> 0 then
-    raise exception 'Storage delete was allowed';
-  end if;
+  -- SQL DELETE is blocked by storage.protect_delete() and by the
+  -- absence of a 027 DELETE policy. Either outcome is deny.
+  begin
+    delete from storage.objects
+     where bucket_id = 'session-evidence'
+       and name = current_setting('app.evidence_name');
+    get diagnostics updated = row_count;
+    if updated <> 0 then
+      raise exception '027 delete policy must not remove Storage objects';
+    end if;
+  exception
+    when insufficient_privilege then null;
+    when raise_exception then
+      if sqlerrm not ilike '%Direct deletion from storage tables is not allowed%' then
+        raise;
+      end if;
+  end;
 end;
 $$;
 
