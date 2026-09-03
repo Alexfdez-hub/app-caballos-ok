@@ -208,13 +208,11 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No single `users.role` model
 
 Migration `019_zero_sessions_authorizations.sql` is on Ready PR #20.
-This branch adds `020_calendar.sql`: `equine_availability_rules` and
-`equine_calendar_blocks`. Availability is potential; calendar blocks
-are canonical occupancy. ACTIVE same-equine overlapping ranges are
-excluded. Authority is effective `MANAGE_AVAILABILITY`. No client CRUD.
-No bookings table or `confirm_booking()`. Remote remains aligned
-through `018`; this agent does not deploy. The next planned SQL
-migration is `021` and is **not** started.
+020 calendar is Ready on PR #21. This branch adds `021_bookings.sql`:
+`bookings` and `booking_requirements`. Booker is own PERSON or a
+current VERIFIED guardian. CONFIRMED/ACTIVE/COMPLETED cannot be forced.
+No eligibility or confirm RPC. Remote remains aligned through `018`.
+The next planned SQL migration is `022` and is **not** started.
 
 ## Historical records
 

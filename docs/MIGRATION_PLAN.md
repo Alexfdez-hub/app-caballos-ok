@@ -3,9 +3,9 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 10A calendar implemented on
-`refactor/phase-10a-calendar` targeting the 019 branch (PR #20 Ready).
-Do not merge. Do not deploy `020`. Do not start 021 until this PR is
+**Estado:** Phase 11A bookings implemented on
+`refactor/phase-11a-bookings` targeting the 020 branch (PR #21 Ready).
+Do not merge. Do not deploy `021`. Do not start 022 until this PR is
 Ready, CI-green and Bugbot-clean.
 
 **Current baseline (verified 2026-09-02):** `origin/main` HEAD is
@@ -343,6 +343,7 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 10A:**
-`021_bookings.sql` on `refactor/phase-11a-bookings` after this PR is
-Ready, CI-green and Bugbot-clean. Do not merge. Do not deploy.
+**Siguiente fase prevista tras Phase 11A:**
+`022_booking_functions.sql` on `refactor/phase-11b-booking-functions`
+after this PR is Ready, CI-green and Bugbot-clean. Do not merge.
+Do not deploy.
