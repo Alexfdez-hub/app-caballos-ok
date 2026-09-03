@@ -211,9 +211,13 @@ Migration `019_zero_sessions_authorizations.sql` is Ready on PR #20.
 020 calendar is Ready on PR #21. 021 bookings is Ready on PR #22.
 This branch adds `022_booking_functions.sql`: the three P0 RPCs
 `check_booking_eligibility`, `create_booking_request` and
-`confirm_booking`. Confirm occupies the equine with a BOOKING calendar
-block. No `approve_zero_session`. No `sessions`. Remote remains aligned
-through `018`. Do not start 023.
+`confirm_booking`. Eligibility evaluates service–equine compatibility,
+MIN_QUALIFICATION / MIN_EXPERIENCE, activity-time guardian consent, and
+participant-subject policy acceptance (translations are not conflicting
+policies). Confirm occupies the equine with a BOOKING calendar block and
+keeps SATISFIED requirement rows plus a deterministic policy snapshot
+immutable. No `approve_zero_session`. No `sessions`. Remote remains
+aligned through `018`. Do not start 023.
 
 ## Historical records
 

@@ -22,6 +22,13 @@
 --   that Center;
 --   guardian consent and required current policy acceptances are
 --   independent; there is no waiver;
+--   service-equine compatibility is required when a service is named;
+--   MIN_QUALIFICATION / MIN_EXPERIENCE are evaluated (no Galope engine);
+--   policy acceptance subject is always the participant PERSON;
+--   guardian/staff own acceptances never substitute;
+--   multiple active locales/codes of one type are not an automatic fail;
+--   confirm snapshots every evaluated requirement and the exact policy
+--   documents/acceptances used;
 --   confirm is atomic: revalidate, occupy with a BOOKING calendar
 --   block, snapshot, set CONFIRMED; rollback on any failure;
 --   concurrent conflicting confirms cannot both succeed (020 gist).
@@ -202,10 +209,152 @@ $$;
 comment on function public.enforce_booking_request_authority() is
   'BEFORE INSERT OR UPDATE OR DELETE: booker is own PERSON or current VERIFIED guardian. Service must belong to center_id. Identity cannot be retargeted. CONFIRMED is allowed only from APPROVED when confirm_booking sets app.confirming_booking=1. ACTIVE/COMPLETED still cannot be forced. Confirmed history cannot be rewritten. Not executable by anon or authenticated.';
 
+create function public.policy_document_is_effective_at(
+  p_effective_from timestamptz,
+  p_effective_to timestamptz,
+  p_status text,
+  p_reference_time timestamptz
+)
+returns boolean
+language sql
+immutable
+set search_path = pg_catalog, public
+as $$
+  select p_status = 'ACTIVE'
+     and p_effective_from is not null
+     and p_reference_time is not null
+     and p_effective_from <= p_reference_time
+     and (
+       p_effective_to is null
+       or p_effective_to > p_reference_time
+     );
+$$;
+
+comment on function public.policy_document_is_effective_at(timestamptz, timestamptz, text, timestamptz) is
+  'True when an ACTIVE policy document is effective at the reference time. Translations are not considered here. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.policy_document_is_effective_at(timestamptz, timestamptz, text, timestamptz)
+  from public, anon, authenticated;
+
+create function public.has_verified_guardian_relationship_at(
+  p_guardian_person_id uuid,
+  p_minor_person_id uuid,
+  p_reference_time timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+      from public.guardian_relationships as relationship
+     where relationship.guardian_person_id = p_guardian_person_id
+       and relationship.minor_person_id = p_minor_person_id
+       and relationship.verification_status = 'VERIFIED'
+       and relationship.revoked_at is null
+       and (
+         relationship.verified_at is null
+         or relationship.verified_at <= p_reference_time
+       )
+       and (
+         relationship.expires_at is null
+         or relationship.expires_at > p_reference_time
+       )
+  );
+$$;
+
+comment on function public.has_verified_guardian_relationship_at(uuid, uuid, timestamptz) is
+  'Server-internal VERIFIED guardian relationship effective at the activity reference time. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.has_verified_guardian_relationship_at(uuid, uuid, timestamptz)
+  from public, anon, authenticated;
+
+create function public.has_any_verified_guardian_at(
+  p_minor_person_id uuid,
+  p_reference_time timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+      from public.guardian_relationships as relationship
+     where relationship.minor_person_id = p_minor_person_id
+       and relationship.verification_status = 'VERIFIED'
+       and relationship.revoked_at is null
+       and (
+         relationship.verified_at is null
+         or relationship.verified_at <= p_reference_time
+       )
+       and (
+         relationship.expires_at is null
+         or relationship.expires_at > p_reference_time
+       )
+  );
+$$;
+
+comment on function public.has_any_verified_guardian_at(uuid, timestamptz) is
+  'True when the minor has at least one VERIFIED guardian relationship effective at the activity reference time. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.has_any_verified_guardian_at(uuid, timestamptz)
+  from public, anon, authenticated;
+
+create function public.has_equestrian_activity_consent_at(
+  p_minor_person_id uuid,
+  p_reference_time timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+      from public.guardian_consents as consent
+      join public.guardian_relationships as relationship
+        on relationship.id = consent.guardian_relationship_id
+     where consent.minor_person_id = p_minor_person_id
+       and consent.consent_type = 'EQUESTRIAN_ACTIVITY'
+       and consent.scope_type = 'GENERAL'
+       and consent.status = 'ACTIVE'
+       and consent.revoked_at is null
+       and consent.granted_at <= p_reference_time
+       and (
+         consent.expires_at is null
+         or consent.expires_at > p_reference_time
+       )
+       and relationship.verification_status = 'VERIFIED'
+       and relationship.revoked_at is null
+       and (
+         relationship.verified_at is null
+         or relationship.verified_at <= p_reference_time
+       )
+       and (
+         relationship.expires_at is null
+         or relationship.expires_at > p_reference_time
+       )
+       and relationship.guardian_person_id = consent.guardian_person_id
+       and relationship.minor_person_id = consent.minor_person_id
+  );
+$$;
+
+comment on function public.has_equestrian_activity_consent_at(uuid, timestamptz) is
+  '007 EQUESTRIAN_ACTIVITY / GENERAL consent granted by a VERIFIED guardian, evaluated at the activity reference time. Does not invent scopes. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.has_equestrian_activity_consent_at(uuid, timestamptz)
+  from public, anon, authenticated;
+
 create function public.has_person_accepted_required_policy(
   p_person_id uuid,
   p_policy_type text,
-  p_market_code text
+  p_market_code text,
+  p_reference_time timestamptz
 )
 returns boolean
 language plpgsql
@@ -214,58 +363,350 @@ security definer
 set search_path = pg_catalog, public
 as $$
 declare
-  document_count integer;
-  required_document_id uuid;
+  missing_code text;
 begin
-  if p_person_id is null or p_policy_type is null or p_market_code is null then
+  if p_person_id is null
+     or p_policy_type is null
+     or p_market_code is null
+     or p_reference_time is null then
     return false;
   end if;
 
-  select count(*)
-    into document_count
-    from public.policy_documents as document
-   where document.policy_type = p_policy_type
-     and document.market_code = p_market_code
-     and document.status = 'ACTIVE'
-     and document.effective_from <= now()
-     and (
-       document.effective_to is null
-       or document.effective_to > now()
-     );
-
-  if document_count = 0 then
+  if not exists (
+    select 1
+      from public.policy_documents as document
+     where document.policy_type = p_policy_type
+       and document.market_code = p_market_code
+       and public.policy_document_is_effective_at(
+         document.effective_from,
+         document.effective_to,
+         document.status,
+         p_reference_time
+       )
+  ) then
     return true;
   end if;
 
-  if document_count > 1 then
-    return false;
-  end if;
-
-  select document.id
-    into required_document_id
+  -- One current policy_code may have several locales/versions. Locales are
+  -- translations, not conflicting policies. Every current code of this type
+  -- must have at least one accepted currently-effective document. Obsolete
+  -- documents never satisfy.
+  select document.policy_code
+    into missing_code
     from public.policy_documents as document
    where document.policy_type = p_policy_type
      and document.market_code = p_market_code
-     and document.status = 'ACTIVE'
-     and document.effective_from <= now()
-     and (
-       document.effective_to is null
-       or document.effective_to > now()
-     );
+     and public.policy_document_is_effective_at(
+       document.effective_from,
+       document.effective_to,
+       document.status,
+       p_reference_time
+     )
+   group by document.policy_code
+   having not exists (
+     select 1
+       from public.policy_documents as current_document
+       join public.policy_acceptances as acceptance
+         on acceptance.policy_document_id = current_document.id
+      where current_document.policy_type = p_policy_type
+        and current_document.market_code = p_market_code
+        and current_document.policy_code = document.policy_code
+        and public.policy_document_is_effective_at(
+          current_document.effective_from,
+          current_document.effective_to,
+          current_document.status,
+          p_reference_time
+        )
+        and acceptance.person_id = p_person_id
+        and acceptance.accepted_at <= p_reference_time
+   )
+   order by document.policy_code
+   limit 1;
 
-  return exists (
-    select 1
-      from public.policy_acceptances as acceptance
-     where acceptance.policy_document_id = required_document_id
-       and acceptance.person_id = p_person_id
-  );
+  return missing_code is null;
 end;
 $$;
 
+comment on function public.has_person_accepted_required_policy(uuid, text, text, timestamptz) is
+  'Server-internal policy acceptance for a named PERSON at a reference time. Multiple current locales of the same policy_code are translations and do not fail closed. Each current policy_code of the type must be accepted on a currently effective document. Obsolete documents do not satisfy. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.has_person_accepted_required_policy(uuid, text, text, timestamptz)
+  from public, anon, authenticated;
+
+create function public.has_person_accepted_required_policy(
+  p_person_id uuid,
+  p_policy_type text,
+  p_market_code text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select public.has_person_accepted_required_policy(
+    p_person_id,
+    p_policy_type,
+    p_market_code,
+    now()
+  );
+$$;
+
 comment on function public.has_person_accepted_required_policy(uuid, text, text) is
-  'Server-internal policy acceptance for a named PERSON, not auth.uid(). True when no current document of that type exists for the market, or when that person accepted the single current document. Ambiguous current documents fail closed. Not executable by PUBLIC, anon or authenticated.';
+  'now() wrapper around the activity-time policy acceptance check. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.has_person_accepted_required_policy(uuid, text, text)
+  from public, anon, authenticated;
+
+create function public.has_participant_accepted_required_policy(
+  p_participant_person_id uuid,
+  p_policy_type text,
+  p_market_code text,
+  p_reference_time timestamptz,
+  p_require_guardian_acceptor boolean
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  missing_code text;
+begin
+  if p_participant_person_id is null
+     or p_policy_type is null
+     or p_market_code is null
+     or p_reference_time is null then
+    return false;
+  end if;
+
+  if not exists (
+    select 1
+      from public.policy_documents as document
+     where document.policy_type = p_policy_type
+       and document.market_code = p_market_code
+       and public.policy_document_is_effective_at(
+         document.effective_from,
+         document.effective_to,
+         document.status,
+         p_reference_time
+       )
+  ) then
+    return true;
+  end if;
+
+  if not p_require_guardian_acceptor then
+    return public.has_person_accepted_required_policy(
+      p_participant_person_id,
+      p_policy_type,
+      p_market_code,
+      p_reference_time
+    );
+  end if;
+
+  select document.policy_code
+    into missing_code
+    from public.policy_documents as document
+   where document.policy_type = p_policy_type
+     and document.market_code = p_market_code
+     and public.policy_document_is_effective_at(
+       document.effective_from,
+       document.effective_to,
+       document.status,
+       p_reference_time
+     )
+   group by document.policy_code
+   having not exists (
+     select 1
+       from public.policy_documents as current_document
+       join public.policy_acceptances as acceptance
+         on acceptance.policy_document_id = current_document.id
+       join public.user_accounts as acceptor
+         on acceptor.id = acceptance.user_account_id
+      where current_document.policy_type = p_policy_type
+        and current_document.market_code = p_market_code
+        and current_document.policy_code = document.policy_code
+        and public.policy_document_is_effective_at(
+          current_document.effective_from,
+          current_document.effective_to,
+          current_document.status,
+          p_reference_time
+        )
+        and acceptance.person_id = p_participant_person_id
+        and acceptance.accepted_at <= p_reference_time
+        and public.has_verified_guardian_relationship_at(
+          acceptor.person_id,
+          p_participant_person_id,
+          p_reference_time
+        )
+   )
+   order by document.policy_code
+   limit 1;
+
+  return missing_code is null;
+end;
+$$;
+
+comment on function public.has_participant_accepted_required_policy(uuid, text, text, timestamptz, boolean) is
+  'Policy acceptance for the participant PERSON. Guardian-own and staff-own acceptances never substitute. For a minor, the accepting ACCOUNT must belong to a VERIFIED guardian effective at the activity time. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.has_participant_accepted_required_policy(uuid, text, text, timestamptz, boolean)
+  from public, anon, authenticated;
+
+create function public.snapshot_required_policy_acceptances(
+  p_participant_person_id uuid,
+  p_market_code text,
+  p_reference_time timestamptz,
+  p_require_guardian_acceptor boolean
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select jsonb_build_object(
+    'documents',
+    coalesce(
+      (
+        select jsonb_agg(accepted.document order by
+          accepted.document ->> 'policy_type',
+          accepted.document ->> 'policy_code',
+          accepted.document ->> 'locale',
+          accepted.document ->> 'version',
+          accepted.document ->> 'document_id',
+          accepted.document ->> 'acceptance_id'
+        )
+          from (
+            select jsonb_build_object(
+              'document_id', document.id,
+              'policy_code', document.policy_code,
+              'policy_type', document.policy_type,
+              'locale', document.locale,
+              'version', document.version,
+              'acceptance_id', acceptance.id
+            ) as document
+              from public.policy_documents as document
+              join public.policy_acceptances as acceptance
+                on acceptance.policy_document_id = document.id
+              join public.user_accounts as acceptor
+                on acceptor.id = acceptance.user_account_id
+             where document.market_code = p_market_code
+               and document.policy_type in (
+                 'TERMS_OF_SERVICE',
+                 'PRIVACY_POLICY',
+                 'RIDER_POLICY',
+                 'ACTIVITY_POLICY'
+               )
+               and public.policy_document_is_effective_at(
+                 document.effective_from,
+                 document.effective_to,
+                 document.status,
+                 p_reference_time
+               )
+               and acceptance.person_id = p_participant_person_id
+               and acceptance.accepted_at <= p_reference_time
+               and (
+                 not p_require_guardian_acceptor
+                 or public.has_verified_guardian_relationship_at(
+                   acceptor.person_id,
+                   p_participant_person_id,
+                   p_reference_time
+                 )
+               )
+          ) as accepted
+      ),
+      '[]'::jsonb
+    )
+  );
+$$;
+
+comment on function public.snapshot_required_policy_acceptances(uuid, text, timestamptz, boolean) is
+  'Deterministic JSON object of the exact current documents/acceptances used for the participant. Includes document id, policy code/type, locale, version and acceptance id. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.snapshot_required_policy_acceptances(uuid, text, timestamptz, boolean)
+  from public, anon, authenticated;
+
+create function public.rider_satisfies_min_qualification(
+  p_rider_person_id uuid,
+  p_required_level_id uuid,
+  p_discipline_id uuid,
+  p_reference_time timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+      from public.rider_qualifications as held
+      join public.qualification_levels as held_level
+        on held_level.id = held.qualification_level_id
+      join public.qualification_levels as required_level
+        on required_level.id = p_required_level_id
+     where held.rider_person_id = p_rider_person_id
+       and held.verification_status = 'VERIFIED'
+       and (
+         held.expires_at is null
+         or held.expires_at > p_reference_time
+       )
+       and held_level.qualification_system_id = required_level.qualification_system_id
+       and held_level.level_order >= required_level.level_order
+       and (
+         p_discipline_id is null
+         or held_level.discipline_id is not distinct from p_discipline_id
+       )
+  );
+$$;
+
+comment on function public.rider_satisfies_min_qualification(uuid, uuid, uuid, timestamptz) is
+  'Current VERIFIED rider qualification in the required system, respecting level_order inside that system only, expiry and optional discipline scope. No international equivalences. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.rider_satisfies_min_qualification(uuid, uuid, uuid, timestamptz)
+  from public, anon, authenticated;
+
+create function public.rider_satisfies_min_experience(
+  p_rider_person_id uuid,
+  p_required_years numeric,
+  p_reference_time timestamptz
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  start_year smallint;
+  activity_year integer;
+begin
+  if p_rider_person_id is null
+     or p_required_years is null
+     or p_reference_time is null then
+    return false;
+  end if;
+
+  select profile.experience_start_year
+    into start_year
+    from public.rider_profiles as profile
+   where profile.person_id = p_rider_person_id;
+
+  if start_year is null then
+    return false;
+  end if;
+
+  activity_year := extract(year from (timezone('utc', p_reference_time))::date);
+  return (activity_year - start_year) >= p_required_years;
+end;
+$$;
+
+comment on function public.rider_satisfies_min_experience(uuid, numeric, timestamptz) is
+  'Evaluates rider_profiles.experience_start_year at the activity date against the stored numeric MIN_EXPERIENCE requirement. Does not store a derived age or experience column. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.rider_satisfies_min_experience(uuid, numeric, timestamptz)
   from public, anon, authenticated;
 
 create function public.has_current_valid_rider_assessment(
@@ -306,32 +747,14 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
-  select exists (
-    select 1
-      from public.guardian_consents as consent
-      join public.guardian_relationships as relationship
-        on relationship.id = consent.guardian_relationship_id
-     where consent.minor_person_id = p_minor_person_id
-       and consent.consent_type = 'EQUESTRIAN_ACTIVITY'
-       and consent.status = 'ACTIVE'
-       and consent.revoked_at is null
-       and (
-         consent.expires_at is null
-         or consent.expires_at > now()
-       )
-       and relationship.verification_status = 'VERIFIED'
-       and relationship.revoked_at is null
-       and (
-         relationship.expires_at is null
-         or relationship.expires_at > now()
-       )
-       and relationship.guardian_person_id = consent.guardian_person_id
-       and relationship.minor_person_id = consent.minor_person_id
+  select public.has_equestrian_activity_consent_at(
+    p_minor_person_id,
+    now()
   );
 $$;
 
 comment on function public.has_current_equestrian_activity_consent(uuid) is
-  'Server-internal current EQUESTRIAN_ACTIVITY consent granted by a current VERIFIED guardian. Stored EXPIRED is not clock-computed; expires_at in the past is not currently effective. Not executable by PUBLIC, anon or authenticated.';
+  'now() wrapper around has_equestrian_activity_consent_at. Booking eligibility uses the activity-time successor. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.has_current_equestrian_activity_consent(uuid)
   from public, anon, authenticated;
@@ -515,10 +938,22 @@ declare
   minority_row record;
   service_center uuid;
   service_status text;
+  service_link public.service_equines%rowtype;
+  requested_minutes numeric;
   policy_type text;
   requirement_row public.equine_requirements%rowtype;
   age_years integer;
+  guardian_required boolean := false;
+  policy_ok boolean;
+  qualification_ok boolean;
+  experience_ok boolean;
 begin
+  -- p_policy_person_id is retained for signature stability. Policy
+  -- acceptance subject is always the participant PERSON.
+  if p_policy_person_id is null then
+    null;
+  end if;
+
   if p_participant_person_id is null
      or p_equine_id is null
      or p_center_id is null
@@ -579,6 +1014,65 @@ begin
       is_met := false;
       detail := 'Service is not ACTIVE';
       return next;
+    else
+      select *
+        into service_link
+        from public.service_equines as link
+       where link.service_id = p_service_id
+         and link.equine_id = p_equine_id;
+
+      if service_link.id is null then
+        overall := public.worse_booking_eligibility_token(overall, 'NOT_ELIGIBLE');
+        overall_status := overall;
+        requirement_type := null;
+        source_type := 'SERVICE';
+        source_id := p_service_id;
+        is_met := false;
+        detail := 'No matching service_equines link';
+        return next;
+      elsif service_link.status is distinct from 'ACTIVE'
+            or service_link.enabled is not true then
+        overall := public.worse_booking_eligibility_token(overall, 'NOT_ELIGIBLE');
+        overall_status := overall;
+        requirement_type := null;
+        source_type := 'SERVICE';
+        source_id := service_link.id;
+        is_met := false;
+        detail := 'Service-equine link is not ACTIVE and enabled';
+        return next;
+      else
+        if service_link.duration_limit_minutes is not null then
+          requested_minutes :=
+            extract(epoch from (p_ends_at - p_starts_at)) / 60.0;
+          if requested_minutes > service_link.duration_limit_minutes then
+            overall := public.worse_booking_eligibility_token(
+              overall,
+              'NOT_ELIGIBLE'
+            );
+            overall_status := overall;
+            requirement_type := null;
+            source_type := 'SERVICE';
+            source_id := service_link.id;
+            is_met := false;
+            detail := 'Requested interval exceeds duration_limit_minutes';
+            return next;
+          end if;
+        end if;
+
+        if service_link.supervision_required then
+          overall := public.worse_booking_eligibility_token(
+            overall,
+            'ELIGIBLE_WITH_SUPERVISION'
+          );
+          overall_status := overall;
+          requirement_type := 'SUPERVISION_REQUIRED';
+          source_type := 'SERVICE';
+          source_id := service_link.id;
+          is_met := true;
+          detail := 'Service-equine link requires supervision';
+          return next;
+        end if;
+      end if;
     end if;
   end if;
 
@@ -647,27 +1141,12 @@ begin
         );
 
       age_years := minority_row.age_years;
+      guardian_required := minority_row.guardian_consent_required;
 
-      if minority_row.guardian_consent_required then
-        if not public.has_current_verified_guardian_relationship(
-             p_policy_person_id,
-             p_participant_person_id
-           )
-           and p_policy_person_id is distinct from p_participant_person_id then
-          -- staff/guardian path still requires some current VERIFIED guardian
-          null;
-        end if;
-
-        if not exists (
-          select 1
-            from public.guardian_relationships as relationship
-           where relationship.minor_person_id = p_participant_person_id
-             and relationship.verification_status = 'VERIFIED'
-             and relationship.revoked_at is null
-             and (
-               relationship.expires_at is null
-               or relationship.expires_at > now()
-             )
+      if guardian_required then
+        if not public.has_any_verified_guardian_at(
+          p_participant_person_id,
+          p_starts_at
         ) then
           overall := public.worse_booking_eligibility_token(
             overall,
@@ -678,10 +1157,11 @@ begin
           source_type := 'GUARDIAN';
           source_id := p_participant_person_id;
           is_met := false;
-          detail := 'No current VERIFIED guardian relationship';
+          detail := 'No VERIFIED guardian relationship at activity time';
           return next;
-        elsif not public.has_current_equestrian_activity_consent(
-          p_participant_person_id
+        elsif not public.has_equestrian_activity_consent_at(
+          p_participant_person_id,
+          p_starts_at
         ) then
           overall := public.worse_booking_eligibility_token(
             overall,
@@ -692,7 +1172,15 @@ begin
           source_type := 'GUARDIAN';
           source_id := p_participant_person_id;
           is_met := false;
-          detail := 'No current EQUESTRIAN_ACTIVITY consent';
+          detail := 'No EQUESTRIAN_ACTIVITY consent valid at activity time';
+          return next;
+        else
+          overall_status := overall;
+          requirement_type := 'GUARDIAN_CONSENT';
+          source_type := 'GUARDIAN';
+          source_id := p_participant_person_id;
+          is_met := true;
+          detail := 'EQUESTRIAN_ACTIVITY consent is valid at activity time';
           return next;
         end if;
       end if;
@@ -723,99 +1211,160 @@ begin
     'ACTIVITY_POLICY'
   ]
   loop
-    if not public.has_person_accepted_required_policy(
-      p_policy_person_id,
-      policy_type,
-      market_code
+    if exists (
+      select 1
+        from public.policy_documents as document
+       where document.policy_type = policy_type
+         and document.market_code = market_code
+         and public.policy_document_is_effective_at(
+           document.effective_from,
+           document.effective_to,
+           document.status,
+           p_starts_at
+         )
     ) then
-      overall := public.worse_booking_eligibility_token(overall, 'NOT_ELIGIBLE');
-      overall_status := overall;
-      requirement_type := 'POLICY_ACCEPTANCE';
-      source_type := 'POLICY';
-      source_id := null;
-      is_met := false;
-      detail := format('Required %s is not currently accepted', policy_type);
-      return next;
+      policy_ok := public.has_participant_accepted_required_policy(
+        p_participant_person_id,
+        policy_type,
+        market_code,
+        p_starts_at,
+        guardian_required
+      );
+      if not policy_ok then
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'NOT_ELIGIBLE'
+        );
+        overall_status := overall;
+        requirement_type := 'POLICY_ACCEPTANCE';
+        source_type := 'POLICY';
+        source_id := null;
+        is_met := false;
+        detail := format(
+          'Required %s is not accepted for the participant',
+          policy_type
+        );
+        return next;
+      else
+        overall_status := overall;
+        requirement_type := 'POLICY_ACCEPTANCE';
+        source_type := 'POLICY';
+        source_id := null;
+        is_met := true;
+        detail := format(
+          'Required %s is accepted for the participant',
+          policy_type
+        );
+        return next;
+      end if;
     end if;
   end loop;
 
-  if public.has_active_equine_boolean_requirement(
-    p_equine_id,
-    'CENTER_ASSESSMENT_REQUIRED'
-  ) then
-    if not public.has_current_valid_rider_assessment(
-      p_participant_person_id,
-      p_center_id
-    ) then
+  for requirement_row in
+    select *
+      from public.equine_requirements as requirement
+     where requirement.equine_id = p_equine_id
+       and requirement.status = 'ACTIVE'
+       and requirement.boolean_value is true
+       and requirement.requirement_type in (
+         'CENTER_ASSESSMENT_REQUIRED',
+         'ZERO_SESSION_REQUIRED',
+         'OWNER_APPROVAL_REQUIRED',
+         'SUPERVISION_REQUIRED'
+       )
+     order by requirement.requirement_type, requirement.id
+  loop
+    if requirement_row.requirement_type = 'CENTER_ASSESSMENT_REQUIRED' then
+      if public.has_current_valid_rider_assessment(
+        p_participant_person_id,
+        p_center_id
+      ) then
+        overall_status := overall;
+        requirement_type := 'CENTER_ASSESSMENT_REQUIRED';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := true;
+        detail := 'Current VALID assessment at this Center';
+        return next;
+      else
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'REQUIRES_CENTER_ASSESSMENT'
+        );
+        overall_status := overall;
+        requirement_type := 'CENTER_ASSESSMENT_REQUIRED';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := false;
+        detail := 'No current VALID assessment at this Center';
+        return next;
+      end if;
+    elsif requirement_row.requirement_type = 'ZERO_SESSION_REQUIRED' then
+      if public.has_effective_rider_equine_authorization(
+        p_participant_person_id,
+        p_equine_id,
+        'ZERO_SESSION'
+      ) then
+        overall_status := overall;
+        requirement_type := 'ZERO_SESSION_REQUIRED';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := true;
+        detail := 'Currently effective ZERO_SESSION authorization';
+        return next;
+      else
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'REQUIRES_ZERO_SESSION'
+        );
+        overall_status := overall;
+        requirement_type := 'ZERO_SESSION_REQUIRED';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := false;
+        detail := 'Currently effective ZERO_SESSION authorization is required';
+        return next;
+      end if;
+    elsif requirement_row.requirement_type = 'OWNER_APPROVAL_REQUIRED' then
+      if public.has_effective_rider_equine_authorization(
+        p_participant_person_id,
+        p_equine_id,
+        'OWNER_APPROVAL'
+      ) then
+        overall_status := overall;
+        requirement_type := 'OWNER_APPROVAL_REQUIRED';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := true;
+        detail := 'Currently effective OWNER_APPROVAL authorization';
+        return next;
+      else
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'REQUIRES_OWNER_APPROVAL'
+        );
+        overall_status := overall;
+        requirement_type := 'OWNER_APPROVAL_REQUIRED';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := false;
+        detail := 'Currently effective OWNER_APPROVAL authorization is required';
+        return next;
+      end if;
+    elsif requirement_row.requirement_type = 'SUPERVISION_REQUIRED' then
       overall := public.worse_booking_eligibility_token(
         overall,
-        'REQUIRES_CENTER_ASSESSMENT'
+        'ELIGIBLE_WITH_SUPERVISION'
       );
       overall_status := overall;
-      requirement_type := 'CENTER_ASSESSMENT_REQUIRED';
-      source_type := 'EQUINE';
-      source_id := p_equine_id;
-      is_met := false;
-      detail := 'No current VALID assessment at this Center';
+      requirement_type := 'SUPERVISION_REQUIRED';
+      source_type := requirement_row.source_type;
+      source_id := requirement_row.id;
+      is_met := true;
+      detail := 'Equine SUPERVISION_REQUIRED is in force';
       return next;
     end if;
-  end if;
-
-  if public.has_active_equine_boolean_requirement(
-    p_equine_id,
-    'ZERO_SESSION_REQUIRED'
-  ) then
-    if not public.has_effective_rider_equine_authorization(
-      p_participant_person_id,
-      p_equine_id,
-      'ZERO_SESSION'
-    ) then
-      overall := public.worse_booking_eligibility_token(
-        overall,
-        'REQUIRES_ZERO_SESSION'
-      );
-      overall_status := overall;
-      requirement_type := 'ZERO_SESSION_REQUIRED';
-      source_type := 'EQUINE';
-      source_id := p_equine_id;
-      is_met := false;
-      detail := 'Currently effective ZERO_SESSION authorization is required';
-      return next;
-    end if;
-  end if;
-
-  if public.has_active_equine_boolean_requirement(
-    p_equine_id,
-    'OWNER_APPROVAL_REQUIRED'
-  ) then
-    if not public.has_effective_rider_equine_authorization(
-      p_participant_person_id,
-      p_equine_id,
-      'OWNER_APPROVAL'
-    ) then
-      overall := public.worse_booking_eligibility_token(
-        overall,
-        'REQUIRES_OWNER_APPROVAL'
-      );
-      overall_status := overall;
-      requirement_type := 'OWNER_APPROVAL_REQUIRED';
-      source_type := 'OWNER';
-      source_id := p_equine_id;
-      is_met := false;
-      detail := 'Currently effective OWNER_APPROVAL authorization is required';
-      return next;
-    end if;
-  end if;
-
-  if public.has_active_equine_boolean_requirement(
-    p_equine_id,
-    'SUPERVISION_REQUIRED'
-  ) then
-    overall := public.worse_booking_eligibility_token(
-      overall,
-      'ELIGIBLE_WITH_SUPERVISION'
-    );
-  end if;
+  end loop;
 
   for requirement_row in
     select *
@@ -826,18 +1375,64 @@ begin
          'MIN_QUALIFICATION',
          'MIN_EXPERIENCE'
        )
+     order by requirement.requirement_type, requirement.id
   loop
-    overall := public.worse_booking_eligibility_token(
-      overall,
-      'QUALIFICATION_NOT_VERIFIED'
-    );
-    overall_status := overall;
-    requirement_type := requirement_row.requirement_type;
-    source_type := requirement_row.source_type;
-    source_id := requirement_row.id;
-    is_met := false;
-    detail := 'Qualification or experience verification is not implemented';
-    return next;
+    if requirement_row.requirement_type = 'MIN_QUALIFICATION' then
+      qualification_ok := public.rider_satisfies_min_qualification(
+        p_participant_person_id,
+        requirement_row.qualification_level_id,
+        requirement_row.discipline_id,
+        p_starts_at
+      );
+      if qualification_ok then
+        overall_status := overall;
+        requirement_type := 'MIN_QUALIFICATION';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := true;
+        detail := 'VERIFIED qualification meets the required system/level';
+        return next;
+      else
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'QUALIFICATION_NOT_VERIFIED'
+        );
+        overall_status := overall;
+        requirement_type := 'MIN_QUALIFICATION';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := false;
+        detail := 'MIN_QUALIFICATION is not met by a current VERIFIED qualification in the required system';
+        return next;
+      end if;
+    else
+      experience_ok := public.rider_satisfies_min_experience(
+        p_participant_person_id,
+        requirement_row.numeric_value,
+        p_starts_at
+      );
+      if experience_ok then
+        overall_status := overall;
+        requirement_type := 'MIN_EXPERIENCE';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := true;
+        detail := 'experience_start_year meets MIN_EXPERIENCE at activity date';
+        return next;
+      else
+        overall := public.worse_booking_eligibility_token(
+          overall,
+          'QUALIFICATION_NOT_VERIFIED'
+        );
+        overall_status := overall;
+        requirement_type := 'MIN_EXPERIENCE';
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := false;
+        detail := 'MIN_EXPERIENCE is not met from rider_profiles.experience_start_year';
+        return next;
+      end if;
+    end if;
   end loop;
 
   if age_years is not null then
@@ -847,6 +1442,7 @@ begin
        where requirement.equine_id = p_equine_id
          and requirement.status = 'ACTIVE'
          and requirement.requirement_type in ('MIN_AGE', 'MAX_AGE')
+       order by requirement.requirement_type, requirement.id
     loop
       if requirement_row.requirement_type = 'MIN_AGE'
          and age_years < requirement_row.numeric_value then
@@ -868,13 +1464,16 @@ begin
         is_met := false;
         detail := 'Participant is older than MAX_AGE';
         return next;
+      else
+        overall_status := overall;
+        requirement_type := requirement_row.requirement_type;
+        source_type := requirement_row.source_type;
+        source_id := requirement_row.id;
+        is_met := true;
+        detail := format('%s is satisfied', requirement_row.requirement_type);
+        return next;
       end if;
     end loop;
-  end if;
-
-  if not found and overall in ('ELIGIBLE', 'ELIGIBLE_WITH_SUPERVISION') then
-    -- Ensure a result row exists when every checked requirement is met.
-    null;
   end if;
 
   overall_status := overall;
@@ -888,7 +1487,7 @@ end;
 $$;
 
 comment on function public.collect_booking_eligibility(uuid, uuid, uuid, timestamptz, timestamptz, uuid, uuid) is
-  'Server-internal eligibility collector. Returns unmet requirement rows plus a final overall row. Policy acceptances are evaluated for p_policy_person_id, never blindly auth.uid(). Not executable by PUBLIC, anon or authenticated.';
+  'Server-internal eligibility collector. Emits every applicable evaluated requirement, satisfied or unmet, plus a final overall row. Policy acceptance subject is the participant PERSON. Activity-time consent and current policy documents are used. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.collect_booking_eligibility(uuid, uuid, uuid, timestamptz, timestamptz, uuid, uuid)
   from public, anon, authenticated;
@@ -973,37 +1572,20 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
-declare
-  policy_person uuid;
 begin
-  if p_caller_person_id = p_participant_person_id then
-    return p_participant_person_id;
+  if p_participant_person_id is null then
+    raise exception using
+      errcode = '22023',
+      message = 'Participant person is required';
   end if;
 
-  if public.has_current_verified_guardian_relationship(
-    p_caller_person_id,
-    p_participant_person_id
-  ) then
-    return p_caller_person_id;
-  end if;
-
-  -- Staff MANAGE_BOOKINGS path: adult uses the participant; minor uses
-  -- one current VERIFIED guardian when present.
-  select relationship.guardian_person_id
-    into policy_person
-    from public.guardian_relationships as relationship
-   where relationship.minor_person_id = p_participant_person_id
-     and relationship.verification_status = 'VERIFIED'
-     and relationship.revoked_at is null
-     and (
-       relationship.expires_at is null
-       or relationship.expires_at > now()
-     )
-   order by relationship.verified_at
-   limit 1;
-
-  if policy_person is not null then
-    return policy_person;
+  -- POLICY ACCEPTANCE ≠ GUARDIAN CONSENT. The acceptance subject is
+  -- always the participant PERSON. A guardian ACCOUNT may record that
+  -- acceptance; guardian-own and staff-own PERSON acceptances never
+  -- substitute. p_caller_person_id is the inspector/booker, not the
+  -- acceptance subject.
+  if p_caller_person_id is null then
+    null;
   end if;
 
   return p_participant_person_id;
@@ -1011,7 +1593,7 @@ end;
 $$;
 
 comment on function public.resolve_eligibility_policy_person(uuid, uuid) is
-  'Chooses whose policy acceptances count. Staff callers must not use auth.uid() acceptances. Not executable by PUBLIC, anon or authenticated.';
+  'Policy acceptance subject is always the participant PERSON. Guardian-own and staff-own acceptances never substitute. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.resolve_eligibility_policy_person(uuid, uuid)
   from public, anon, authenticated;
@@ -1034,9 +1616,49 @@ set search_path = pg_catalog, public
 as $$
 declare
   eligibility_row record;
+  booking_status text;
+  market_code text;
+  guardian_required boolean := false;
+  policy_snapshot jsonb;
 begin
+  select booking.status
+    into booking_status
+    from public.bookings as booking
+   where booking.id = p_booking_id;
+
+  if booking_status in ('CONFIRMED', 'ACTIVE', 'COMPLETED') then
+    raise exception using
+      errcode = '42501',
+      message = 'Confirmed booking requirements cannot be rewritten';
+  end if;
+
   delete from public.booking_requirements
    where booking_id = p_booking_id;
+
+  select center.country_code
+    into market_code
+    from public.equestrian_centers as center
+   where center.id = p_center_id;
+
+  begin
+    select evaluate.guardian_consent_required
+      into guardian_required
+      from public.evaluate_person_minority(
+        p_participant_person_id,
+        market_code,
+        (timezone('utc', p_starts_at))::date
+      ) as evaluate;
+  exception
+    when others then
+      guardian_required := false;
+  end;
+
+  policy_snapshot := public.snapshot_required_policy_acceptances(
+    p_participant_person_id,
+    market_code,
+    p_starts_at,
+    guardian_required
+  );
 
   for eligibility_row in
     select *
@@ -1047,9 +1669,10 @@ begin
         p_starts_at,
         p_ends_at,
         p_service_id,
-        p_policy_person_id
+        p_participant_person_id
       )
      where requirement_type is not null
+     order by requirement_type, source_type, source_id
   loop
     insert into public.booking_requirements (
       booking_id,
@@ -1077,14 +1700,26 @@ begin
         when eligibility_row.is_met then p_resolved_by_account_id
         else null
       end,
-      jsonb_build_object('detail', eligibility_row.detail)
+      jsonb_strip_nulls(
+        jsonb_build_object(
+          'detail', eligibility_row.detail,
+          'source_id', eligibility_row.source_id,
+          'source_type', eligibility_row.source_type,
+          'policy_documents',
+          case
+            when eligibility_row.requirement_type = 'POLICY_ACCEPTANCE'
+            then policy_snapshot -> 'documents'
+            else null
+          end
+        )
+      )
     );
   end loop;
 end;
 $$;
 
 comment on function public.persist_booking_requirement_rows(uuid, uuid, uuid, uuid, timestamptz, timestamptz, uuid, uuid, uuid) is
-  'Writes explainable booking_requirements from the collector. Must run while the booking is not CONFIRMED. Not executable by PUBLIC, anon or authenticated.';
+  'Writes every applicable evaluated requirement, SATISFIED or unmet, with source identity and deterministic metadata. Refuses to rewrite CONFIRMED/ACTIVE/COMPLETED bookings. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.persist_booking_requirement_rows(uuid, uuid, uuid, uuid, timestamptz, timestamptz, uuid, uuid, uuid)
   from public, anon, authenticated;
@@ -1255,7 +1890,10 @@ begin
     p_starts_at,
     p_ends_at,
     p_service_id,
-    caller_person
+    public.resolve_eligibility_policy_person(
+      p_participant_person_id,
+      caller_person
+    )
   );
   classified := public.classify_booking_request_status(overall);
 
@@ -1296,7 +1934,10 @@ begin
     p_starts_at,
     p_ends_at,
     p_service_id,
-    caller_person,
+    public.resolve_eligibility_policy_person(
+      p_participant_person_id,
+      caller_person
+    ),
     caller_account
   );
 
@@ -1329,6 +1970,8 @@ declare
   policy_person uuid;
   overall text;
   policy_snapshot jsonb;
+  market_code text;
+  guardian_required boolean := false;
 begin
   if current_auth_user_id is null then
     raise exception using
@@ -1469,29 +2112,30 @@ begin
     caller_account
   );
 
-  select coalesce(
-    jsonb_object_agg(document.policy_type, document.id),
-    '{}'::jsonb
-  )
-    into policy_snapshot
-    from public.policy_documents as document
-   where document.market_code = (
-           select center.country_code
-             from public.equestrian_centers as center
-            where center.id = booking_row.center_id
-         )
-     and document.status = 'ACTIVE'
-     and document.policy_type in (
-       'TERMS_OF_SERVICE',
-       'PRIVACY_POLICY',
-       'RIDER_POLICY',
-       'ACTIVITY_POLICY'
-     )
-     and document.effective_from <= now()
-     and (
-       document.effective_to is null
-       or document.effective_to > now()
-     );
+  select center.country_code
+    into market_code
+    from public.equestrian_centers as center
+   where center.id = booking_row.center_id;
+
+  begin
+    select evaluate.guardian_consent_required
+      into guardian_required
+      from public.evaluate_person_minority(
+        booking_row.participant_person_id,
+        market_code,
+        (timezone('utc', booking_row.starts_at))::date
+      ) as evaluate;
+  exception
+    when others then
+      guardian_required := false;
+  end;
+
+  policy_snapshot := public.snapshot_required_policy_acceptances(
+    booking_row.participant_person_id,
+    market_code,
+    booking_row.starts_at,
+    guardian_required
+  );
 
   begin
     insert into public.equine_calendar_blocks (
@@ -1535,7 +2179,7 @@ end;
 $$;
 
 comment on function public.confirm_booking(uuid) is
-  'Authenticated confirm. Requires effective MANAGE_BOOKINGS. Accepts only APPROVED. Revalidates eligibility, consent, policies, authorization and availability; inserts a BOOKING calendar block; sets CONFIRMED. Rolls back on any failure. Booker-alone is not enough.';
+  'Authenticated confirm. Requires effective MANAGE_BOOKINGS. Accepts only APPROVED. Revalidates eligibility, consent, participant-context policies, authorization and availability; persists every evaluated requirement; snapshots exact documents/acceptances; inserts a BOOKING calendar block; sets CONFIRMED. Confirmed requirement rows and policy snapshot are then immutable. Rolls back on any failure. Booker-alone is not enough.';
 
 revoke all on function public.confirm_booking(uuid)
   from public, anon, authenticated;

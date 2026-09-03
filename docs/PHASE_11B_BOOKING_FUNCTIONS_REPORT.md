@@ -3,7 +3,7 @@
 **Project:** app-caballos-ok
 **Phase:** 11B — Booking functions
 **Migration:** `supabase/migrations/022_booking_functions.sql`
-**Date:** 2026-09-02
+**Date:** 2026-09-03
 **Architecture:** Data Architecture 2.1
 **Baseline:** `refactor/phase-11a-bookings` `69bceac9cff865e7e10fc533ad1cec956a2a7f9d`
 **Branch:** `refactor/phase-11b-booking-functions`
@@ -28,7 +28,9 @@ Product Owner closed the 019–022 conflicts on docs PR #19
 - Return shape: overall frozen eligibility token on every row plus
   explainable unmet-requirement rows.
 - Staff callers do not use `has_accepted_required_policy(auth.uid())`.
-  Policy acceptances are evaluated for the participant or booker/guardian.
+  Policy acceptance subject is always the participant PERSON. A guardian
+  ACCOUNT may record that acceptance. Guardian-own and staff-own
+  acceptances never substitute.
 - `create_booking_request` is booked-by the caller account. Never confirms.
   Classification:
   - `ELIGIBLE` / `ELIGIBLE_WITH_SUPERVISION` → `APPROVED`
@@ -40,22 +42,39 @@ Product Owner closed the 019–022 conflicts on docs PR #19
   `MANAGE_BOOKINGS`. Rider/booker cannot self-confirm. Accepts only
   `APPROVED`. Identity cannot be retargeted.
 - Satisfaction:
+  - Named service requires a matching `service_equines` row that is
+    ACTIVE and `enabled=true`. `supervision_required` applies.
+    `duration_limit_minutes` is enforced against the requested interval.
   - `ZERO_SESSION_REQUIRED` → currently effective `ZERO_SESSION`
     authorization. A Zero Session result alone is not enough.
   - `OWNER_APPROVAL_REQUIRED` → currently effective `OWNER_APPROVAL`.
   - `CENTER_ASSESSMENT_REQUIRED` → current `VALID` assessment at that
     Center (`valid_until` in the past is not currently effective).
+  - Guardian `EQUESTRIAN_ACTIVITY` / `GENERAL` consent is evaluated at
+    `starts_at`, not only `now()`. Consent must belong to a VERIFIED
+    guardian effective at that time.
+  - `MIN_QUALIFICATION` evaluates a current VERIFIED rider qualification
+    in the required system/level (`level_order` inside that system only),
+    expiry and optional discipline scope. No international equivalences.
+  - `MIN_EXPERIENCE` evaluates `rider_profiles.experience_start_year` at
+    the activity date against the stored numeric requirement. No derived
+    age/experience column is stored.
+  - Multiple current locales of the same `policy_code` are translations,
+    not conflicting policies. Obsolete documents do not satisfy.
   - Guardian `EQUESTRIAN_ACTIVITY` consent and required current policy
     acceptances are independent. No waiver.
-- Confirm is atomic: revalidate, write requirement rows, insert a
+- Confirm is atomic: revalidate, persist every applicable evaluated
+  requirement (SATISFIED or unmet) with source identity, insert a
   `BOOKING` calendar block (`block_type BOOKING`, `source_type BOOKING`,
-  `source_id = booking.id`), snapshot policies, set `CONFIRMED` +
-  `confirmed_at`. Any failure rolls back.
+  `source_id = booking.id`), snapshot the exact documents/acceptances
+  used (document id, policy code/type, locale, version) in deterministic
+  JSON, set `CONFIRMED` + `confirmed_at`. Confirmed requirement rows and
+  the policy snapshot are then immutable. Any failure rolls back.
 - Concurrent conflicting confirms cannot both succeed. Sequential
   revalidation sees occupancy; the 020 gist exclusion remains the
   concurrency barrier.
-- `MIN_QUALIFICATION` / `MIN_EXPERIENCE` emit
-  `QUALIFICATION_NOT_VERIFIED`. No Galope engine is invented.
+- `MIN_QUALIFICATION` / `MIN_EXPERIENCE` are evaluated. Unmet rows still
+  emit `QUALIFICATION_NOT_VERIFIED`. No Galope engine is invented.
 - Missing `date_of_birth` does not invent adulthood.
 - No `approve_zero_session`. No `sessions` table. No client CRUD.
 
