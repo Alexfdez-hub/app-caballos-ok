@@ -815,14 +815,16 @@ begin
   end if;
 
   if to_regnamespace('storage') is not null then
+    -- 027 may create a private equine-media bucket. 011 still must not
+    -- create objects or client policies for it.
     if to_regclass('storage.buckets') is not null
        and exists (
          select 1
            from storage.buckets
-          where id = 'equine-media'
-             or name = 'equine-media'
+          where (id = 'equine-media' or name = 'equine-media')
+            and public
        ) then
-      raise exception '011 must not create Storage bucket equine-media';
+      raise exception 'equine-media must remain private';
     end if;
 
     if to_regclass('storage.objects') is not null

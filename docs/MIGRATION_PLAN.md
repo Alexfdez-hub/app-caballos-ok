@@ -3,19 +3,19 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Cursor  
-**Estado:** Phase 13B audit implemented on
-`refactor/phase-13b-audit` stacked on accepted 025 HEAD
-`ccbfdffdc73bc5b58e4ec0e38b8e818a2fd85842`. Do not merge. Do not
-deploy `026`. Do not start 027.
+**Estado:** Phase 14A Storage security implemented on
+`cursor/phase-14a-storage-security-b935` stacked on live `main`
+`9d58d3605a931fd930520238276215cf17a51a38`. Do not merge. Do not
+deploy `027`. Do not start 028 until this Quality Gate is green.
 
 **Current baseline (verified 2026-09-03):** `origin/main` HEAD is
-`188ed3f356c0da67126dd5da715e2765be7cf4a5` (merge of PR #23). PRs
-#19–#23 are merged. Migrations `001`–`022` exist on `main`. Product
+`9d58d3605a931fd930520238276215cf17a51a38` (merge of PR #28). PRs
+#19–#28 are merged. Migrations `001`–`026` exist on `main`. Product
 Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
-exact version `022`. This agent does not deploy and does not modify
-remote. `023` is accepted on PR #25. `024` is accepted on PR #26. `025` is
-accepted on PR #27. `026` is implemented on this branch and is not
-deployed.
+exact version `026`. This agent does not deploy and does not modify
+remote. `023`–`026` are merged (PRs #25–#28). `027` is implemented on
+this branch and is not deployed. Historical reports that described
+`023`–`026` as stacked/not deployed are preserved.
 
 **Historical (Phase 5A branch time):** earlier text described `011`–`014`
 as stacked/not deployed and remote aligned through `010`. That was true
@@ -251,9 +251,10 @@ migración de guardians. El heading histórico no cambia el orden frozen.
 `020_calendar.sql` is merged (PR #21).
 `021_bookings.sql` is merged (PR #22).
 `022_booking_functions.sql` is merged (PR #23).
-`023_sessions.sql` is accepted on PR #25.
-`024_equine_activity.sql` is accepted on PR #26.
-`025_reviews_incidents.sql` is implemented on this branch.
+`023_sessions.sql` is merged (PR #25).
+`024_equine_activity.sql` is merged (PR #26).
+`025_reviews_incidents.sql` is merged (PR #27).
+`026_audit.sql` is merged (PR #28).
 
 ## 14. Phase 9 — Calendar
 
@@ -267,22 +268,28 @@ Crear bookings + booking requirements. Implementar `check_booking_eligibility`, 
 
 ## 16. Phase 11 — Verified sessions
 
-`023_sessions.sql` is accepted on PR #25. Start/end are
+`023_sessions.sql` is merged (PR #25). Start/end are
 server-authoritative RPCs using `clock_timestamp()`. Offline start uses a server-issued confirmed
 booking permit.
 
 ## 17. Phase 12 — Equine activity / reviews / incidents / audit
 
-`024_equine_activity.sql` is accepted on PR #26. Activity is
+`024_equine_activity.sql` is merged (PR #26). Activity is
 session-linked and append-only.
-`025_reviews_incidents.sql` is accepted on PR #27. Rating is frozen
+`025_reviews_incidents.sql` is merged (PR #27). Rating is frozen
 1..5. Incident type/severity/status catalogs are not invented.
-`026_audit.sql` is implemented on this branch. Only 023–025 critical
-transitions are audited. Do not start 027.
+`026_audit.sql` is merged (PR #28). Only 023–025 critical
+transitions are audited there.
 
 ## 18. Phase 13 — Storage security
 
-Buckets objetivo: avatars, equine-media, qualification-documents, session-evidence, assessment-documents. Evidence privada.
+`027_storage_policies.sql` is implemented on this branch. Target
+buckets `avatars`, `equine-media`, `qualification-documents`,
+`session-evidence` and `assessment-documents` are private. Evidence
+and document buckets bind INSERT/SELECT to domain authority. Avatars
+and equine-media stay deny-by-default; see
+`docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`. Do not merge
+or deploy `027`.
 
 ## 19. Phase 14 — Security test suite
 
@@ -356,5 +363,5 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 13A:**
-Stop. Do not start `026` until this Quality Gate is green. Do not merge. Do not deploy.
+**Siguiente fase prevista tras Phase 14A:**
+Stop. Do not start `028` until this Quality Gate is green. Do not merge. Do not deploy.
