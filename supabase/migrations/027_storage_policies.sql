@@ -110,6 +110,7 @@ language plpgsql
 immutable
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
   segment text;
 begin
@@ -168,6 +169,7 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
   current_auth_user_id uuid := auth.uid();
   caller_account uuid;
@@ -198,6 +200,7 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
   current_auth_user_id uuid := auth.uid();
   caller_person uuid;
@@ -228,15 +231,16 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
-  session_id uuid;
+  path_session_id uuid;
   session_row public.sessions%rowtype;
   booking_row public.bookings%rowtype;
   caller_account uuid;
   caller_person uuid;
 begin
-  session_id := public.storage_path_uuid(p_name, 1);
-  if session_id is null
+  path_session_id := public.storage_path_uuid(p_name, 1);
+  if path_session_id is null
      or not public.storage_path_has_leaf(p_name, 1) then
     return false;
   end if;
@@ -250,7 +254,7 @@ begin
   select *
     into session_row
     from public.sessions as session
-   where session.id = session_id;
+   where session.id = path_session_id;
 
   if session_row.id is null then
     return false;
@@ -296,15 +300,16 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
-  rider_person_id uuid;
-  qualification_id uuid;
+  path_rider_id uuid;
+  path_qualification_id uuid;
   caller_person uuid;
 begin
-  rider_person_id := public.storage_path_uuid(p_name, 1);
-  qualification_id := public.storage_path_uuid(p_name, 2);
-  if rider_person_id is null
-     or qualification_id is null
+  path_rider_id := public.storage_path_uuid(p_name, 1);
+  path_qualification_id := public.storage_path_uuid(p_name, 2);
+  if path_rider_id is null
+     or path_qualification_id is null
      or not public.storage_path_has_leaf(p_name, 2) then
     return false;
   end if;
@@ -317,19 +322,19 @@ begin
   if not exists (
     select 1
       from public.rider_qualifications as qualification
-     where qualification.id = qualification_id
-       and qualification.rider_person_id = rider_person_id
+     where qualification.id = path_qualification_id
+       and qualification.rider_person_id = path_rider_id
   ) then
     return false;
   end if;
 
-  if caller_person is not distinct from rider_person_id then
+  if caller_person is not distinct from path_rider_id then
     return true;
   end if;
 
   return public.has_current_verified_guardian_relationship(
     caller_person,
-    rider_person_id
+    path_rider_id
   );
 end;
 $$;
@@ -349,16 +354,17 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
-  rider_person_id uuid;
-  assessment_id uuid;
+  path_rider_id uuid;
+  path_assessment_id uuid;
   caller_person uuid;
   assessment_row public.rider_assessments%rowtype;
 begin
-  rider_person_id := public.storage_path_uuid(p_name, 1);
-  assessment_id := public.storage_path_uuid(p_name, 2);
-  if rider_person_id is null
-     or assessment_id is null
+  path_rider_id := public.storage_path_uuid(p_name, 1);
+  path_assessment_id := public.storage_path_uuid(p_name, 2);
+  if path_rider_id is null
+     or path_assessment_id is null
      or not public.storage_path_has_leaf(p_name, 2) then
     return false;
   end if;
@@ -371,8 +377,8 @@ begin
   select *
     into assessment_row
     from public.rider_assessments as assessment
-   where assessment.id = assessment_id
-     and assessment.rider_person_id = rider_person_id;
+   where assessment.id = path_assessment_id
+     and assessment.rider_person_id = path_rider_id;
 
   if assessment_row.id is null then
     return false;
@@ -409,19 +415,20 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
+#variable_conflict use_variable
 declare
-  rider_person_id uuid;
-  assessment_id uuid;
+  path_rider_id uuid;
+  path_assessment_id uuid;
   caller_person uuid;
 begin
   if public.storage_assessment_document_write_allowed(p_name) then
     return true;
   end if;
 
-  rider_person_id := public.storage_path_uuid(p_name, 1);
-  assessment_id := public.storage_path_uuid(p_name, 2);
-  if rider_person_id is null
-     or assessment_id is null
+  path_rider_id := public.storage_path_uuid(p_name, 1);
+  path_assessment_id := public.storage_path_uuid(p_name, 2);
+  if path_rider_id is null
+     or path_assessment_id is null
      or not public.storage_path_has_leaf(p_name, 2) then
     return false;
   end if;
@@ -434,19 +441,19 @@ begin
   if not exists (
     select 1
       from public.rider_assessments as assessment
-     where assessment.id = assessment_id
-       and assessment.rider_person_id = rider_person_id
+     where assessment.id = path_assessment_id
+       and assessment.rider_person_id = path_rider_id
   ) then
     return false;
   end if;
 
-  if caller_person is not distinct from rider_person_id then
+  if caller_person is not distinct from path_rider_id then
     return true;
   end if;
 
   return public.has_current_verified_guardian_relationship(
     caller_person,
-    rider_person_id
+    path_rider_id
   );
 end;
 $$;
