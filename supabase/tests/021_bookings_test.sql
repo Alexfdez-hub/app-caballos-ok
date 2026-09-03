@@ -115,9 +115,9 @@ begin
   if exists (
     select 1 from information_schema.tables
      where table_schema = 'public'
-       and table_name in ('sessions')
+       and table_name in ('equine_activities', 'reviews', 'incidents', 'audit_events')
   ) then
-    raise exception 'Sessions must remain deferred';
+    raise exception 'Activity, reviews, incidents and audit must remain deferred';
   end if;
 
   if exists (

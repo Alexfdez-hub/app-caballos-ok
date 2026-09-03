@@ -1,8 +1,8 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 11B — Booking functions (stacked; `main` still through 018)
-**Date:** 2026-09-02
+**Baseline:** Phase 12A — Verified sessions (stacked; `main` still through 022)
+**Date:** 2026-09-03
 
 ## Summary
 
@@ -83,13 +83,13 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 
 ## Database target
 
-**Current baseline (verified 2026-09-02):** `origin/main` HEAD is
-`40e1f1e7b201796c632ec480bfba07d43564d439` (merge of PR #18). PRs
-#15–#18 are merged into `main`. Migrations `001`–`018` exist on `main`.
+**Current baseline (verified 2026-09-03):** `origin/main` HEAD is
+`188ed3f356c0da67126dd5da715e2765be7cf4a5` (merge of PR #23). PRs
+#19–#23 are merged into `main`. Migrations `001`–`022` exist on `main`.
 Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
-through `018`; remote schema/RLS verification passed; Android/Expo Go
-smoke PASS. Historical reports that described `015`–`018` as stacked and
-not deployed were true at those branch times; they are not rewritten.
+through exact version `022`. Historical reports that described `015`–`022`
+as stacked and not deployed were true at those branch times; they are
+not rewritten. This branch adds `023` and does not deploy it.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:
@@ -207,18 +207,17 @@ in diagnostics) is recorded after the replacement run on this branch.
 - No services catalog or eligibility UI
 - No single `users.role` model
 
-Migration `019_zero_sessions_authorizations.sql` is Ready on PR #20.
-020 calendar is Ready on PR #21. 021 bookings is Ready on PR #22.
-This branch adds `022_booking_functions.sql`: the three P0 RPCs
-`check_booking_eligibility`, `create_booking_request` and
-`confirm_booking`. Eligibility evaluates service–equine compatibility,
-MIN_QUALIFICATION / MIN_EXPERIENCE, activity-time guardian consent, and
-participant-subject policy acceptance (translations are not conflicting
-policies). Confirm occupies the equine with a BOOKING calendar block and
-keeps SATISFIED requirement rows plus a deterministic policy snapshot
-immutable. Confirm materializes eligibility and that snapshot in one
-SQL statement. No `approve_zero_session`. No `sessions`. Remote remains
-aligned through `018`. Do not start 023.
+Migration `019_zero_sessions_authorizations.sql` is merged (PR #20).
+020 calendar is merged (PR #21). 021 bookings is merged (PR #22).
+022 booking functions is merged (PR #23). This branch adds
+`023_sessions.sql`: `sessions`, `session_events`, `session_evidence`,
+`session_permits`, plus `start_session` / `end_session` /
+`issue_session_permit` / `attach_session_evidence`. Official timestamps
+are server-authoritative. Offline start requires a server-issued
+confirmed-booking permit. Evidence metadata is private; 023 does not
+create a Storage bucket. No `equine_activities`, reviews, incidents or
+audit. Remote remains aligned through `022`. Do not start 024 until
+this Quality Gate is green.
 
 ## Historical records
 

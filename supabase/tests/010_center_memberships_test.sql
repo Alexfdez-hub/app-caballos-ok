@@ -136,7 +136,10 @@ begin
       from information_schema.tables
      where table_schema = 'public'
        and table_name in (
-         'sessions'
+         'equine_activities',
+         'reviews',
+         'incidents',
+         'audit_events'
        )
   ) then
     raise exception 'Later domains must remain deferred';
