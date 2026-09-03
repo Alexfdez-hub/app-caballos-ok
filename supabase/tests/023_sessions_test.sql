@@ -129,6 +129,7 @@ insert into auth.users (id) values
   ('88000000-0000-0000-0000-000000000009');
 
 do $$
+#variable_conflict use_variable
 declare
   rider_person_id uuid;
   rider_account_id uuid;
@@ -333,20 +334,24 @@ begin
   insert into public.guardian_relationships (
     guardian_person_id, minor_person_id, relationship_type,
     verification_status, verified_at
-  ) values
-    (guardian_person_id, minor_person_id, 'PARENT', 'VERIFIED', now()),
-    (second_guardian_person_id, minor_person_id, 'PARENT', 'VERIFIED', now());
+  ) values (
+    guardian_person_id, minor_person_id, 'PARENT', 'VERIFIED', now()
+  ) returning id into relationship_id;
+
+  insert into public.guardian_relationships (
+    guardian_person_id, minor_person_id, relationship_type,
+    verification_status, verified_at
+  ) values (
+    second_guardian_person_id, minor_person_id, 'PARENT', 'VERIFIED', now()
+  );
 
   insert into public.guardian_consents (
     guardian_relationship_id, guardian_person_id, minor_person_id,
     granted_by_account_id, consent_type, scope_type, terms_version, status
-  )
-  select relationship.id, guardian_person_id, minor_person_id,
-         guardian_account_id, 'EQUESTRIAN_ACTIVITY', 'GENERAL', 'phase12a', 'ACTIVE'
-    from public.guardian_relationships as relationship
-   where relationship.guardian_person_id = guardian_person_id
-     and relationship.minor_person_id = minor_person_id
-  returning id into relationship_id;
+  ) values (
+    relationship_id, guardian_person_id, minor_person_id,
+    guardian_account_id, 'EQUESTRIAN_ACTIVITY', 'GENERAL', 'phase12a', 'ACTIVE'
+  );
 
   perform set_config('app.rider_person_id', rider_person_id::text, true);
   perform set_config('app.rider_account_id', rider_account_id::text, true);
@@ -381,6 +386,8 @@ begin
   );
 end;
 $$;
+
+grant execute on function pg_temp.set_auth(uuid) to authenticated, postgres;
 
 -- Rider requests, staff confirms.
 set local role authenticated;
