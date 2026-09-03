@@ -894,7 +894,8 @@ begin
            has_function_privilege('authenticated', procedure.oid, 'execute')
            and procedure.proname not in (
              'list_my_equine_ownerships',
-             'list_my_equine_management_assignments'
+             'list_my_equine_management_assignments',
+             'record_equine_activity'
            )
          )
        )
