@@ -1,6 +1,5 @@
 -- Phase 12A local verified-session tests.
--- Assumes migrations 001-023. reviews, incidents,
--- audit_events and approve_zero_session remain deferred.
+-- Assumes migrations 001-023. audit_events and approve_zero_session remain deferred.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -42,6 +41,16 @@ begin
    where equine_id = any(fixture_equine_ids)
       or center_id = any(fixture_center_ids);
 
+  delete from public.reviews
+   where booking_id in (
+     select id from public.bookings
+      where equine_id = any(fixture_equine_ids)
+         or center_id = any(fixture_center_ids)
+   );
+  delete from public.incidents
+   where session_id = any(fixture_session_ids)
+      or equine_id = any(fixture_equine_ids)
+      or center_id = any(fixture_center_ids);
   delete from public.equine_activities where session_id = any(fixture_session_ids);
   delete from public.session_evidence where session_id = any(fixture_session_ids);
   delete from public.session_events where session_id = any(fixture_session_ids);
@@ -163,9 +172,9 @@ begin
   if exists (
     select 1 from information_schema.tables
      where table_schema = 'public'
-       and table_name in ('reviews', 'incidents', 'audit_events')
+       and table_name in ('audit_events')
   ) then
-    raise exception 'Reviews, incidents and audit must remain deferred';
+    raise exception 'Audit must remain deferred';
   end if;
 
   if exists (

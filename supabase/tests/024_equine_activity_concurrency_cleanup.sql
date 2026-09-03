@@ -2,6 +2,10 @@
 -- deletes of activity, session and confirmed booking history.
 set session_replication_role = replica;
 
+delete from public.reviews
+ where booking_id = '88300000-0000-0000-0000-00000000b001';
+delete from public.incidents
+ where booking_id = '88300000-0000-0000-0000-00000000b001';
 delete from public.equine_activities
  where session_id in (
    select id from public.sessions
