@@ -34,7 +34,12 @@
 --   enough. A current VERIFIED guardian may operate only when that
 --   guardian's ACCOUNT is the booking booker.
 --
--- now() is not used in a table CHECK.
+-- now() is not used in a table CHECK. Official started_at, ended_at
+-- and received_at_server use clock_timestamp() (wall clock), not
+-- transaction-start now(), so ended_at > started_at holds when start
+-- and end run in one SQL transaction. Session RPCs clear
+-- app.session_transition before returning so a later statement cannot
+-- reuse the GUC.
 --
 -- Access model follows migrations 006–022:
 --   - RLS enabled, deny-by-default, no client table policies.
@@ -632,7 +637,7 @@ begin
     p_session_id,
     p_event_type,
     p_occurred_at_device,
-    now(),
+    clock_timestamp(),
     p_latitude,
     p_longitude,
     nullif(btrim(coalesce(p_device_id, '')), ''),
@@ -645,7 +650,7 @@ end;
 $$;
 
 comment on function public.append_session_event(uuid, text, timestamptz, double precision, double precision, text, boolean, jsonb) is
-  'Internal append of one session event. received_at_server is now(). Not executable by PUBLIC, anon or authenticated.';
+  'Internal append of one session event. received_at_server is clock_timestamp(). Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.append_session_event(uuid, text, timestamptz, double precision, double precision, text, boolean, jsonb)
   from public, anon, authenticated;
@@ -695,6 +700,29 @@ comment on function public.complete_booking_for_session(uuid) is
   'Internal ACTIVE → COMPLETED booking transition used by end_session. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.complete_booking_for_session(uuid)
+  from public, anon, authenticated;
+
+create function public.set_session_transition(
+  p_enabled boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+begin
+  perform set_config(
+    'app.session_transition',
+    case when p_enabled then '1' else '' end,
+    true
+  );
+end;
+$$;
+
+comment on function public.set_session_transition(boolean) is
+  'Internal transaction-local GUC for session table triggers. Callers must clear it before returning. Not executable by PUBLIC, anon or authenticated.';
+
+revoke all on function public.set_session_transition(boolean)
   from public, anon, authenticated;
 
 create function public.issue_session_permit(
@@ -775,58 +803,66 @@ begin
       message = 'This booking already has a used session permit';
   end if;
 
-  perform set_config('app.session_transition', '1', true);
+  perform public.set_session_transition(true);
 
-  if session_row.id is null then
-    insert into public.sessions (
-      booking_id,
-      equine_id,
-      participant_person_id,
-      center_id,
-      status
-    ) values (
-      booking_row.id,
-      booking_row.equine_id,
-      booking_row.participant_person_id,
-      booking_row.center_id,
-      'READY'
-    ) returning id into created_session_id;
-  else
-    created_session_id := session_row.id;
-  end if;
+  begin
+    if session_row.id is null then
+      insert into public.sessions (
+        booking_id,
+        equine_id,
+        participant_person_id,
+        center_id,
+        status
+      ) values (
+        booking_row.id,
+        booking_row.equine_id,
+        booking_row.participant_person_id,
+        booking_row.center_id,
+        'READY'
+      ) returning id into created_session_id;
+    else
+      created_session_id := session_row.id;
+    end if;
 
-  if permit_row.id is not null then
-    return permit_row.id;
-  end if;
+    if permit_row.id is not null then
+      created_permit_id := permit_row.id;
+    else
+      insert into public.session_permits (
+        booking_id,
+        participant_person_id,
+        equine_id,
+        center_id,
+        valid_from,
+        valid_until,
+        issued_by_account_id
+      ) values (
+        booking_row.id,
+        booking_row.participant_person_id,
+        booking_row.equine_id,
+        booking_row.center_id,
+        booking_row.starts_at,
+        booking_row.ends_at,
+        caller_account
+      ) returning id into created_permit_id;
 
-  insert into public.session_permits (
-    booking_id,
-    participant_person_id,
-    equine_id,
-    center_id,
-    valid_from,
-    valid_until,
-    issued_by_account_id
-  ) values (
-    booking_row.id,
-    booking_row.participant_person_id,
-    booking_row.equine_id,
-    booking_row.center_id,
-    booking_row.starts_at,
-    booking_row.ends_at,
-    caller_account
-  ) returning id into created_permit_id;
+      perform public.append_session_event(
+        created_session_id,
+        'CHECK_IN',
+        null,
+        null,
+        null,
+        null,
+        false,
+        jsonb_build_object('permit_id', created_permit_id)
+      );
+    end if;
 
-  perform public.append_session_event(
-    created_session_id,
-    'CHECK_IN',
-    null,
-    null,
-    null,
-    null,
-    false,
-    jsonb_build_object('permit_id', created_permit_id)
-  );
+    perform public.set_session_transition(false);
+  exception
+    when others then
+      perform public.set_session_transition(false);
+      raise;
+  end;
 
   return created_permit_id;
 end;
@@ -859,7 +895,7 @@ declare
   session_row public.sessions%rowtype;
   permit_row public.session_permits%rowtype;
   created_session_id uuid;
-  official_start timestamptz := now();
+  official_start timestamptz := clock_timestamp();
   offline_start boolean := coalesce(p_started_offline, false);
 begin
   perform public.resolve_session_caller();
@@ -956,67 +992,75 @@ begin
       message = 'A permit is only accepted for an offline start';
   end if;
 
-  perform set_config('app.session_transition', '1', true);
+  perform public.set_session_transition(true);
 
-  if session_row.id is null then
-    insert into public.sessions (
-      booking_id,
-      equine_id,
-      participant_person_id,
-      center_id,
-      status,
-      started_at,
-      start_latitude,
-      start_longitude,
-      started_offline
-    ) values (
-      booking_row.id,
-      booking_row.equine_id,
-      booking_row.participant_person_id,
-      booking_row.center_id,
-      'ACTIVE',
-      official_start,
+  begin
+    if session_row.id is null then
+      insert into public.sessions (
+        booking_id,
+        equine_id,
+        participant_person_id,
+        center_id,
+        status,
+        started_at,
+        start_latitude,
+        start_longitude,
+        started_offline
+      ) values (
+        booking_row.id,
+        booking_row.equine_id,
+        booking_row.participant_person_id,
+        booking_row.center_id,
+        'ACTIVE',
+        official_start,
+        p_latitude,
+        p_longitude,
+        offline_start
+      ) returning id into created_session_id;
+    else
+      update public.sessions as session
+         set status = 'ACTIVE',
+             started_at = official_start,
+             start_latitude = p_latitude,
+             start_longitude = p_longitude,
+             started_offline = offline_start,
+             updated_at = official_start
+       where session.id = session_row.id
+       returning session.id into created_session_id;
+    end if;
+
+    if offline_start then
+      update public.session_permits as permit
+         set used_at = official_start
+       where permit.id = permit_row.id;
+    end if;
+
+    perform public.activate_booking_for_session(booking_row.id);
+
+    perform public.append_session_event(
+      created_session_id,
+      'START',
+      p_occurred_at_device,
       p_latitude,
       p_longitude,
-      offline_start
-    ) returning id into created_session_id;
-  else
-    update public.sessions as session
-       set status = 'ACTIVE',
-           started_at = official_start,
-           start_latitude = p_latitude,
-           start_longitude = p_longitude,
-           started_offline = offline_start,
-           updated_at = official_start
-     where session.id = session_row.id
-     returning session.id into created_session_id;
-  end if;
+      p_device_id,
+      offline_start,
+      '{}'::jsonb
+    );
 
-  if offline_start then
-    update public.session_permits as permit
-       set used_at = official_start
-     where permit.id = permit_row.id;
-  end if;
-
-  perform public.activate_booking_for_session(booking_row.id);
-
-  perform public.append_session_event(
-    created_session_id,
-    'START',
-    p_occurred_at_device,
-    p_latitude,
-    p_longitude,
-    p_device_id,
-    offline_start,
-    '{}'::jsonb
-  );
+    perform public.set_session_transition(false);
+  exception
+    when others then
+      perform public.set_session_transition(false);
+      raise;
+  end;
 
   return created_session_id;
 end;
 $$;
 
 comment on function public.start_session(uuid, boolean, uuid, double precision, double precision, text, timestamptz) is
-  'Authenticated session start. Official started_at is now(). Replay of an ACTIVE session is idempotent. Offline start requires a matching unused server-issued permit. Concurrent starts serialize on the booking row.';
+  'Authenticated session start. Official started_at is clock_timestamp(). Replay of an ACTIVE session is idempotent. Offline start requires a matching unused server-issued permit. Concurrent starts serialize on the booking row.';
 
 revoke all on function public.start_session(uuid, boolean, uuid, double precision, double precision, text, timestamptz)
   from public, anon, authenticated;
@@ -1039,7 +1083,7 @@ as $$
 declare
   session_row public.sessions%rowtype;
   booking_row public.bookings%rowtype;
-  official_end timestamptz := now();
+  official_end timestamptz := clock_timestamp();
   offline_end boolean := coalesce(p_ended_offline, false);
 begin
   perform public.resolve_session_caller();
@@ -1096,47 +1140,55 @@ begin
       message = 'Session end must be after the official start';
   end if;
 
-  perform set_config('app.session_transition', '1', true);
+  perform public.set_session_transition(true);
 
-  update public.sessions as session
-     set status = 'COMPLETED',
-         ended_at = official_end,
-         end_latitude = p_latitude,
-         end_longitude = p_longitude,
-         ended_offline = offline_end,
-         updated_at = official_end
-   where session.id = session_row.id;
+  begin
+    update public.sessions as session
+       set status = 'COMPLETED',
+           ended_at = official_end,
+           end_latitude = p_latitude,
+           end_longitude = p_longitude,
+           ended_offline = offline_end,
+           updated_at = official_end
+     where session.id = session_row.id;
 
-  perform public.append_session_event(
-    session_row.id,
-    'END_REQUESTED',
-    p_occurred_at_device,
-    p_latitude,
-    p_longitude,
-    p_device_id,
-    offline_end,
-    '{}'::jsonb
-  );
+    perform public.append_session_event(
+      session_row.id,
+      'END_REQUESTED',
+      p_occurred_at_device,
+      p_latitude,
+      p_longitude,
+      p_device_id,
+      offline_end,
+      '{}'::jsonb
+    );
 
-  perform public.append_session_event(
-    session_row.id,
-    'CHECK_OUT',
-    p_occurred_at_device,
-    p_latitude,
-    p_longitude,
-    p_device_id,
-    offline_end,
-    '{}'::jsonb
-  );
+    perform public.append_session_event(
+      session_row.id,
+      'CHECK_OUT',
+      p_occurred_at_device,
+      p_latitude,
+      p_longitude,
+      p_device_id,
+      offline_end,
+      '{}'::jsonb
+    );
 
-  perform public.complete_booking_for_session(booking_row.id);
+    perform public.complete_booking_for_session(booking_row.id);
+
+    perform public.set_session_transition(false);
+  exception
+    when others then
+      perform public.set_session_transition(false);
+      raise;
+  end;
 
   return session_row.id;
 end;
 $$;
 
 comment on function public.end_session(uuid, boolean, double precision, double precision, text, timestamptz) is
-  'Authenticated session end. Official ended_at is now() and must be after started_at. Replay of a COMPLETED session is idempotent. Client/device time is stored on events only.';
+  'Authenticated session end. Official ended_at is clock_timestamp() and must be after started_at. Replay of a COMPLETED session is idempotent. Client/device time is stored on events only.';
 
 revoke all on function public.end_session(uuid, boolean, double precision, double precision, text, timestamptz)
   from public, anon, authenticated;
@@ -1213,38 +1265,46 @@ begin
     else null
   end;
 
-  perform set_config('app.session_transition', '1', true);
+  perform public.set_session_transition(true);
 
-  insert into public.session_evidence (
-    session_id,
-    evidence_type,
-    storage_path,
-    captured_at_device,
-    received_at_server,
-    latitude,
-    longitude
-  ) values (
-    session_row.id,
-    p_evidence_type,
-    btrim(p_storage_path),
-    p_captured_at_device,
-    now(),
-    p_latitude,
-    p_longitude
-  ) returning id into created_id;
-
-  if event_type is not null then
-    perform public.append_session_event(
+  begin
+    insert into public.session_evidence (
+      session_id,
+      evidence_type,
+      storage_path,
+      captured_at_device,
+      received_at_server,
+      latitude,
+      longitude
+    ) values (
       session_row.id,
-      event_type,
+      p_evidence_type,
+      btrim(p_storage_path),
       p_captured_at_device,
+      clock_timestamp(),
       p_latitude,
-      p_longitude,
-      null,
-      session_row.started_offline,
-      jsonb_build_object('evidence_id', created_id)
-    );
-  end if;
+      p_longitude
+    ) returning id into created_id;
+
+    if event_type is not null then
+      perform public.append_session_event(
+        session_row.id,
+        event_type,
+        p_captured_at_device,
+        p_latitude,
+        p_longitude,
+        null,
+        session_row.started_offline,
+        jsonb_build_object('evidence_id', created_id)
+      );
+    end if;
+
+    perform public.set_session_transition(false);
+  exception
+    when others then
+      perform public.set_session_transition(false);
+      raise;
+  end;
 
   return created_id;
 end;

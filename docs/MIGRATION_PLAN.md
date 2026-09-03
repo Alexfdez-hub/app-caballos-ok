@@ -264,7 +264,7 @@ Crear bookings + booking requirements. Implementar `check_booking_eligibility`, 
 ## 16. Phase 11 — Verified sessions
 
 `023_sessions.sql` is implemented on this branch. Start/end are
-server-authoritative RPCs. Offline start uses a server-issued confirmed
+server-authoritative RPCs using `clock_timestamp()`. Offline start uses a server-issued confirmed
 booking permit. Do not start 024 until the Quality Gate is green.
 
 ## 17. Phase 12 — Reviews/incidents/audit

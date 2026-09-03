@@ -21,8 +21,11 @@ Do not deploy `023`. Do not start 024 until this Quality Gate is green.
 - Frozen session statuses, event types and evidence types from
   Architecture 2.1. `sync_status` and evidence `status` are stored
   without invented CHECK catalogs.
-- Official `started_at` / `ended_at` / `received_at_server` are `now()`.
-  `occurred_at_device` / `captured_at_device` are display inputs only.
+- Official `started_at` / `ended_at` / `received_at_server` are
+  `clock_timestamp()` (server wall clock). Table `DEFAULT now()` remains
+  for `created_at`. Client/device time is stored on events only.
+  Session RPCs clear transaction-local `app.session_transition` before
+  returning so a later statement cannot reuse the GUC.
 - `start_session` / `end_session` are the only start/end path.
   Replay of an ACTIVE start or COMPLETED end is idempotent and does not
   rewrite the official timestamp.

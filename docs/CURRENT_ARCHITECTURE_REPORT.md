@@ -213,7 +213,7 @@ Migration `019_zero_sessions_authorizations.sql` is merged (PR #20).
 `023_sessions.sql`: `sessions`, `session_events`, `session_evidence`,
 `session_permits`, plus `start_session` / `end_session` /
 `issue_session_permit` / `attach_session_evidence`. Official timestamps
-are server-authoritative. Offline start requires a server-issued
+are `clock_timestamp()` (server wall clock). Offline start requires a server-issued
 confirmed-booking permit. Evidence metadata is private; 023 does not
 create a Storage bucket. No `equine_activities`, reviews, incidents or
 audit. Remote remains aligned through `022`. Do not start 024 until

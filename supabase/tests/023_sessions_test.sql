@@ -597,6 +597,10 @@ begin
   if event_server = device_time then
     raise exception 'received_at_server used device time';
   end if;
+
+  if current_setting('app.session_transition', true) = '1' then
+    raise exception 'start_session left app.session_transition enabled';
+  end if;
 end;
 $$;
 
@@ -648,6 +652,10 @@ begin
   ) is distinct from current_setting('app.rider_started_at')::timestamptz then
     raise exception 'Replay start mutated started_at';
   end if;
+
+  if current_setting('app.session_transition', true) = '1' then
+    raise exception 'attach_session_evidence left app.session_transition enabled';
+  end if;
 end;
 $$;
 
@@ -660,7 +668,7 @@ begin
   begin
     update public.sessions
        set status = 'COMPLETED',
-           ended_at = now()
+           ended_at = clock_timestamp() + interval '1 second'
      where id = session_id;
     raise exception 'Direct session update succeeded';
   exception
@@ -761,6 +769,10 @@ begin
      where booking.id = current_setting('app.rider_booking_id')::uuid
   ) is distinct from 'COMPLETED' then
     raise exception 'end_session did not complete the booking';
+  end if;
+
+  if current_setting('app.session_transition', true) = '1' then
+    raise exception 'end_session left app.session_transition enabled';
   end if;
 end;
 $$;
@@ -1221,6 +1233,11 @@ begin
      or has_function_privilege(
        'authenticated',
        'public.append_session_event(uuid,text,timestamptz,double precision,double precision,text,boolean,jsonb)',
+       'execute'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.set_session_transition(boolean)',
        'execute'
      )
      or has_function_privilege(
