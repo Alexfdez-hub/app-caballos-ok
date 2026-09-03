@@ -649,7 +649,7 @@ begin
 
   if not has_function_privilege(
        'authenticated',
-       'public.submit_review(uuid,uuid,smallint,text,text)',
+       'public.submit_review(uuid,uuid,integer,text,text)',
        'execute'
      )
      or not has_function_privilege(
@@ -659,7 +659,7 @@ begin
      )
      or has_function_privilege(
        'anon',
-       'public.submit_review(uuid,uuid,smallint,text,text)',
+       'public.submit_review(uuid,uuid,integer,text,text)',
        'execute'
      )
   then
@@ -689,7 +689,7 @@ begin
     select count(*)
       from pg_catalog.pg_proc as procedure
      where procedure.oid in (
-       'public.submit_review(uuid,uuid,smallint,text,text)'::regprocedure,
+       'public.submit_review(uuid,uuid,integer,text,text)'::regprocedure,
        'public.report_incident(uuid,uuid,text,uuid,uuid)'::regprocedure
      )
        and procedure.prosecdef

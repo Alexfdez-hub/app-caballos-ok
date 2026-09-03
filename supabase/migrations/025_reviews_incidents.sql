@@ -16,7 +16,8 @@
 --
 -- A review requires a COMPLETED booking. Subject id must be the
 -- booking's center, equine or participant. Replay of the same reviewer
--- + booking + subject is idempotent.
+-- + booking + subject is idempotent. submit_review takes integer rating
+-- so SQL integer literals resolve; the column CHECK remains 1..5.
 --
 -- An incident requires a started session. Session, booking, equine and
 -- center must match. Multiple incidents per session are allowed.
@@ -259,7 +260,7 @@ revoke all on function public.caller_can_submit_review(uuid, uuid)
 create function public.submit_review(
   p_booking_id uuid,
   p_subject_id uuid,
-  p_rating smallint,
+  p_rating integer,
   p_comment text default null,
   p_subject_type text default null
 )
@@ -360,12 +361,12 @@ begin
 end;
 $$;
 
-comment on function public.submit_review(uuid, uuid, smallint, text, text) is
-  'Authenticated review of a COMPLETED booking subject. Rating is 1..5. Reviewer is the caller PERSON. Replay of the same reviewer, booking and subject is idempotent.';
+comment on function public.submit_review(uuid, uuid, integer, text, text) is
+  'Authenticated review of a COMPLETED booking subject. Rating is stored as smallint CHECK 1..5. Reviewer is the caller PERSON. Replay of the same reviewer, booking and subject is idempotent.';
 
-revoke all on function public.submit_review(uuid, uuid, smallint, text, text)
+revoke all on function public.submit_review(uuid, uuid, integer, text, text)
   from public, anon, authenticated;
-grant execute on function public.submit_review(uuid, uuid, smallint, text, text)
+grant execute on function public.submit_review(uuid, uuid, integer, text, text)
   to authenticated;
 
 create function public.report_incident(
