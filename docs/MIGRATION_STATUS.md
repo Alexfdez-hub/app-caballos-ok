@@ -1,40 +1,39 @@
 # MIGRATION STATUS
 
-PHASE: 13A — Reviews and incidents
-STATUS: IMPLEMENTADO — stacked PR against accepted 024 HEAD; 025 NOT deployed
+PHASE: 13B — Audit
+STATUS: IMPLEMENTADO — stacked PR against accepted 025 HEAD; 026 NOT deployed
 DATE: 2026-09-03
 
-Parent is accepted 024 HEAD `cb213e8031089b5f2dd90122d7cd4219d860fca3`
-(PR #26 Quality Gate green). Live `main` remains
+Parent is accepted 025 HEAD `ccbfdffdc73bc5b58e4ec0e38b8e818a2fd85842`
+(PR #27 Quality Gate green). Live `main` remains
 `188ed3f356c0da67126dd5da715e2765be7cf4a5` through `022`. Do not merge
-this PR. Do not deploy 025. Do not start 026 until the complete Quality
-Gate is green.
+this PR. Do not deploy 026. Do not start 027.
 
 ## Files created
 
-- `supabase/migrations/025_reviews_incidents.sql`
-- `supabase/tests/025_reviews_incidents_test.sql`
-- `supabase/tests/025_reviews_incidents_concurrency_setup.sql`
-- `supabase/tests/025_reviews_incidents_concurrency_session_a.sql`
-- `supabase/tests/025_reviews_incidents_concurrency_session_b.sql`
-- `supabase/tests/025_reviews_incidents_concurrency_assert.sql`
-- `supabase/tests/025_reviews_incidents_concurrency_cleanup.sql`
-- `scripts/run-reviews-incidents-sql-tests.cjs`
-- `scripts/run-reviews-incidents-concurrency-test.cjs`
-- `docs/PHASE_13A_REVIEWS_INCIDENTS_REPORT.md`
+- `supabase/migrations/026_audit.sql`
+- `supabase/tests/026_audit_test.sql`
+- `supabase/tests/026_audit_concurrency_setup.sql`
+- `supabase/tests/026_audit_concurrency_session_a.sql`
+- `supabase/tests/026_audit_concurrency_session_b.sql`
+- `supabase/tests/026_audit_concurrency_assert.sql`
+- `supabase/tests/026_audit_concurrency_cleanup.sql`
+- `scripts/run-audit-sql-tests.cjs`
+- `scripts/run-audit-concurrency-test.cjs`
+- `docs/PHASE_13B_AUDIT_REPORT.md`
 
 ## Files modified
 
 - `package.json`
-- inherited tests `008`–`024` (allow `reviews` and `incidents`; still
-  forbid `audit_events`; 023/024 cleanups delete those rows first)
+- inherited tests `007`–`025` (allow `audit_events` to exist; do not
+  retrofit guardian/booking audit)
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
 
-Inherited migrations `001`–`024` are unchanged versus the 024 parent.
+Inherited migrations `001`–`025` are unchanged versus the 025 parent.
 
 ## Next phase
 
-`026` is out of scope until this Quality Gate is green. Stop after
-Ready + CI-green. Do not merge. Do not deploy.
+`027` Storage is out of scope. Stop after Ready + CI-green and the
+final train handoff on this PR. Do not merge. Do not deploy.

@@ -150,16 +150,6 @@ begin
     raise exception 'Account-level equine role shortcuts must not exist';
   end if;
 
-  if exists (
-    select 1
-      from information_schema.tables
-     where table_schema = 'public'
-       and table_name in (
-         'audit_events'
-       )
-  ) then
-    raise exception 'Later equine domains must remain deferred';
-  end if;
 
   if exists (
     select 1

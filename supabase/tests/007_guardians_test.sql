@@ -141,14 +141,6 @@ begin
     raise exception 'Guardian tables unexpectedly gained client RLS policies';
   end if;
 
-  if exists (
-    select 1
-      from information_schema.tables
-     where table_schema = 'public'
-       and table_name = 'audit_events'
-  ) then
-    raise exception 'Canonical audit_events must remain deferred';
-  end if;
 
   select person_id into guardian_person_id
     from public.user_accounts

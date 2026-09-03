@@ -79,15 +79,6 @@ declare
   window_start timestamptz := timestamptz '2026-10-01 10:00:00+00';
   window_end timestamptz := timestamptz '2026-10-01 12:00:00+00';
 begin
-  if exists (
-    select 1 from information_schema.tables
-     where table_schema = 'public'
-       and table_name in (
-         'audit_events'
-       )
-  ) then
-    raise exception 'Later domains must remain deferred';
-  end if;
 
   if exists (
     select 1 from pg_catalog.pg_proc as procedure
