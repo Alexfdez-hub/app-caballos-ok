@@ -556,17 +556,13 @@ begin
     raise exception 'Future-dated OWNER_APPROVAL was treated as currently effective';
   end if;
 
-  update public.zero_sessions
-     set result = 'REJECTED'
-   where id = approved_id;
-
   begin
-    update public.rider_equine_authorizations
-       set restrictions_json = '{"after":"reject"}'::jsonb
-     where id = auth_id;
-    raise exception 'ZERO_SESSION authorization mutation after source rejection was allowed';
+    update public.zero_sessions
+       set result = 'REJECTED'
+     where id = approved_id;
+    raise exception 'Finalized Zero Session result rewrite was allowed';
   exception
-    when check_violation then null;
+    when insufficient_privilege then null;
   end;
 
   update public.rider_equine_authorizations

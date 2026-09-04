@@ -57,7 +57,9 @@ winner without deadlock or duplicate side effects.
 
 Earlier phase suites 016–027 no longer assert that the now-delivered
 `approve_zero_session` RPC is absent. Their own phase-specific negative
-assertions remain intact.
+assertions remain intact. The 019 suite now explicitly expects a
+finalized approval-to-rejection rewrite to fail instead of using that
+historical mutation as a fixture.
 
 Local static checks pass. PostgreSQL execution and the complete GitHub
 Quality Gate remain required before this phase may be marked Ready or
