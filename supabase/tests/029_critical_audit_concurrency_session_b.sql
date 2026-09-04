@@ -17,7 +17,7 @@ select set_config(
 select clock_timestamp() as session_b_before_grant;
 select *
   from public.grant_guardian_consent(
-    '98800000-0000-0000-0000-00000000aa',
+    '98800000-0000-0000-0000-0000000000aa',
     'EQUESTRIAN_ACTIVITY',
     'GENERAL',
     'v-race-b',

@@ -2,18 +2,18 @@
 set session_replication_role = replica;
 
 delete from public.audit_events
- where metadata->>'guardian_relationship_id' = '98800000-0000-0000-0000-00000000aa'
+ where metadata->>'guardian_relationship_id' = '98800000-0000-0000-0000-0000000000aa'
     or entity_id in (
       select id from public.guardian_consents
-       where guardian_relationship_id = '98800000-0000-0000-0000-00000000aa'
+       where guardian_relationship_id = '98800000-0000-0000-0000-0000000000aa'
     );
 
 delete from public.guardian_consents
- where guardian_relationship_id = '98800000-0000-0000-0000-00000000aa'
-    or id = '98800000-0000-0000-0000-00000000ee';
+ where guardian_relationship_id = '98800000-0000-0000-0000-0000000000aa'
+    or id = '98800000-0000-0000-0000-0000000000ee';
 
 delete from public.guardian_relationships
- where id = '98800000-0000-0000-0000-00000000aa';
+ where id = '98800000-0000-0000-0000-0000000000aa';
 
 delete from public.policy_acceptances
  where user_account_id in (
