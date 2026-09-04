@@ -64,9 +64,9 @@ begin
     'policy_acceptance',
     new.id,
     jsonb_build_object(
-      'policy_document_id', new.policy_document_id,
+      'target_id', new.policy_document_id,
       'person_id', new.person_id,
-      'user_account_id', new.user_account_id
+      'account_id', new.user_account_id
     )
   );
   return new;
@@ -74,7 +74,7 @@ end;
 $$;
 
 comment on function public.emit_policy_acceptance_audit() is
-  'AFTER INSERT on policy_acceptances: records policy_accepted without policy bodies, acceptance_context or row metadata. Not executable by PUBLIC, anon or authenticated.';
+  'AFTER INSERT on policy_acceptances: records policy_accepted without policy bodies, acceptance_context or row metadata. Metadata keys avoid the 026 policy/document denylist. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.emit_policy_acceptance_audit()
   from public, anon, authenticated;

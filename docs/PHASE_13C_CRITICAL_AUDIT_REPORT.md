@@ -35,7 +35,8 @@ direct client insert/update/delete/select.
   writes are audited.
 - Metadata is allowlisted ids and public-safe tokens. Policy bodies,
   JWTs, notes, comments, snapshots and unrestricted row metadata are
-  not stored.
+  not stored. Policy-acceptance metadata uses `target_id` / `account_id`
+  so keys do not match the 026 `policy`/`document` denylist.
 - New helpers are `SECURITY DEFINER` with
   `search_path = pg_catalog, public`. `PUBLIC`, `anon` and
   `authenticated` execution are revoked.

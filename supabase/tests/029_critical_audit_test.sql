@@ -392,7 +392,7 @@ begin
   if exists (
     select 1 from public.audit_events
      where event_type = 'policy_accepted'
-       and metadata->>'policy_document_id' = '98900000-0000-0000-0000-00000000d001'
+       and metadata->>'target_id' = '98900000-0000-0000-0000-00000000d001'
   ) then
     raise exception 'Unauthenticated CENTER_POLICY fixture was audited';
   end if;
@@ -453,13 +453,27 @@ begin
        and (
          audit.metadata ? 'jwt'
          or audit.metadata ? 'policy'
+         or audit.metadata ? 'policy_document_id'
          or audit.metadata ? 'content'
          or audit.metadata ? 'acceptance_context'
          or audit.metadata::text ilike '%eyJ%'
          or audit.metadata::text ilike '%must not be audited%'
+         or exists (
+           select 1
+             from jsonb_object_keys(audit.metadata) as key
+            where key ~* '(jwt|token|secret|policy|document|evidence)'
+         )
        )
   ) then
     raise exception 'Policy audit stored forbidden metadata';
+  end if;
+
+  if (
+    select audit.metadata->>'target_id'
+      from public.audit_events as audit
+     where audit.entity_id = acceptance_id
+  ) is distinct from '98900000-0000-0000-0000-00000000d003' then
+    raise exception 'Policy audit target_id was missing';
   end if;
 end;
 $$;
