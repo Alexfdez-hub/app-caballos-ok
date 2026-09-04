@@ -1139,6 +1139,47 @@ begin
 end;
 $$;
 
+-- A suspended ACCOUNT keeps no Storage authority even if its JWT remains valid.
+reset role;
+update public.user_accounts
+   set status = 'SUSPENDED'
+ where auth_user_id = '88700000-0000-0000-0000-000000000001';
+
+set local role authenticated;
+select pg_temp.set_auth('88700000-0000-0000-0000-000000000001');
+
+do $$
+#variable_conflict use_variable
+declare
+  seen integer;
+begin
+  select count(*) into seen
+    from storage.objects
+   where bucket_id in (
+     'session-evidence',
+     'qualification-documents',
+     'assessment-documents'
+   );
+
+  if seen <> 0 then
+    raise exception 'Suspended account retained private Storage read authority';
+  end if;
+
+  begin
+    perform pg_temp.insert_storage_object(
+      'qualification-documents',
+      current_setting('app.rider_person_id')
+      || '/'
+      || current_setting('app.qualification_id')
+      || '/suspended.pdf'
+    );
+    raise exception 'Suspended account retained private Storage write authority';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
 reset role;
 
 rollback;
