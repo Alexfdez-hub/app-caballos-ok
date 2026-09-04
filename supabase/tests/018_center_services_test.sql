@@ -89,11 +89,10 @@ begin
      where namespace.nspname = 'public'
        and procedure.proname in (
          'create_center_service',
-         'link_service_equine',
-         'approve_zero_session'
+         'link_service_equine'
        )
   ) then
-    raise exception 'Service mutation or later-domain RPC must not exist';
+    raise exception 'Service mutation RPC must not exist';
   end if;
 
   if (

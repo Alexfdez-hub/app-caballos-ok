@@ -1,5 +1,5 @@
 -- Phase 12A local verified-session tests.
--- Assumes migrations 001-023. approve_zero_session remains deferred.
+-- Assumes migrations 001-current. Zero Session approval is tested separately.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -169,16 +169,6 @@ begin
     raise exception '023 must add session tables';
   end if;
 
-
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname = 'approve_zero_session'
-  ) then
-    raise exception '023 must not add approve_zero_session';
-  end if;
 
   if (
     select count(*)

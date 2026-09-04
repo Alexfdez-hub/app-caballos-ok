@@ -1,8 +1,8 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 14A — Storage security (stacked on live main through 026)
-**Date:** 2026-09-03
+**Baseline:** Phase 9B — Zero Session approval (stacked on accepted 027)
+**Date:** 2026-09-04
 
 ## Summary
 
@@ -217,14 +217,18 @@ reviews/incidents is merged (PR #27). 026 append-only audit is merged
 recorded, review submitted and incident reported. Clients cannot read
 or write audit. Earlier phases were not retrofitted in 026.
 
-This branch adds `027_storage_policies.sql`: private target buckets
+The accepted parent adds `027_storage_policies.sql`: private target buckets
 `avatars`, `equine-media`, `qualification-documents`,
 `session-evidence` and `assessment-documents`. Evidence and document
 buckets stay private and bind INSERT/SELECT to PERSON/ACCOUNT/domain
 authority. Avatars and equine-media stay private with no client
 policies; see `docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`.
 No signed-URL creator and no upsert/move/delete. Remote remains
-aligned through `026`. Do not start 028 until this Quality Gate is
+aligned through `026` and 027 remains undeployed. This branch adds
+`028_zero_session_approval.sql`: a serialized, server-authoritative
+approval RPC with immutable finalized facts, current assessor/equine
+authority, policy and minor-consent checks. Approval does not create an
+authorization. Do not start 029 until the complete 028 Quality Gate is
 green.
 
 ## Historical records

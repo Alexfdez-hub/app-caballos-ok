@@ -2,20 +2,21 @@
 
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
-**Implementación:** Cursor  
-**Estado:** Phase 14A Storage security implemented on
-`cursor/phase-14a-storage-security-b935` stacked on live `main`
-`9d58d3605a931fd930520238276215cf17a51a38`. Do not merge. Do not
-deploy `027`. Do not start 028 until this Quality Gate is green.
+**Implementación:** Codex (Cursor/Grok may resume on a later train)
+**Estado:** Phase 9B Zero Session approval implemented on
+the accepted Phase 14A HEAD `a3dd18fed7b5ef27d7aba31c6c0c517f8d23c69c`
+from `cursor/phase-14a-storage-security-b935`. Do not merge. Do not
+deploy this stacked train. Do not start 029 until the 028 Quality Gate is green.
 
-**Current baseline (verified 2026-09-03):** `origin/main` HEAD is
+**Current baseline (verified 2026-09-04):** `origin/main` HEAD is
 `9d58d3605a931fd930520238276215cf17a51a38` (merge of PR #28). PRs
 #19–#28 are merged. Migrations `001`–`026` exist on `main`. Product
 Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
 exact version `026`. This agent does not deploy and does not modify
 remote. `023`–`026` are merged (PRs #25–#28). `027` is implemented on
-this branch and is not deployed. Historical reports that described
-`023`–`026` as stacked/not deployed are preserved.
+the accepted parent and is not deployed. Historical reports that described
+`023`–`026` as stacked/not deployed are preserved. `027` is the
+accepted stacked parent; `028` is implemented on this branch.
 
 **Historical (Phase 5A branch time):** earlier text described `011`–`014`
 as stacked/not deployed and remote aligned through `010`. That was true
@@ -283,13 +284,16 @@ transitions are audited there.
 
 ## 18. Phase 13 — Storage security
 
-`027_storage_policies.sql` is implemented on this branch. Target
+`027_storage_policies.sql` is implemented on the accepted parent. Target
 buckets `avatars`, `equine-media`, `qualification-documents`,
 `session-evidence` and `assessment-documents` are private. Evidence
 and document buckets bind INSERT/SELECT to domain authority. Avatars
 and equine-media stay deny-by-default; see
-`docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`. Do not merge
-or deploy `027`.
+`docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`. This branch adds
+`028_zero_session_approval.sql`, preserving the separation between
+assessment, Zero Session and authorization and enforcing server actor,
+time, policy, consent, authority, immutability, replay and concurrency
+rules. Do not merge or deploy the stacked train.
 
 ## 19. Phase 14 — Security test suite
 
@@ -363,5 +367,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 14A:**
-Stop. Do not start `028` until this Quality Gate is green. Do not merge. Do not deploy.
+**Siguiente fase prevista tras Phase 9B:**
+Start `029` critical audit coverage only after the complete 028 Quality
+Gate is green. Do not merge or deploy.

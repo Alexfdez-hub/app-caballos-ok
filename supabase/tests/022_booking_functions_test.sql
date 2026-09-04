@@ -1,5 +1,5 @@
 -- Phase 11B local booking-function tests.
--- Assumes migrations 001-022. Sessions and approve_zero_session remain deferred.
+-- Assumes migrations 001-current. Later-domain operations are tested separately.
 -- Eligibility callers: participant, current VERIFIED guardian, or MANAGE_BOOKINGS.
 -- create_booking_request never confirms. confirm_booking needs MANAGE_BOOKINGS
 -- and an APPROVED row. A Zero Session result alone does not satisfy
@@ -176,16 +176,6 @@ declare
   relationship_id uuid;
   window_start timestamptz := timestamptz '2026-11-01 10:00:00+00';
 begin
-
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname = 'approve_zero_session'
-  ) then
-    raise exception '022 must not add approve_zero_session';
-  end if;
 
   if (
     select count(*)
