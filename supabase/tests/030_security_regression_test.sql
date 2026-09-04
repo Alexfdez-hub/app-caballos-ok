@@ -511,6 +511,8 @@ do $$
 declare
   audit_id uuid;
 begin
+  begin
+    insert into public.bookings (
       participant_person_id, booked_by_account_id, equine_id, center_id,
       service_id, starts_at, ends_at, status, confirmed_at
     ) values (
