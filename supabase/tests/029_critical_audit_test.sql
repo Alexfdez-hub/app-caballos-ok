@@ -165,9 +165,6 @@ declare
   center_id constant uuid := '98900000-0000-0000-0000-00000000c001';
   equine_id constant uuid := '98900000-0000-0000-0000-00000000e001';
   service_id uuid;
-  center_policy uuid;
-  guardian_policy uuid;
-  terms_id uuid;
   window_start timestamptz := timestamptz '2026-12-15 10:00:00+00';
 begin
   select person_id, id into rider_id, rider_account
