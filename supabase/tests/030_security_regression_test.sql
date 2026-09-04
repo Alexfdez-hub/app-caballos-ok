@@ -621,12 +621,14 @@ end;
 $$;
 
 -- Expired TERMS v1 acceptance must not satisfy current TERMS v2.
+-- Assert the policy requirement itself, not overall_status: an unrelated
+-- occupancy failure may already have made the aggregate NOT_ELIGIBLE.
 do $$
 declare
-  overall text;
+  unmet_current_terms integer;
 begin
-  select eligibility.overall_status
-    into overall
+  select count(*)
+    into unmet_current_terms
     from public.collect_booking_eligibility(
       current_setting('app.rider_person_id')::uuid,
       current_setting('app.equine_id')::uuid,
@@ -637,10 +639,14 @@ begin
       current_setting('app.rider_person_id')::uuid
     ) as eligibility
    where eligibility.requirement_type = 'POLICY_ACCEPTANCE'
-   limit 1;
+     and eligibility.is_met is false
+     and eligibility.detail =
+       'Required TERMS_OF_SERVICE is not accepted for the participant';
 
-  if overall is distinct from 'NOT_ELIGIBLE' then
-    raise exception 'Expired/non-current policy acceptance satisfied eligibility, got %', overall;
+  if unmet_current_terms <> 1 then
+    raise exception
+      'Expired/non-current TERMS acceptance did not produce its own failed requirement; rows=%',
+      unmet_current_terms;
   end if;
 end;
 $$;
@@ -984,17 +990,17 @@ begin
 end;
 $$;
 
--- Center/assessor membership must never substitute guardian consent.
+-- Center/assessor membership must never grant visibility into a foreign
+-- minor's consent state. Returning false still leaks that state: the call
+-- itself must be rejected with 42501.
 reset role;
 set local role authenticated;
 select pg_temp.set_auth('a3000000-0000-0000-0000-000000000002');
 
 do $$
-declare
-  consent_row record;
 begin
   begin
-    select * into consent_row
+    perform *
       from public.check_guardian_consent(
         current_setting('app.minor_person_id')::uuid,
         'EQUESTRIAN_ACTIVITY',
@@ -1002,9 +1008,7 @@ begin
         'XA',
         current_date
       );
-    if consent_row.consent_valid then
-      raise exception 'Assessor check_guardian_consent treated a foreign minor as valid';
-    end if;
+    raise exception 'Assessor inspected a foreign minor''s guardian consent state';
   exception
     when insufficient_privilege then null;
   end;
