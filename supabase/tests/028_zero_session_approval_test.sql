@@ -65,7 +65,7 @@ begin
    where id = intruder_id;
   update public.persons set
     first_name = 'Phase9B', last_name = 'Minor Rider',
-    date_of_birth = (current_date - interval '12 years')::date
+    date_of_birth = (current_date - interval '18 years')::date
    where id = minor_id;
   update public.persons set
     first_name = 'Phase9B', last_name = 'Guardian',
@@ -104,7 +104,7 @@ begin
     ),
     (
       '98000000-0000-0000-0000-00000000a002', minor_id, equine_id,
-      center_id, minor_account_id, now() - interval '1 hour'
+      center_id, minor_account_id, now() - interval '1 day'
     ),
     (
       '98000000-0000-0000-0000-00000000a003', rider_id, equine_id,
@@ -251,9 +251,12 @@ begin
   perform * from public.approve_zero_session(
     '98000000-0000-0000-0000-00000000a002', 'APPROVED', null
   );
-  raise exception 'Minor Zero Session without consent was approved';
+  raise exception 'Rider who was minor at activity time was approved without a guardian';
 exception
-  when insufficient_privilege then null;
+  when insufficient_privilege then
+    if SQLERRM <> 'Minor rider had no verified guardian at activity time' then
+      raise;
+    end if;
 end;
 $$;
 
@@ -354,7 +357,7 @@ begin
     verification_status, verified_at
   ) values (
     relationship_id, guardian_id, minor_id, 'LEGAL_GUARDIAN',
-    'VERIFIED', now() - interval '1 day'
+    'VERIFIED', now() - interval '2 days'
   );
 
   insert into public.guardian_consents (
@@ -364,7 +367,7 @@ begin
   ) values (
     relationship_id, guardian_id, minor_id, guardian_account_id,
     'EQUESTRIAN_ACTIVITY', 'GENERAL', 'phase9b-fixture',
-    'ACTIVE', now() - interval '1 hour'
+    'ACTIVE', now() - interval '2 days'
   );
 end;
 $$;
