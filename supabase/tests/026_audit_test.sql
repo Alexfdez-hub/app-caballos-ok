@@ -355,11 +355,20 @@ begin
     raise exception 'Expected one equine_activity_recorded audit';
   end if;
 
+  -- 029 covers booking_confirmed. 026 still must not attach 023–025
+  -- event types to the booking row id.
   if exists (
     select 1 from public.audit_events
      where entity_id = current_setting('app.rider_booking_id')::uuid
+       and event_type in (
+         'session_started',
+         'session_completed',
+         'equine_activity_recorded',
+         'review_submitted',
+         'incident_reported'
+       )
   ) then
-    raise exception '026 must not retrofit booking confirm audit';
+    raise exception '026 session-family events must not use booking id as entity_id';
   end if;
 end;
 $$;

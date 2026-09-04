@@ -65,8 +65,8 @@ finalized approval-to-rejection rewrite to fail instead of using that
 historical mutation as a fixture.
 
 Local static checks pass. PostgreSQL execution and the complete GitHub
-Quality Gate remain required before this phase may be marked Ready or
-Phase 13C may start.
+Quality Gate remain required before this phase may be marked Ready.
+Phase 13C is stacked on the accepted 028 HEAD.
 
 ## Excluded
 
