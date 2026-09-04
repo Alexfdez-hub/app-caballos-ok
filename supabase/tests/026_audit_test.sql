@@ -1,5 +1,5 @@
 -- Phase 13B local audit tests.
--- Assumes migrations 001-026. approve_zero_session remains deferred.
+-- Assumes migrations 001-current. Zero Session approval is tested separately.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -141,16 +141,6 @@ begin
      where table_schema = 'public' and table_name = 'audit_events'
   ) then
     raise exception '026 must add audit_events';
-  end if;
-
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname = 'approve_zero_session'
-  ) then
-    raise exception '026 must not add approve_zero_session';
   end if;
 
   if not (

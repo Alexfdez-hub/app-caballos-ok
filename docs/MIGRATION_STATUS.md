@@ -29,6 +29,9 @@ were true at those branch times; they are not rewritten.
 - `docs/MIGRATION_STATUS.md`
 - `docs/CURRENT_ARCHITECTURE_REPORT.md`
 - `docs/MIGRATION_PLAN.md`
+- `supabase/tests/016_rider_assessments_test.sql` through
+  `supabase/tests/027_storage_policies_test.sql` where applicable, only
+  to remove obsolete assertions that `approve_zero_session` is absent
 
 Inherited migrations `001`–`027` are unchanged versus the accepted
 Phase 14A parent.

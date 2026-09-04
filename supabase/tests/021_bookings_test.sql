@@ -1,5 +1,5 @@
 -- Phase 11A local booking foundation tests.
--- Assumes migrations 001-021. approve_zero_session and sessions remain deferred.
+-- Assumes migrations 001-current. Sessions are tested separately.
 -- Booker is own PERSON or a current VERIFIED guardian. No confirm path.
 -- Runnable without psql meta-commands.
 
@@ -118,12 +118,9 @@ begin
       join pg_catalog.pg_namespace as namespace
         on namespace.oid = procedure.pronamespace
      where namespace.nspname = 'public'
-       and procedure.proname in (
-         'approve_zero_session',
-         'waive_booking_requirement'
-       )
+       and procedure.proname = 'waive_booking_requirement'
   ) then
-    raise exception '021 must not add approve_zero_session or a waive RPC';
+    raise exception '021 must not add a waive RPC';
   end if;
 
   if (

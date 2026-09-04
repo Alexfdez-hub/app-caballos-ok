@@ -55,6 +55,10 @@ The `028_zero_session_approval_concurrency_*` fixtures and
 different evaluators against one row and require exactly one committed
 winner without deadlock or duplicate side effects.
 
+Earlier phase suites 016–027 no longer assert that the now-delivered
+`approve_zero_session` RPC is absent. Their own phase-specific negative
+assertions remain intact.
+
 Local static checks pass. PostgreSQL execution and the complete GitHub
 Quality Gate remain required before this phase may be marked Ready or
 Phase 13C may start.

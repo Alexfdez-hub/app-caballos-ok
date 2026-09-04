@@ -80,18 +80,6 @@ declare
   window_end timestamptz := timestamptz '2026-10-01 12:00:00+00';
 begin
 
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname in (
-         'approve_zero_session'
-       )
-  ) then
-    raise exception '020 must not add approve_zero_session';
-  end if;
-
   if (
     select count(*) from pg_catalog.pg_class
      where oid in (

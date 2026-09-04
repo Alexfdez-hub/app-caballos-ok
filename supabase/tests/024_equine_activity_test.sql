@@ -1,5 +1,5 @@
 -- Phase 12B local equine-activity tests.
--- Assumes migrations 001-024. approve_zero_session remains deferred.
+-- Assumes migrations 001-current. Zero Session approval is tested separately.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -141,16 +141,6 @@ begin
     raise exception '024 must add equine_activities';
   end if;
 
-
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname = 'approve_zero_session'
-  ) then
-    raise exception '024 must not add approve_zero_session';
-  end if;
 
   if (
     select relrowsecurity

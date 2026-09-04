@@ -1,5 +1,5 @@
 -- Phase 13A local reviews/incidents tests.
--- Assumes migrations 001-025. approve_zero_session remains deferred. Runnable without psql meta-commands.
+-- Assumes migrations 001-current. Zero Session approval is tested separately. Runnable without psql meta-commands.
 
 begin;
 
@@ -137,16 +137,6 @@ begin
     raise exception '025 must add reviews and incidents';
   end if;
 
-
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname = 'approve_zero_session'
-  ) then
-    raise exception '025 must not add approve_zero_session';
-  end if;
 
   if (
     select count(*) from pg_catalog.pg_class

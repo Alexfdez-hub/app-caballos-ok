@@ -1,5 +1,5 @@
 -- Phase 14A local Storage security tests.
--- Assumes migrations 001-027. approve_zero_session remains deferred.
+-- Assumes migrations 001-current. Zero Session approval is tested separately.
 -- Runnable without psql meta-commands.
 
 begin;
@@ -199,16 +199,6 @@ begin
        and public
   ) then
     raise exception '027 must not create a public target bucket';
-  end if;
-
-  if exists (
-    select 1 from pg_catalog.pg_proc as procedure
-      join pg_catalog.pg_namespace as namespace
-        on namespace.oid = procedure.pronamespace
-     where namespace.nspname = 'public'
-       and procedure.proname = 'approve_zero_session'
-  ) then
-    raise exception '027 must not add approve_zero_session';
   end if;
 
   if exists (

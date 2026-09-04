@@ -93,11 +93,10 @@ begin
      where namespace.nspname = 'public'
        and procedure.proname in (
          'create_equine_requirement',
-         'upsert_equine_requirement',
-         'approve_zero_session'
+         'upsert_equine_requirement'
        )
   ) then
-    raise exception 'Requirements mutation or eligibility RPC must not exist';
+    raise exception 'Requirements mutation RPC must not exist';
   end if;
 
   if not (

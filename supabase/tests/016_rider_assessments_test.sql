@@ -97,11 +97,10 @@ begin
        and procedure.proname in (
          'create_rider_assessment',
          'validate_rider_assessment',
-         'list_my_assessments',
-         'approve_zero_session'
+         'list_my_assessments'
        )
   ) then
-    raise exception 'Assessment mutation or later-domain RPC must not exist';
+    raise exception 'Assessment mutation RPC must not exist';
   end if;
 
   if (
