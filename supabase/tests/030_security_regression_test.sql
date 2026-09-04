@@ -553,12 +553,14 @@ begin
     when check_violation then null;
   end;
 
+  perform pg_temp.set_auth('a3000000-0000-0000-0000-000000000006');
   audit_id := public.record_audit_event(
     'security_gate',
     'booking',
     'a3000000-0000-0000-0000-00000000b001',
     jsonb_build_object('gate', '030')
   );
+  perform pg_temp.set_auth(null);
 
   if audit_id is null then
     raise exception 'postgres must retain record_audit_event for server integrations';
