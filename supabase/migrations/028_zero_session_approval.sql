@@ -103,6 +103,7 @@ declare
   target_session public.zero_sessions%rowtype;
   center_market_code text;
   approval_time timestamptz := statement_timestamp();
+  activity_time timestamptz;
   minority_row record;
   guardian_required boolean := false;
   required_policy_type text;
@@ -191,6 +192,11 @@ begin
       message = 'A future Zero Session cannot be approved';
   end if;
 
+  -- Minority and guardian authority are activity-time facts. Using approval
+  -- time would let a rider who turned adult after the session bypass the
+  -- consent that was required when the equestrian activity occurred.
+  activity_time := coalesce(target_session.scheduled_at, approval_time);
+
   if target_session.rider_person_id = caller_account.person_id then
     raise exception using
       errcode = '42501',
@@ -270,7 +276,7 @@ begin
     from public.evaluate_person_minority(
       target_session.rider_person_id,
       center_market_code,
-      (timezone('utc', approval_time))::date
+      (timezone('utc', activity_time))::date
     );
 
   guardian_required := minority_row.guardian_consent_required;
@@ -278,20 +284,20 @@ begin
   if guardian_required then
     if not public.has_any_verified_guardian_at(
       target_session.rider_person_id,
-      approval_time
+      activity_time
     ) then
       raise exception using
         errcode = '42501',
-        message = 'Minor rider has no verified guardian at approval time';
+        message = 'Minor rider had no verified guardian at activity time';
     end if;
 
     if not public.has_equestrian_activity_consent_at(
       target_session.rider_person_id,
-      approval_time
+      activity_time
     ) then
       raise exception using
         errcode = '42501',
-        message = 'Minor rider lacks valid equestrian activity consent';
+        message = 'Minor rider lacked valid equestrian activity consent at activity time';
     end if;
   end if;
 
@@ -340,7 +346,7 @@ end;
 $$;
 
 comment on function public.approve_zero_session(uuid, text, text) is
-  'Approves one PENDING Zero Session under a row lock. Actor and performed_at are server-derived; active ASSESSOR, ASSESS_RIDERS, required policies, and market-aware guardian consent are enforced. Exact replay is idempotent. Does not create a rider-equine authorization.';
+  'Approves one PENDING Zero Session under a row lock. Actor and performed_at are server-derived; active ASSESSOR, ASSESS_RIDERS and required policies are enforced at approval, while minority and guardian consent are evaluated at scheduled activity time. Exact replay is idempotent. Does not create a rider-equine authorization.';
 
 revoke all on function public.approve_zero_session(uuid, text, text)
   from public, anon, authenticated;
