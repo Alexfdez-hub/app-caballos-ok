@@ -277,8 +277,7 @@ begin
       'TERMS_Z9', 'TERMS_OF_SERVICE', 'Z9', 'es', '1',
       'Terms', 'Phase 13C terms body must not be audited',
       now() - interval '1 day', 'ACTIVE', false
-    )
-  returning id into terms_id;
+    );
 
   insert into public.policy_acceptances (
     policy_document_id, person_id, user_account_id, accepted_at
