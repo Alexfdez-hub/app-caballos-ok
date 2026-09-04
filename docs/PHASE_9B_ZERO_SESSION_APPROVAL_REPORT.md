@@ -48,7 +48,10 @@ authorization and server time cannot be supplied by the caller.
 anonymous and unrelated callers, future sessions, minors and consent,
 invalid transitions, successful adult/minor approvals, immutable
 history, idempotent/conflicting replay, authority revocation and the
-absence of automatic authorization.
+absence of automatic authorization. RPC and client-denial assertions
+run as `authenticated`; the internal authorization postcondition count
+is inspected as `postgres` because `authenticated` has no SELECT on
+`rider_equine_authorizations`.
 
 The `028_zero_session_approval_concurrency_*` fixtures and
 `scripts/run-zero-session-approval-concurrency-test.cjs` race two

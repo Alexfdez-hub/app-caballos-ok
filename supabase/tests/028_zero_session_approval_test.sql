@@ -272,7 +272,6 @@ do $$
 declare
   approved record;
   replayed record;
-  auth_count integer;
 begin
   select * into approved
     from public.approve_zero_session(
@@ -299,14 +298,6 @@ begin
     raise exception 'Exact replay changed historical approval facts';
   end if;
 
-  select count(*) into auth_count
-    from public.rider_equine_authorizations
-   where source_zero_session_id = approved.zero_session_id;
-
-  if auth_count <> 0 then
-    raise exception 'Zero Session approval auto-created an authorization';
-  end if;
-
   begin
     update public.zero_sessions
        set notes = 'Privileged historical rewrite'
@@ -329,6 +320,21 @@ begin
 end;
 $$;
 reset role;
+
+do $$
+declare
+  auth_count integer;
+begin
+  -- Inspect as postgres; authenticated cannot SELECT rider_equine_authorizations.
+  select count(*) into auth_count
+    from public.rider_equine_authorizations
+   where source_zero_session_id = '98000000-0000-0000-0000-00000000a001';
+
+  if auth_count <> 0 then
+    raise exception 'Zero Session approval auto-created an authorization';
+  end if;
+end;
+$$;
 
 do $$
 declare
