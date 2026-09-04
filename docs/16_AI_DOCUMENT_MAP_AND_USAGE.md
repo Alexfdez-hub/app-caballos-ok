@@ -314,6 +314,12 @@ Para frontend/UI sobre una arquitectura ya definida, debe respetar las
 mismas invariantes y consultar `04_IMPLEMENTATION_STATUS.md` para no
 inventar backend ni datos que todavía no existen.
 
+Live repository phase reports that implement Architecture 2.1 live under
+`docs/` (`PHASE_13B_AUDIT_REPORT.md`, `PHASE_13C_CRITICAL_AUDIT_REPORT.md`,
+`MIGRATION_STATUS.md`). GitHub live state wins over stale planning
+documents. After 029 is Ready and green, the next phase is the
+consolidated P0 security gate (`030`), not 031 and not unrelated UI.
+
 ------------------------------------------------------------------------
 
 **Finalidad de este documento:** permitir que Cursor, Grok, GPT u otro

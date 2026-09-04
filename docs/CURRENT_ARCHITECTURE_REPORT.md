@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 9B — Zero Session approval (stacked on accepted 027)
+**Baseline:** Phase 13C — Critical audit coverage (stacked on accepted 028)
 **Date:** 2026-09-04
 
 ## Summary
@@ -224,12 +224,14 @@ buckets stay private and bind INSERT/SELECT to PERSON/ACCOUNT/domain
 authority. Avatars and equine-media stay private with no client
 policies; see `docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`.
 No signed-URL creator and no upsert/move/delete. Remote remains
-aligned through `026` and 027 remains undeployed. This branch adds
-`028_zero_session_approval.sql`: a serialized, server-authoritative
-approval RPC with immutable finalized facts, current assessor/equine
-authority, policy and minor-consent checks. Approval does not create an
-authorization. Do not start 029 until the complete 028 Quality Gate is
-green.
+aligned through `026` and 027–029 remain undeployed. Accepted 028 HEAD
+`9e1331708eca6db62085f8374b6fe712115db4a6` adds server-authoritative
+Zero Session approval. This branch adds `029_critical_audit.sql`:
+trigger-based coverage of policy acceptance, guardian consent
+grant/revoke, rider assessment validation, equine permission
+grant/revoke, Zero Session approval and booking confirm/cancel.
+Clients still cannot read or write audit. Do not start 030 until the
+complete 029 Quality Gate is green.
 
 ## Historical records
 
