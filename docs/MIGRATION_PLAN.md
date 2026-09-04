@@ -3,10 +3,10 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
-**Estado:** Phase 13C critical audit coverage implemented on
-the accepted Phase 9B HEAD `9e1331708eca6db62085f8374b6fe712115db4a6`
-from `refactor/phase-9b-zero-session-approval`. Do not merge. Do not
-deploy this stacked train. Do not start 030 until the 029 Quality Gate is green.
+**Estado:** Phase 14B consolidated P0 security gate implemented on
+the accepted Phase 13C HEAD `43b6ec63f620d97ea90b122474e0f2347142ee2f`
+from `cursor/phase-029-critical-audit-d219`. Tests/docs only; no
+`030_security_hardening.sql`. Do not merge. Do not deploy. Do not start 031.
 
 **Current baseline (verified 2026-09-04):** `origin/main` HEAD is
 `9d58d3605a931fd930520238276215cf17a51a38` (merge of PR #28). PRs
@@ -371,7 +371,6 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 13C:**
-Start Phase 14B / `030` consolidated P0 security gate only after the
-complete 029 Quality Gate is green. Create `030_security_hardening.sql`
-only if a concrete defect is reproduced. Do not merge or deploy.
+**Siguiente fase prevista tras Phase 14B:**
+Stop after the 030 security-gate Quality Gate and the issue #32 handoff.
+Do not start 031. Do not merge or deploy.
