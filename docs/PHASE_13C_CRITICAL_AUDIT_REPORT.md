@@ -3,7 +3,8 @@
 **Migration:** `supabase/migrations/029_critical_audit.sql`
 **Branch:** `cursor/phase-029-critical-audit-d219`
 **Base:** accepted Phase 9B / migration 028 HEAD `9e1331708eca6db62085f8374b6fe712115db4a6`
-**Status:** implemented; stacked Draft PR; complete Quality Gate pending
+**Status:** implemented; stacked Ready PR; complete Quality Gate green on
+`43b6ec63f620d97ea90b122474e0f2347142ee2f`
 
 ## Scope
 
@@ -57,6 +58,10 @@ deferral was 026-only.
 
 ## Excluded
 
-- No merge, no deploy, no migration 030 until this Quality Gate is green.
+- No merge, no deploy.
 - No client-readable global audit feed.
 - No retrofit of unrelated historical migration files.
+
+Accepted complete Quality Gate on HEAD
+`43b6ec63f620d97ea90b122474e0f2347142ee2f`:
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33885893740

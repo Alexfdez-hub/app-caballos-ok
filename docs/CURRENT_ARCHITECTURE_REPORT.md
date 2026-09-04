@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 13C — Critical audit coverage (stacked on accepted 028)
+**Baseline:** Phase 14B — Consolidated P0 security gate (stacked on accepted 029)
 **Date:** 2026-09-04
 
 ## Summary
@@ -224,14 +224,18 @@ buckets stay private and bind INSERT/SELECT to PERSON/ACCOUNT/domain
 authority. Avatars and equine-media stay private with no client
 policies; see `docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`.
 No signed-URL creator and no upsert/move/delete. Remote remains
-aligned through `026` and 027–029 remain undeployed. Accepted 028 HEAD
+aligned through `026` and 027–030 remain undeployed. Accepted 028 HEAD
 `9e1331708eca6db62085f8374b6fe712115db4a6` adds server-authoritative
-Zero Session approval. This branch adds `029_critical_audit.sql`:
-trigger-based coverage of policy acceptance, guardian consent
+Zero Session approval. Accepted 029 HEAD
+`43b6ec63f620d97ea90b122474e0f2347142ee2f` (PR #33 Quality Gate
+https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33885893740)
+adds trigger-based coverage of policy acceptance, guardian consent
 grant/revoke, rider assessment validation, equine permission
 grant/revoke, Zero Session approval and booking confirm/cancel.
-Clients still cannot read or write audit. Do not start 030 until the
-complete 029 Quality Gate is green.
+Clients still cannot read or write audit. This branch adds the Phase 14B
+consolidated P0 security regression (`030_security_regression_test.sql`)
+with no `030_security_hardening.sql`: no concrete schema/security defect
+was reproduced. Do not start 031.
 
 ## Historical records
 

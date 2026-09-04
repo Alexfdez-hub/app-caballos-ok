@@ -316,9 +316,11 @@ inventar backend ni datos que todavía no existen.
 
 Live repository phase reports that implement Architecture 2.1 live under
 `docs/` (`PHASE_13B_AUDIT_REPORT.md`, `PHASE_13C_CRITICAL_AUDIT_REPORT.md`,
-`MIGRATION_STATUS.md`). GitHub live state wins over stale planning
-documents. After 029 is Ready and green, the next phase is the
-consolidated P0 security gate (`030`), not 031 and not unrelated UI.
+`PHASE_14A_STORAGE_SECURITY_REPORT.md`,
+`PHASE_14B_SECURITY_GATE_REPORT.md`, `MIGRATION_STATUS.md`). GitHub live
+state wins over stale planning documents. After 030 is Ready and green,
+stop for the issue #32 handoff. Do not start 031 and do not start
+unrelated UI.
 
 ------------------------------------------------------------------------
 
