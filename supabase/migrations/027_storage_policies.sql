@@ -181,14 +181,18 @@ begin
   select account.id
     into caller_account
     from public.user_accounts as account
-   where account.auth_user_id = current_auth_user_id;
+    join public.persons as person
+      on person.id = account.person_id
+   where account.auth_user_id = current_auth_user_id
+     and account.status = 'ACTIVE'
+     and person.status = 'ACTIVE';
 
   return caller_account;
 end;
 $$;
 
 comment on function public.storage_current_account_id() is
-  'Resolves the authenticated ACCOUNT from auth.uid(). Returns null when missing. Not executable by PUBLIC, anon or authenticated.';
+  'Resolves the authenticated active ACCOUNT from auth.uid() only when its PERSON is also active. Returns null otherwise. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.storage_current_account_id()
   from public, anon, authenticated;
@@ -212,14 +216,18 @@ begin
   select account.person_id
     into caller_person
     from public.user_accounts as account
-   where account.auth_user_id = current_auth_user_id;
+    join public.persons as person
+      on person.id = account.person_id
+   where account.auth_user_id = current_auth_user_id
+     and account.status = 'ACTIVE'
+     and person.status = 'ACTIVE';
 
   return caller_person;
 end;
 $$;
 
 comment on function public.storage_current_person_id() is
-  'Resolves the authenticated PERSON from auth.uid() via user_accounts. Never uses user_metadata. Not executable by PUBLIC, anon or authenticated.';
+  'Resolves the authenticated active PERSON from auth.uid() through an active ACCOUNT. Never uses user_metadata. Returns null otherwise. Not executable by PUBLIC, anon or authenticated.';
 
 revoke all on function public.storage_current_person_id()
   from public, anon, authenticated;
