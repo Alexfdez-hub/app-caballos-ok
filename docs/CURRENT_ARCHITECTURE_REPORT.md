@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 13B — Audit (stacked on accepted 025; `main` still through 022)
+**Baseline:** Phase 14A — Storage security (stacked on live main through 026)
 **Date:** 2026-09-03
 
 ## Summary
@@ -84,12 +84,13 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 ## Database target
 
 **Current baseline (verified 2026-09-03):** `origin/main` HEAD is
-`188ed3f356c0da67126dd5da715e2765be7cf4a5` (merge of PR #23). PRs
-#19–#23 are merged into `main`. Migrations `001`–`022` exist on `main`.
+`9d58d3605a931fd930520238276215cf17a51a38` (merge of PR #28). PRs
+#19–#28 are merged into `main`. Migrations `001`–`026` exist on `main`.
 Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
-through exact version `022`. Historical reports that described `015`–`022`
-as stacked and not deployed were true at those branch times; they are
-not rewritten. This branch adds `023` and does not deploy it.
+through exact version `026`. Historical reports that described
+`015`–`026` as stacked and not deployed were true at those branch
+times; they are not rewritten. This branch adds `027` and does not
+deploy it.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:
@@ -210,13 +211,21 @@ in diagnostics) is recorded after the replacement run on this branch.
 Migration `019_zero_sessions_authorizations.sql` is merged (PR #20).
 020 calendar is merged (PR #21). 021 bookings is merged (PR #22).
 022 booking functions is merged (PR #23). 023 verified sessions is
-accepted on PR #25 (`d037b62`). 024 equine activity is accepted on PR
-#26 (`cb213e8`). 025 reviews/incidents is accepted on PR #27
-(`ccbfdff`). This branch adds `026_audit.sql`: append-only
-`audit_events` for session started/completed, activity recorded, review
-submitted and incident reported. Clients cannot read or write audit.
-Earlier phases are not retrofitted. No Storage. Remote remains aligned
-through `022`. Do not start 027.
+merged (PR #25). 024 equine activity is merged (PR #26). 025
+reviews/incidents is merged (PR #27). 026 append-only audit is merged
+(PR #28). `audit_events` covers session started/completed, activity
+recorded, review submitted and incident reported. Clients cannot read
+or write audit. Earlier phases were not retrofitted in 026.
+
+This branch adds `027_storage_policies.sql`: private target buckets
+`avatars`, `equine-media`, `qualification-documents`,
+`session-evidence` and `assessment-documents`. Evidence and document
+buckets stay private and bind INSERT/SELECT to PERSON/ACCOUNT/domain
+authority. Avatars and equine-media stay private with no client
+policies; see `docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`.
+No signed-URL creator and no upsert/move/delete. Remote remains
+aligned through `026`. Do not start 028 until this Quality Gate is
+green.
 
 ## Historical records
 
