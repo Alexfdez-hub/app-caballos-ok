@@ -842,18 +842,20 @@ begin
     current_setting('app.window_start')::timestamptz + interval '1 hour'
   );
   perform set_config('app.booking_id', created_id::text, true);
-
-  if (
-    select booking.status from public.bookings as booking where booking.id = created_id
-  ) is distinct from 'APPROVED' then
-    raise exception 'Phase 13C booking fixture was not APPROVED';
-  end if;
 end;
 $$;
 reset role;
 
 do $$
 begin
+  -- Inspect as postgres; authenticated cannot SELECT bookings.
+  if (
+    select booking.status
+      from public.bookings as booking
+     where booking.id = current_setting('app.booking_id')::uuid
+  ) is distinct from 'APPROVED' then
+    raise exception 'Phase 13C booking fixture was not APPROVED';
+  end if;
   if exists (
     select 1 from public.audit_events
      where entity_id = current_setting('app.booking_id')::uuid
