@@ -1,7 +1,7 @@
 # Current architecture report
 
 **Project:** app-caballos-ok
-**Baseline:** Phase 14B — Consolidated P0 security gate (stacked on accepted 029)
+**Baseline:** Phase 14B — Consolidated P0 security gate; remote deployed through 029
 **Date:** 2026-09-04
 
 ## Summary
@@ -83,14 +83,15 @@ no fabricated catalog, and no assign/grant/revoke UI for center relations.
 
 ## Database target
 
-**Current baseline (verified 2026-09-03):** `origin/main` HEAD is
-`9d58d3605a931fd930520238276215cf17a51a38` (merge of PR #28). PRs
-#19–#28 are merged into `main`. Migrations `001`–`026` exist on `main`.
-Product Owner states remote project `efkauegdlmfkonzwyyiv` is aligned
-through exact version `026`. Historical reports that described
-`015`–`026` as stacked and not deployed were true at those branch
-times; they are not rewritten. This branch adds `027` and does not
-deploy it.
+**Current baseline (verified 2026-09-04):** `origin/main` HEAD is
+`de90f90fa5d71f43b0fd4aba660bd7f522479ad3` (merge of PR #34).
+PRs #19–#34 in the completed trains are merged into `main`.
+Migrations `001`–`029` exist on `main` and remote project
+`efkauegdlmfkonzwyyiv` is aligned through exact version `029`.
+Phase 14B adds security regression tests only; there is no migration
+`030`. Historical reports remain records of their branch-time state.
+The authoritative deployment record is
+`docs/REMOTE_DEPLOYMENT_027_029.md`.
 
 Migrations 001–010 cover identity, policies, guardians, rider profiles,
 Centers and Center memberships. Migration `011_equines.sql` adds:
@@ -217,25 +218,29 @@ reviews/incidents is merged (PR #27). 026 append-only audit is merged
 recorded, review submitted and incident reported. Clients cannot read
 or write audit. Earlier phases were not retrofitted in 026.
 
-The accepted parent adds `027_storage_policies.sql`: private target buckets
+Migration `027_storage_policies.sql` creates five private target buckets:
 `avatars`, `equine-media`, `qualification-documents`,
 `session-evidence` and `assessment-documents`. Evidence and document
-buckets stay private and bind INSERT/SELECT to PERSON/ACCOUNT/domain
-authority. Avatars and equine-media stay private with no client
-policies; see `docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`.
-No signed-URL creator and no upsert/move/delete. Remote remains
-aligned through `026` and 027–030 remain undeployed. Accepted 028 HEAD
-`9e1331708eca6db62085f8374b6fe712115db4a6` adds server-authoritative
-Zero Session approval. Accepted 029 HEAD
-`43b6ec63f620d97ea90b122474e0f2347142ee2f` (PR #33 Quality Gate
-https://github.com/Alexfdez-hub/app-caballos-ok/actions/runs/33885893740)
-adds trigger-based coverage of policy acceptance, guardian consent
-grant/revoke, rider assessment validation, equine permission
-grant/revoke, Zero Session approval and booking confirm/cancel.
-Clients still cannot read or write audit. This branch adds the Phase 14B
-consolidated P0 security regression (`030_security_regression_test.sql`)
-with no `030_security_hardening.sql`: no concrete schema/security defect
-was reproduced. Do not start 031.
+buckets bind INSERT/SELECT to PERSON/ACCOUNT/domain authority. Avatars
+and equine-media remain private with no client policies; see
+`docs/ARCHITECTURE_CONFLICT_027_STORAGE_VISIBILITY.md`. There is no
+signed-URL creator and no upsert/move/delete path. Storage identity
+helpers require both the account and person to be ACTIVE.
+
+Migration `028_zero_session_approval.sql` adds server-authoritative
+Zero Session approval. Minor status, guardian relationship and consent
+are evaluated at the scheduled activity time.
+
+Migration `029_critical_audit.sql` adds trigger-based coverage of policy
+acceptance, guardian consent grant/revoke, rider assessment validation,
+equine permission grant/revoke, Zero Session approval and booking
+confirm/cancel. Clients cannot read or write audit.
+
+Phase 14B adds the consolidated P0 security regression
+(`030_security_regression_test.sql`) with no
+`030_security_hardening.sql`: no concrete schema/security defect was
+reproduced. Migrations 027–029 are deployed and verified remotely; see
+`docs/REMOTE_DEPLOYMENT_027_029.md`.
 
 ## Historical records
 
