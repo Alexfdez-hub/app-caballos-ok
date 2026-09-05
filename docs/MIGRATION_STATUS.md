@@ -1,35 +1,56 @@
 # MIGRATION STATUS
 
 PHASE: 14B — Consolidated P0 security gate
-STATUS: IMPLEMENTADO — tests/docs only; no migration 030; stacked on accepted 029 HEAD; NOT deployed
+STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030
 DATE: 2026-09-04
 
-Parent is the accepted Phase 13C / migration 029 HEAD
-`43b6ec63f620d97ea90b122474e0f2347142ee2f` from PR #33. Live `main`
-remains `9d58d3605a931fd930520238276215cf17a51a38` with migrations
-`001`–`026`. Product Owner states remote project
-`efkauegdlmfkonzwyyiv` is aligned through exact version `026`. Do not
-merge or deploy this stacked train.
+`main` HEAD is
+`de90f90fa5d71f43b0fd4aba660bd7f522479ad3` (merge of PR #34).
+PRs #30, #31, #33 and #34 were reviewed, corrected where required,
+retargeted and merged sequentially.
 
-## Files created
+Remote Supabase project `efkauegdlmfkonzwyyiv` is aligned through exact
+migration version `029`:
 
-- `supabase/tests/030_security_regression_test.sql`
-- `scripts/run-security-sql-tests.cjs`
-- `docs/PHASE_14B_SECURITY_GATE_REPORT.md`
+- `027_storage_policies.sql`
+- `028_zero_session_approval.sql`
+- `029_critical_audit.sql`
 
-## Files modified
+No migration `030` exists. Phase 14B is a tests-and-documentation
+security gate only. No Vault integration was introduced.
 
-- `package.json` (`test:security` appended to `test:sql`)
-- `docs/MIGRATION_STATUS.md`
-- `docs/CURRENT_ARCHITECTURE_REPORT.md`
-- `docs/MIGRATION_PLAN.md`
-- `docs/16_AI_DOCUMENT_MAP_AND_USAGE.md`
+## Critical corrections included before merge
 
-Inherited migrations `001`–`029` are unchanged versus the accepted
-Phase 13C parent. **No `030_security_hardening.sql`**: no concrete
-schema/security defect was reproduced.
+- Storage identity helpers reject suspended accounts and persons.
+- Zero Session approval evaluates minor status and guardian consent at
+  the scheduled activity time, not at approval time.
+- Security regressions require a hard authorization denial when an
+  assessor tries to inspect a foreign minor's consent state.
+- Current policy acceptance is asserted independently from unrelated
+  eligibility failures.
+
+## Verification
+
+- Final App and PostgreSQL Quality Gates passed on every merged HEAD.
+- Manual review covered RLS, table privileges, SECURITY DEFINER
+  functions, fixed search paths, Storage policies, guardian/minor
+  consent, policy versions, eligibility, immutable audit records and
+  concurrency protections.
+- A remote transactional dry-run of 027–029 completed with rollback
+  before deployment.
+- Deployment was applied sequentially and migration history was
+  normalized to exact versions 027, 028 and 029.
+- Post-deploy checks confirmed five private buckets, six Storage
+  policies, RLS on `storage.objects`, six audit triggers, and restricted
+  execution of `approve_zero_session`.
+- Supabase advisors were reviewed. Intentional deny-by-default RLS and
+  reviewed RPC warnings remain documented. Leaked-password protection
+  remains a pre-existing Auth configuration warning.
+
+See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 
 ## Next phase
 
-Stop after this gate's Quality Gate and the issue #32 handoff. Do not
-start 031. Do not merge or deploy.
+Do not create a speculative migration 030. Continue from the verified
+029 remote baseline and keep future schema work in new numbered
+migrations.
