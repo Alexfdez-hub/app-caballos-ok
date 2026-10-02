@@ -3,20 +3,29 @@
 **Basado en:** Data Architecture 2.1 — Frozen MVP0  
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
-**Estado:** Phase 14B consolidated P0 security gate implemented on
-the accepted Phase 13C HEAD `43b6ec63f620d97ea90b122474e0f2347142ee2f`
-from `cursor/phase-029-critical-audit-d219`. Tests/docs only; no
-`030_security_hardening.sql`. Do not merge. Do not deploy. Do not start 031.
 
-**Current baseline (verified 2026-09-04):** `origin/main` HEAD is
-`9d58d3605a931fd930520238276215cf17a51a38` (merge of PR #28). PRs
-#19–#28 are merged. Migrations `001`–`026` exist on `main`. Product
-Owner states remote project `efkauegdlmfkonzwyyiv` is aligned through
-exact version `026`. This agent does not deploy and does not modify
-remote. `023`–`026` are merged (PRs #25–#28). `027` is implemented on
-the accepted parent and is not deployed. Historical reports that described
-`023`–`026` as stacked/not deployed are preserved. `027` is the
-accepted stacked parent through `028`; `029` is implemented on this branch.
+**Live status (verified 2026-10-02):** `origin/main` is
+`f9b77de45d39fd8cb6380358f9a192899f6cb1c9`
+(`docs: add remote deployment record for 027-029`). The implementation
+merge baseline in `docs/REMOTE_DEPLOYMENT_027_029.md` is
+`de90f90fa5d71f43b0fd4aba660bd7f522479ad3` (PR #34). Migrations
+`001`–`029` are on `main`. There is no migration `030`. Remote Supabase
+`efkauegdlmfkonzwyyiv` is deployed and verified through exact migration
+`029`. Open pull requests at this verification: none. Issue #32 is
+closed. This train does not deploy and does not modify remote. Next
+executable work is issue #35: a local/CI pilot fixture, then a stacked
+Activity slice, then an equine/photo authorization proposal only. Do not
+merge or deploy without a Product Owner decision. Do not implement
+equine creation or `equine-media` authorization. Storage stays
+deny-by-default private.
+
+**Historical branch note (Phase 14B drafting time):** an earlier header
+described Phase 14B as unmerged on parent
+`43b6ec63f620d97ea90b122474e0f2347142ee2f`, with `origin/main` at
+`9d58d3605a931fd930520238276215cf17a51a38` and remote alignment through
+`026`. That was true before PRs #30, #31, #33 and #34 merged and
+migrations 027–029 were deployed. The phase sections below are kept as
+historical records and are not rewritten.
 
 **Historical (Phase 5A branch time):** earlier text described `011`–`014`
 as stacked/not deployed and remote aligned through `010`. That was true
@@ -371,6 +380,9 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase prevista tras Phase 14B:**
-Stop after the 030 security-gate Quality Gate and the issue #32 handoff.
-Do not start 031. Do not merge or deploy.
+**Siguiente fase (live 2026-10-02):**
+Issue #35 pilot readiness. Stage 1 is the local/CI rollback journey
+`npm run pilot:journey` (`docs/PILOT_RUNBOOK.md`). Do not create
+migration 030 unless a schema defect is reproduced. Do not start equine
+creation or `equine-media` authorization implementation. Do not merge or
+deploy without a Product Owner decision.
