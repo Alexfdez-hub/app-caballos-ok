@@ -103,13 +103,20 @@ Keep the bucket private even after acceptance. Record the acceptance in
 the decision log before any migration.
 
 Security tradeoff: signed URLs require a signing secret held only by
-the Edge Function, and a short TTL. PostgreSQL does not receive that
-secret, and Expo does not receive it. Signed URLs avoid a client policy
-that could be wider than the authorization check. They do not make the
-object public. A leaked URL expires. The metadata row remains the
-authority record; the URL is not a grant that outlives the manager
-assignment if the Edge Function refuses to sign again after the
-assignment ends.
+the Edge Function. PostgreSQL does not receive that secret, and Expo
+does not receive it. Signed URLs avoid a client policy that could be
+wider than the authorization check. They do not make the object public.
+The metadata row remains the authority record for any new signature.
+Refusing to sign again after the PERSON stops being `PRIMARY_MANAGER`
+does not revoke a URL that was already issued.
+
+An already issued upload URL and an already issued read URL stay usable
+until that URL's TTL expires, even if the PERSON ceases to be
+`PRIMARY_MANAGER` immediately after issuance. There is no immediate
+revocation. The TTL must be deliberately short. It is the maximum
+exposure window after revocation. This proposal does not pick the
+number. A future implementation may add a revocable delivery mechanism.
+Until that exists, do not describe these URLs as immediately revocable.
 
 ## Recommended rules, if A is accepted
 
@@ -262,8 +269,10 @@ succeeds uses a separate server-only client with `service_role`.
 
 The Edge Function never signs a path taken from the request body. The
 TTL, MIME type, and byte size are Product Owner parameters. This
-proposal does not pick them. Until they are named, do not implement
-`prepare-my-equine-photo` or the other media endpoints.
+proposal does not pick them. That TTL is the maximum exposure window
+after revocation, as stated above. An already issued upload or read URL
+stays valid until it expires. Until those parameters are named,
+do not implement `prepare-my-equine-photo` or the other media endpoints.
 
 `finalize-my-equine-photo` failure and reconciliation:
 
@@ -278,9 +287,6 @@ proposal does not pick them. Until they are named, do not implement
 - Object delete succeeds, or the object is already absent, and `retire_my_equine_photo_metadata` succeeds. The row is historical.
 - Object delete fails for a transient reason. Do not retire the metadata. The client retries. The photo stays current.
 - Object delete succeeds but the metadata call fails. The object is gone and the row is still current. A retry authorizes again, treats the missing object as already deleted, and calls `retire_my_equine_photo_metadata` again. Until that commits, `list_my_equine_photos` can still return the row and `sign-my-equine-photo-read` fails closed because the object is absent. A server-only retry may repeat that metadata call. The client has no `service_role` retry.
-
-`list_my_equine_ownerships` and `list_my_equine_management_assignments`
-stay as they are. They do not grow media columns.
 
 `list_my_equine_ownerships` and `list_my_equine_management_assignments`
 stay as they are. They do not grow media columns.
