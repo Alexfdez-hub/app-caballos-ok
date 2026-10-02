@@ -902,7 +902,15 @@ begin
              'record_equine_activity',
              'create_my_equine',
              'list_my_equines',
-             'get_my_equine'
+             'get_my_equine',
+             'authorize_my_equine_photo_prepare',
+             'abandon_my_equine_photo',
+             'authorize_my_equine_photo_finalize',
+             'record_my_equine_photo_finalized',
+             'list_my_equine_photos',
+             'authorize_my_equine_photo_read',
+             'authorize_my_equine_photo_retire',
+             'retire_my_equine_photo_metadata'
            )
          )
        )
