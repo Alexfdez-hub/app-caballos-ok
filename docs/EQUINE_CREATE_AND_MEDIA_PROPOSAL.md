@@ -57,8 +57,10 @@ train must not implement any of them.
 An authenticated adult whose PERSON resolves may create one equine for
 themselves. The same transaction inserts PERSON ownership at 100 percent
 and a PERSON `PRIMARY_MANAGER` for that same PERSON. Media stays in the
-private bucket. The server issues a short-lived signed URL for one exact
-object path. There is no client Storage policy and no public object.
+private bucket. An Edge Function issues a short-lived signed URL for
+one exact object path after PostgreSQL authorizes it. There is no client
+Storage policy and no public object. The database never holds the
+signing secret.
 
 ### B. Center staff create
 
@@ -100,12 +102,14 @@ Accept option A only. Keep B, C, and D out of the first implementation.
 Keep the bucket private even after acceptance. Record the acceptance in
 the decision log before any migration.
 
-Security tradeoff: signed URLs require a server-held signing secret and
-a short TTL. They avoid a client policy that could be wider than the
-RPC. They do not make the object public. A leaked URL expires. The
-metadata row remains the authority record; the URL is not a grant that
-outlives the manager assignment if the server refuses to sign again
-after the assignment ends.
+Security tradeoff: signed URLs require a signing secret held only by
+the Edge Function, and a short TTL. PostgreSQL does not receive that
+secret, and Expo does not receive it. Signed URLs avoid a client policy
+that could be wider than the authorization check. They do not make the
+object public. A leaked URL expires. The metadata row remains the
+authority record; the URL is not a grant that outlives the manager
+assignment if the Edge Function refuses to sign again after the
+assignment ends.
 
 ## Recommended rules, if A is accepted
 
@@ -208,33 +212,75 @@ Both segments are the domain UUIDs from `equines.id` and
 no extra prefix. `storage_object_name_is_safe` must accept the name.
 `equine_media.storage_path` stores that exact name and nothing else.
 
-The server inserts the `equine_media` row first, with `media_type =
-PHOTO`, `is_primary` chosen by the caller only when no other primary
-exists, then signs the URL for that path. A client-supplied path is
-rejected.
+The authorization function inserts the `equine_media` row first, with
+`media_type = PHOTO`, `is_primary` chosen by the caller only when no
+other primary exists, and returns `media_id` plus the canonical path.
+It does not sign a URL. A client-supplied path is rejected. The Edge
+Function signs only the path that function returned.
 
-### Signed URLs, not client policies
+### Two boundaries: PostgreSQL authorizes, the Edge Function signs
 
 Do not add INSERT, SELECT, UPDATE, or DELETE policies on
 `storage.objects` for `equine-media`. Do not set the bucket `public`.
 
-Proposed RPCs, all `SECURITY DEFINER`, fixed `search_path`, execute
-granted to `authenticated` only, no person-id argument:
+A `SECURITY DEFINER` function must not own, receive, or use the
+Supabase `service_role` key or the Storage signing secret. Expo must
+not receive either secret. Signing, object inspection, and object
+deletion are Edge Function endpoints. SQL functions authorize the
+caller and change metadata only.
 
-| RPC | Effect |
+Every SQL function below runs with the caller's JWT and `auth.uid()`,
+is `SECURITY DEFINER`, uses `search_path = pg_catalog, public`, is
+revoked from PUBLIC and `anon`, and is granted to `authenticated` only.
+None of them accept a person id, an arbitrary storage path, a signed
+URL, or a client flag that claims an object exists.
+
+| SQL function | Effect |
 |---|---|
-| `create_my_equine(...)` | Equine + 100 percent PERSON ownership + PERSON `PRIMARY_MANAGER` + audit. Returns equine id. |
-| `prepare_my_equine_photo(equine_id, is_primary)` | Checks effective PERSON `PRIMARY_MANAGER`. Inserts `equine_media`. Returns `media_id` and a short-lived signed upload URL for `{equine_id}/{media_id}` only. |
-| `finalize_my_equine_photo(media_id)` | Same manager check. Server confirms the object exists at that path. If it does not, the metadata row is removed in the same transaction and the audit records `equine_photo_abandoned`. |
-| `list_my_equine_photos(equine_id)` | Same manager check. Returns metadata for that equine only: id, storage path, sort order, is_primary, created_at. No signed URL in the list. |
-| `sign_my_equine_photo_read(media_id)` | Same manager check. Returns one short-lived signed read URL. Refuses when the manager assignment is no longer effective. |
-| `retire_my_equine_photo(media_id)` | Same manager check. See lifecycle. |
+| `create_my_equine(...)` | Equine + 100 percent PERSON ownership + PERSON `PRIMARY_MANAGER` + audit. Returns equine id. No Storage call. |
+| `authorize_my_equine_photo_prepare(equine_id, is_primary)` | Checks effective PERSON `PRIMARY_MANAGER`. Inserts `equine_media`. Returns `media_id` and the exact path `{equine_id}/{media_id}` only. |
+| `abandon_my_equine_photo(media_id)` | Same manager check. Removes that metadata row and audits `equine_photo_abandoned`. Does not inspect Storage. |
+| `authorize_my_equine_photo_finalize(media_id)` | Same manager check. Refuses a retired row. Returns the canonical path and does not mutate. |
+| `record_my_equine_photo_finalized(media_id)` | Same manager check. Leaves the row in place and audits `equine_photo_finalized`. Does not inspect Storage. |
+| `list_my_equine_photos(equine_id)` | Same manager check. Returns metadata for that equine only: id, storage path, sort order, is_primary, created_at. No signed URL. |
+| `authorize_my_equine_photo_read(media_id)` | Same manager check. Refuses a retired row. Returns the canonical path only. |
+| `authorize_my_equine_photo_retire(media_id)` | Same manager check. Refuses a retired row. Returns the canonical path and does not mutate. |
+| `retire_my_equine_photo_metadata(media_id)` | Same manager check. Sets `retired_at`, clears `is_primary`, audits `equine_photo_retired`. Does not delete the object. |
 
-Signing uses the server Storage secret. Expo does not receive
-`service_role`. The TTL is a Product Owner parameter. This proposal does
-not pick a number. MIME type and byte size are also Product Owner
-parameters. This proposal does not invent them. Until they are named,
-`prepare_my_equine_photo` should not be implemented.
+Expo calls these Edge Function endpoints for anything that signs,
+inspects, or deletes a Storage object. Each endpoint creates a
+user-scoped Supabase client with the caller's `Authorization` header,
+invokes the SQL function with that client, and only after that call
+succeeds uses a separate server-only client with `service_role`.
+
+| Edge Function | Order |
+|---|---|
+| `prepare-my-equine-photo` | `authorize_my_equine_photo_prepare`, then sign an upload URL for the returned path. |
+| `finalize-my-equine-photo` | `authorize_my_equine_photo_finalize`, inspect that object with `service_role`, then call either `record_my_equine_photo_finalized` or `abandon_my_equine_photo`. |
+| `sign-my-equine-photo-read` | `authorize_my_equine_photo_read`, then sign a read URL for the returned path. If the object is absent, return no URL. |
+| `retire-my-equine-photo` | `authorize_my_equine_photo_retire`, delete that object with `service_role`, then `retire_my_equine_photo_metadata`. |
+
+The Edge Function never signs a path taken from the request body. The
+TTL, MIME type, and byte size are Product Owner parameters. This
+proposal does not pick them. Until they are named, do not implement
+`prepare-my-equine-photo` or the other media endpoints.
+
+`finalize-my-equine-photo` failure and reconciliation:
+
+- The object exists and `record_my_equine_photo_finalized` succeeds. The row stays.
+- The object is absent and `abandon_my_equine_photo` succeeds. The metadata row is gone and the audit records `equine_photo_abandoned`.
+- The Storage API errors, rather than reporting the object absent. Do not abandon the row. The client retries finalize.
+- The object exists but the metadata call fails. Leave the object. The client retries finalize. The endpoint does not delete the object to compensate.
+- The object is absent but `abandon_my_equine_photo` fails. Leave the row. The client retries finalize, which attempts abandon again. No signed URL is issued.
+
+`retire-my-equine-photo` failure and reconciliation:
+
+- Object delete succeeds, or the object is already absent, and `retire_my_equine_photo_metadata` succeeds. The row is historical.
+- Object delete fails for a transient reason. Do not retire the metadata. The client retries. The photo stays current.
+- Object delete succeeds but the metadata call fails. The object is gone and the row is still current. A retry authorizes again, treats the missing object as already deleted, and calls `retire_my_equine_photo_metadata` again. Until that commits, `list_my_equine_photos` can still return the row and `sign-my-equine-photo-read` fails closed because the object is absent. A server-only retry may repeat that metadata call. The client has no `service_role` retry.
+
+`list_my_equine_ownerships` and `list_my_equine_management_assignments`
+stay as they are. They do not grow media columns.
 
 `list_my_equine_ownerships` and `list_my_equine_management_assignments`
 stay as they are. They do not grow media columns.
@@ -250,29 +296,23 @@ null while the photo is current. `now()` is not used in a CHECK.
 index must ignore retired rows so a new primary can exist. That index
 change is part of the same migration as the column.
 
-Replacement: call `prepare_my_equine_photo` again. The previous row stays
-with `is_primary = false` until `retire_my_equine_photo`. Two current
+Replacement: call `prepare-my-equine-photo` again. The previous row stays
+with `is_primary = false` until `retire-my-equine-photo`. Two current
 photos are allowed. One primary is still the maximum.
 
-`retire_my_equine_photo`:
-
-1. Manager check.
-2. Set `retired_at` and clear `is_primary`.
-3. Audit `equine_photo_retired` with equine id and media id. No bytes
-   and no URL.
-4. Delete the Storage object from the server.
-5. If the object delete fails, keep the retired metadata and audit
-   `equine_photo_delete_pending`. A server-only retry deletes the object
-   later. The client cannot call that retry.
+Retirement is the Edge Function order above. The metadata audit
+`equine_photo_retired` carries equine id and media id. It carries no
+bytes and no URL. There is no `equine_photo_delete_pending` client
+retry and no database function that deletes the object.
 
 Orphans:
 
 - An object in `equine-media` with no `equine_media` row is a server
   reconciliation finding. Clients cannot list the bucket.
 - A current metadata row whose object is missing is returned by
-  `list_my_equine_photos` with no signed URL, and `finalize` is the only
-  client repair. `sign_my_equine_photo_read` fails closed when the object
-  is absent.
+  `list_my_equine_photos` with no signed URL. `finalize-my-equine-photo`
+  is the client repair before retirement.
+  `sign-my-equine-photo-read` fails closed when the object is absent.
 - Retiring an equine (`ARCHIVED` or `DECEASED`) does not by itself delete
   photos. A later train can retire them. This slice does not cascade.
 
@@ -283,14 +323,17 @@ SQL, one transaction, then ROLLBACK:
 - Adult creator receives one equine, one 100 percent PERSON ownership,
   and one PERSON `PRIMARY_MANAGER`, and one `equine_created` audit row.
 - A second adult, a center manager, and a verified guardian of a minor
-  cannot create for someone else and cannot prepare a photo.
-- A minor person id cannot be passed in. The RPC has no such argument.
+  cannot create for someone else and cannot authorize a photo.
+- A minor person id cannot be passed in. The functions have no such argument.
 - `authenticated` still cannot `SELECT` `equines` or `equine_media`.
 - `anon` and PUBLIC cannot execute the new functions.
+- None of the new functions return a URL or accept a storage path argument.
 - `storage.buckets.public` is false for `equine-media`.
 - No `storage.objects` policy names `equine-media`.
-- A path containing `auth.uid()`, `..`, or an extra segment is rejected.
-- After `retire`, a new signed read is refused.
+- A path containing `auth.uid()`, `..`, or an extra segment is rejected
+  by the path builder. The functions never persist a client-supplied path.
+- After `retire_my_equine_photo_metadata`, `authorize_my_equine_photo_read`
+  refuses. The read Edge Function therefore does not sign.
 - Direct INSERT of `equines` by `authenticated` still fails.
 
 App, TypeScript, no network:
@@ -301,8 +344,10 @@ App, TypeScript, no network:
 
 ### UI flow, only after acceptance
 
-Screen → hook → domain service → `supabase.rpc`. No role selector. No
-direct table read. No Storage client upload that bypasses the signed URL.
+Screen → hook → domain service. Create and list call `supabase.rpc`.
+Prepare, finalize, read, and retire call the authenticated Edge
+Functions. No role selector. No direct table read. No Storage client
+upload that bypasses the signed URL. No client holds `service_role`.
 
 Proposed screens, not built here:
 
@@ -310,9 +355,10 @@ Proposed screens, not built here:
 2. A create action calls `create_my_equine` and returns to that list.
 3. Equine detail for a row the caller manages shows photos from
    `list_my_equine_photos`, with refresh, empty, and error states.
-4. Add photo calls `prepare_my_equine_photo`, uploads bytes only to the
-   returned URL, then calls `finalize_my_equine_photo`.
-5. Remove calls `retire_my_equine_photo`.
+4. Add photo calls `prepare-my-equine-photo`, uploads bytes only to the
+   returned URL, then calls `finalize-my-equine-photo`.
+5. Remove calls `retire-my-equine-photo`. A read calls
+   `sign-my-equine-photo-read`.
 
 Android behavior of the current tabs stays as it is until that UI is
 accepted. This document does not change `ActivityScreen` or the equine
@@ -321,7 +367,8 @@ list screens.
 ## What this document does not do
 
 - No migration `031`.
-- No RPC, RLS policy, Storage policy, or UI.
+- No RPC, Edge Function, RLS policy, Storage policy, or UI.
+- No database function that signs, inspects, or deletes a Storage object.
 - No change to bucket privacy.
 - No public directory.
 - No guardian or center create path.
