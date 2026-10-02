@@ -132,6 +132,20 @@ begin
     'MANAGER',
     'ACTIVE'
   );
+
+  declare
+    generated_person uuid;
+  begin
+    select account.person_id
+      into generated_person
+      from public.user_accounts as account
+     where account.auth_user_id = '03110000-0000-4000-8000-000000000006';
+
+    delete from public.user_accounts
+     where auth_user_id = '03110000-0000-4000-8000-000000000006';
+    delete from public.persons
+     where id = generated_person;
+  end;
 end;
 $$;
 

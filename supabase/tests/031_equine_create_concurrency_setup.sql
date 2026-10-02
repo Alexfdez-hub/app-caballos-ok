@@ -4,6 +4,22 @@
 insert into auth.users (id)
 values ('03120000-0000-4000-8000-000000000001');
 
+do $$
+declare
+  generated_person uuid;
+begin
+  select account.person_id
+    into generated_person
+    from public.user_accounts as account
+   where account.auth_user_id = '03120000-0000-4000-8000-000000000001';
+
+  delete from public.user_accounts
+   where auth_user_id = '03120000-0000-4000-8000-000000000001';
+  delete from public.persons
+   where id = generated_person;
+end;
+$$;
+
 insert into public.markets (country_code, status)
 values ('QR', 'ACTIVE');
 
