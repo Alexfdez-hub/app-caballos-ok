@@ -121,8 +121,8 @@ do $$
 declare
   accepted_at timestamptz := timestamptz '2026-09-01 00:00:00+00';
   policy_id uuid;
-  policy_type text;
-  policy_code text;
+  current_kind text;
+  current_code text;
 begin
   perform pg_temp.pilot_rebind(
     '03100000-0000-4000-8000-000000000001',
@@ -348,8 +348,8 @@ begin
       '03100000-0000-4000-8000-000000000031'
     );
 
-  for policy_type, policy_code in
-    select policy.policy_type, policy.policy_code
+  for current_kind, current_code in
+    select catalog.kind, catalog.code
       from (
         values
           ('TERMS_OF_SERVICE', 'QX_TERMS'),
@@ -360,14 +360,14 @@ begin
           ('ASSESSOR_POLICY', 'QX_ASSESSOR'),
           ('GUARDIAN_POLICY', 'QX_GUARDIAN'),
           ('OWNER_POLICY', 'QX_OWNER')
-      ) as policy(policy_type, policy_code)
+      ) as catalog(kind, code)
   loop
     insert into public.policy_documents (
       policy_code, policy_type, market_code, locale, version, title, content,
       effective_from, effective_to, status, requires_reacceptance
     ) values (
-      policy_code, policy_type, 'QX', 'en', '2026-01',
-      policy_code || ' obsolete', 'Obsolete pilot policy text',
+      current_code, current_kind, 'QX', 'en', '2026-01',
+      current_code || ' obsolete', 'Obsolete pilot policy text',
       timestamptz '2026-01-01 00:00:00+00',
       timestamptz '2026-08-01 00:00:00+00',
       'INACTIVE', false
@@ -376,25 +376,27 @@ begin
       policy_code, policy_type, market_code, locale, version, title, content,
       effective_from, status, requires_reacceptance
     ) values (
-      policy_code, policy_type, 'QX', 'en', '2026-09',
-      policy_code || ' current', 'Current pilot policy text',
+      current_code, current_kind, 'QX', 'en', '2026-09',
+      current_code || ' current', 'Current pilot policy text',
       timestamptz '2026-08-01 00:00:00+00',
       'ACTIVE', false
     );
   end loop;
 
-  for policy_type in
-    select unnest(array[
-      'TERMS_OF_SERVICE',
-      'PRIVACY_POLICY',
-      'RIDER_POLICY',
-      'ACTIVITY_POLICY'
-    ])
+  for current_kind in
+    select required.kind
+      from (
+        values
+          ('TERMS_OF_SERVICE'),
+          ('PRIVACY_POLICY'),
+          ('RIDER_POLICY'),
+          ('ACTIVITY_POLICY')
+      ) as required(kind)
   loop
     select document.id
       into policy_id
       from public.policy_documents as document
-     where document.policy_type = policy_type
+     where document.policy_type = current_kind
        and document.market_code = 'QX'
        and document.version = '2026-09';
 
