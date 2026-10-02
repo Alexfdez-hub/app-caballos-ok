@@ -4,20 +4,13 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
 
-**Live status (verified 2026-10-02):** `origin/main` is
-`f9b77de45d39fd8cb6380358f9a192899f6cb1c9`
-(`docs: add remote deployment record for 027-029`). The implementation
-merge baseline in `docs/REMOTE_DEPLOYMENT_027_029.md` is
-`de90f90fa5d71f43b0fd4aba660bd7f522479ad3` (PR #34). Migrations
-`001`–`029` are on `main`. `main` has no migration `030`. This branch
-adds unreleased `supabase/migrations/030_activity_reads.sql`
-(`public.list_my_activity()`), which is not deployed. Remote Supabase
-`efkauegdlmfkonzwyyiv` stays aligned through exact migration `029`.
-Issue #32 is closed. This train does not deploy and does not modify
-remote. Issue #35 Stage 2 is the personal Activity read on this branch.
-Do not merge or deploy without a Product Owner decision. Do not
-implement equine creation or `equine-media` authorization. Storage stays
-deny-by-default private.
+**Live status (verified 2026-10-03, stage 031 branch):** repository
+`main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40`. Migrations
+`001`–`030` are on `main`. This branch adds unreleased
+`031_equine_self_create.sql`. It is not deployed. Remote
+`efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts Option A
+only. This PR does not open `equine-media` and does not start migration
+`035`. Storage stays deny-by-default private.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
 described Phase 14B as unmerged on parent
@@ -380,11 +373,8 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-02, Stage 2 branch):**
-Issue #35 Stage 2 adds unreleased `030_activity_reads.sql` for the
-personal Activity list. `main` still has migrations `001`–`029` only.
-The new migration is not deployed.
-`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md` records an unaccepted
-recommendation for equine creation and private equine-media. Do not
-implement it and do not open the buckets. Do not merge or deploy
-without a Product Owner decision.
+**Siguiente fase (live 2026-10-03, stage 031 branch):**
+Issue #41 accepts Option A. This branch adds unreleased
+`031_equine_self_create.sql`. Repository `main` already contains
+`001`–`030`. This PR does not deploy and does not open
+`equine-media`. Do not start migration `035`.
