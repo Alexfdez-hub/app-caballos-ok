@@ -64,7 +64,12 @@ provisioning. There is still no client authorization RPC.
 
 ## Rollback
 
-The SQL file is one transaction and ends with `ROLLBACK`. Availability
+The SQL file is one transaction and its final statement is `ROLLBACK`.
+The runner rejects any `COMMIT;` and rejects a file whose last SQL
+statement is not `ROLLBACK;`. Availability, booking, and session times
+are offsets from one UTC day boundary 30 days ahead of
+`clock_timestamp()`, and the fixture asserts that anchor is in the
+future. Dates of birth and policy-version labels stay fixed. Availability
 rules and calendar blocks cannot be deleted by clients; do not try to
 clean this fixture by deleting those rows in a committed database. Reset
 the local database if a transaction is ever committed by hand.

@@ -104,9 +104,18 @@ begin
 end;
 $$;
 
+create function pg_temp.pilot_at(p_interval interval)
+returns timestamptz
+language sql
+stable
+as $$
+  select current_setting('pilot.operational_anchor')::timestamptz + p_interval
+$$;
+
 grant execute on function pg_temp.pilot_jwt(uuid) to authenticated;
 grant execute on function pg_temp.pilot_overall(uuid, uuid, uuid, timestamptz, timestamptz, uuid)
   to authenticated;
+grant execute on function pg_temp.pilot_at(interval) to authenticated;
 
 insert into auth.users (id) values
   ('03100000-0000-4000-8000-000000000001'),
@@ -120,10 +129,18 @@ insert into auth.users (id) values
 do $$
 declare
   accepted_at timestamptz := timestamptz '2026-09-01 00:00:00+00';
+  operational_anchor timestamptz;
   policy_id uuid;
   current_kind text;
   current_code text;
 begin
+  operational_anchor := (
+    date_trunc('day', clock_timestamp() at time zone 'UTC') + interval '30 days'
+  ) at time zone 'UTC';
+  if operational_anchor <= clock_timestamp() then
+    raise exception 'Pilot operational anchor must be in the future, got %', operational_anchor;
+  end if;
+  perform set_config('pilot.operational_anchor', operational_anchor::text, true);
   perform pg_temp.pilot_rebind(
     '03100000-0000-4000-8000-000000000001',
     '03100000-0000-4000-8000-000000000011',
@@ -298,15 +315,15 @@ begin
     (
       '03100000-0000-4000-8000-000000000032',
       '03100000-0000-4000-8000-000000000031',
-      timestamptz '2026-11-02 08:00:00+00',
-      timestamptz '2026-11-02 18:00:00+00',
+      operational_anchor + interval '8 hours',
+      operational_anchor + interval '18 hours',
       '03100000-0000-4000-8000-000000000024'
     ),
     (
       '03100000-0000-4000-8000-000000000033',
       '03100000-0000-4000-8000-000000000031',
-      timestamptz '2026-11-02 08:00:00+00',
-      timestamptz '2026-11-02 18:00:00+00',
+      operational_anchor + interval '8 hours',
+      operational_anchor + interval '18 hours',
       '03100000-0000-4000-8000-000000000024'
     );
 
@@ -505,8 +522,8 @@ begin
     '03100000-0000-4000-8000-000000000011',
     '03100000-0000-4000-8000-000000000032',
     '03100000-0000-4000-8000-000000000031',
-    timestamptz '2026-11-02 10:00:00+00',
-    timestamptz '2026-11-02 11:00:00+00',
+    pg_temp.pilot_at(interval '10 hours'),
+    pg_temp.pilot_at(interval '11 hours'),
     '03100000-0000-4000-8000-000000000034'
   );
   if overall is distinct from 'QUALIFICATION_NOT_VERIFIED' then
@@ -580,8 +597,8 @@ begin
     '03100000-0000-4000-8000-000000000011',
     '03100000-0000-4000-8000-000000000032',
     '03100000-0000-4000-8000-000000000031',
-    timestamptz '2026-11-02 10:00:00+00',
-    timestamptz '2026-11-02 11:00:00+00',
+    pg_temp.pilot_at(interval '10 hours'),
+    pg_temp.pilot_at(interval '11 hours'),
     '03100000-0000-4000-8000-000000000034'
   );
   if overall is distinct from 'REQUIRES_ZERO_SESSION' then
@@ -645,8 +662,8 @@ begin
     '03100000-0000-4000-8000-000000000011',
     '03100000-0000-4000-8000-000000000032',
     '03100000-0000-4000-8000-000000000031',
-    timestamptz '2026-11-02 10:00:00+00',
-    timestamptz '2026-11-02 11:00:00+00',
+    pg_temp.pilot_at(interval '10 hours'),
+    pg_temp.pilot_at(interval '11 hours'),
     '03100000-0000-4000-8000-000000000034'
   );
   if overall is distinct from 'ELIGIBLE' then
@@ -658,16 +675,16 @@ begin
     '03100000-0000-4000-8000-000000000032',
     '03100000-0000-4000-8000-000000000031',
     '03100000-0000-4000-8000-000000000034',
-    timestamptz '2026-11-02 10:00:00+00',
-    timestamptz '2026-11-02 11:00:00+00'
+    pg_temp.pilot_at(interval '10 hours'),
+    pg_temp.pilot_at(interval '11 hours')
   );
   second_id := public.create_booking_request(
     '03100000-0000-4000-8000-000000000011',
     '03100000-0000-4000-8000-000000000032',
     '03100000-0000-4000-8000-000000000031',
     '03100000-0000-4000-8000-000000000034',
-    timestamptz '2026-11-02 10:30:00+00',
-    timestamptz '2026-11-02 11:30:00+00'
+    pg_temp.pilot_at(interval '10 hours 30 minutes'),
+    pg_temp.pilot_at(interval '11 hours 30 minutes')
   );
   perform set_config('pilot.first_booking', first_id::text, true);
   perform set_config('pilot.second_booking', second_id::text, true);
@@ -693,8 +710,8 @@ begin
       '03100000-0000-4000-8000-000000000011',
       '03100000-0000-4000-8000-000000000032',
       '03100000-0000-4000-8000-000000000031',
-      timestamptz '2026-11-02 10:00:00+00',
-      timestamptz '2026-11-02 11:00:00+00',
+      pg_temp.pilot_at(interval '10 hours'),
+      pg_temp.pilot_at(interval '11 hours'),
       '03100000-0000-4000-8000-000000000034'
     );
     raise exception 'Intruder inspected foreign eligibility';
@@ -788,8 +805,8 @@ begin
     '03100000-0000-4000-8000-000000000019',
     '03100000-0000-4000-8000-000000000033',
     '03100000-0000-4000-8000-000000000031',
-    timestamptz '2026-11-02 14:00:00+00',
-    timestamptz '2026-11-02 15:00:00+00',
+    pg_temp.pilot_at(interval '14 hours'),
+    pg_temp.pilot_at(interval '15 hours'),
     '03100000-0000-4000-8000-000000000034'
   );
   if overall is distinct from 'REQUIRES_GUARDIAN_CONSENT' then
@@ -801,8 +818,8 @@ begin
     '03100000-0000-4000-8000-000000000033',
     '03100000-0000-4000-8000-000000000031',
     '03100000-0000-4000-8000-000000000034',
-    timestamptz '2026-11-02 14:00:00+00',
-    timestamptz '2026-11-02 15:00:00+00'
+    pg_temp.pilot_at(interval '14 hours'),
+    pg_temp.pilot_at(interval '15 hours')
   );
   perform set_config('pilot.missing_booking', missing_id::text, true);
 
@@ -822,8 +839,8 @@ begin
     '03100000-0000-4000-8000-00000000001a',
     '03100000-0000-4000-8000-000000000033',
     '03100000-0000-4000-8000-000000000031',
-    timestamptz '2026-11-02 15:00:00+00',
-    timestamptz '2026-11-02 16:00:00+00',
+    pg_temp.pilot_at(interval '15 hours'),
+    pg_temp.pilot_at(interval '16 hours'),
     '03100000-0000-4000-8000-000000000034'
   );
   if overall is distinct from 'REQUIRES_GUARDIAN_CONSENT' then
@@ -848,8 +865,8 @@ begin
     '03100000-0000-4000-8000-000000000018',
     '03100000-0000-4000-8000-000000000033',
     '03100000-0000-4000-8000-000000000031',
-    timestamptz '2026-11-02 16:00:00+00',
-    timestamptz '2026-11-02 17:00:00+00',
+    pg_temp.pilot_at(interval '16 hours'),
+    pg_temp.pilot_at(interval '17 hours'),
     '03100000-0000-4000-8000-000000000034'
   );
   if overall is distinct from 'ELIGIBLE' then
@@ -861,8 +878,8 @@ begin
     '03100000-0000-4000-8000-000000000033',
     '03100000-0000-4000-8000-000000000031',
     '03100000-0000-4000-8000-000000000034',
-    timestamptz '2026-11-02 16:00:00+00',
-    timestamptz '2026-11-02 17:00:00+00'
+    pg_temp.pilot_at(interval '16 hours'),
+    pg_temp.pilot_at(interval '17 hours')
   );
   perform set_config('pilot.minor_booking', minor_booking::text, true);
 end;

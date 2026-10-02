@@ -20,9 +20,24 @@ if (/^\\[a-z]/im.test(sql)) {
   console.error('pilot_journey_test.sql still contains psql meta-commands.');
   process.exit(1);
 }
-if (!/\brollback\s*;/i.test(sql)) {
-  console.error('pilot_journey_test.sql must end in ROLLBACK.');
-  process.exit(1);
+assertRollbackContract(sql);
+
+function assertRollbackContract(sqlText) {
+  if (/\bcommit\s*;/i.test(sqlText)) {
+    console.error('pilot_journey_test.sql must not contain COMMIT;');
+    process.exit(1);
+  }
+
+  const withoutComments = sqlText
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/--[^\r\n]*/g, ' ')
+    .trim();
+  if (!/\brollback\s*;$/i.test(withoutComments)) {
+    console.error(
+      'pilot_journey_test.sql must end in ROLLBACK; trailing comments and whitespace are the only suffix allowed.',
+    );
+    process.exit(1);
+  }
 }
 
 function run(command, args, options = {}) {
