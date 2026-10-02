@@ -321,11 +321,11 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-03, stage 032 branch):** repository
+**Live status (verified 2026-10-03, stage 033 branch):** repository
 `main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40` and contains
 migrations `001`–`030` plus the Expo Go auth redirect. This branch stacks
-unreleased `031_equine_self_create.sql` and
-`032_equine_photo_authorization.sql`. Neither is deployed. Remote
+unreleased migrations `031` and `032` and four equine-photo Edge
+Functions. None are deployed. Remote
 `efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts Option A
 only. `avatars` and `equine-media` stay deny-by-default private. Do not
 open buckets and do not start migration `035`. The Level 1–3 handoff
@@ -339,9 +339,10 @@ the phase reports, `docs/REMOTE_DEPLOYMENT_027_029.md`,
 `docs/PILOT_STAGE0_INVENTORY.md`, `docs/ACTIVITY_READ_MODEL.md` and
 `docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md`. Option A is accepted for
 issue #41. Stage 031 implements adult self-create. Stage 032 authorizes
-photo metadata and canonical paths. SQL does not sign URLs. Do not
-merge or deploy without the train gates. `avatars` and `equine-media`
-stay deny-by-default private.
+photo metadata and canonical paths. Stage 033 signs, inspects and
+deletes with a server-only client after SQL authorization. Those Edge
+Functions are not deployed. Do not merge or deploy without the train
+gates. `avatars` and `equine-media` stay deny-by-default private.
 
 ------------------------------------------------------------------------
 

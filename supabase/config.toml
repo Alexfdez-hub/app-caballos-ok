@@ -426,3 +426,17 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Stage 033. JWT is checked at the gateway and again by the user-scoped client.
+# These functions are not deployed by this change.
+[functions.prepare-my-equine-photo]
+verify_jwt = true
+
+[functions.finalize-my-equine-photo]
+verify_jwt = true
+
+[functions.sign-my-equine-photo-read]
+verify_jwt = true
+
+[functions.retire-my-equine-photo]
+verify_jwt = true
