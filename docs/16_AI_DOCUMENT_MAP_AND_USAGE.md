@@ -317,10 +317,25 @@ inventar backend ni datos que todavía no existen.
 Live repository phase reports that implement Architecture 2.1 live under
 `docs/` (`PHASE_13B_AUDIT_REPORT.md`, `PHASE_13C_CRITICAL_AUDIT_REPORT.md`,
 `PHASE_14A_STORAGE_SECURITY_REPORT.md`,
-`PHASE_14B_SECURITY_GATE_REPORT.md`, `MIGRATION_STATUS.md`). GitHub live
-state wins over stale planning documents. After 030 is Ready and green,
-stop for the issue #32 handoff. Do not start 031 and do not start
-unrelated UI.
+`PHASE_14B_SECURITY_GATE_REPORT.md`, `MIGRATION_STATUS.md`,
+`REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
+planning documents.
+
+**Live status (verified 2026-10-02):** `main` is
+`f9b77de45d39fd8cb6380358f9a192899f6cb1c9`. Migrations `001`–`029` are
+on `main`, and remote `efkauegdlmfkonzwyyiv` is exact through `029`.
+There is no migration `030`. Issue #32 is closed. The Level 1–3 handoff
+filenames named above (`08_DATA_ARCHITECTURE_2_1_FULL.md`,
+`07_DECISION_LOG.md`, `03_SECURITY_AND_BUSINESS_RULES.md`,
+`10_AI_INSTRUCTIONS_FULL.md`,
+`13_POLICY_AND_CONSENT_MODEL_RECONSTRUCTED.md`,
+`04_IMPLEMENTATION_STATUS.md`, `06_NEXT_PHASES.md`) are not in this
+repository. Use `docs/DATA_ARCHITECTURE.md`, `docs/MIGRATION_STATUS.md`,
+the phase reports, `docs/REMOTE_DEPLOYMENT_027_029.md` and
+`docs/PILOT_STAGE0_INVENTORY.md`. Next work is issue #35. Do not invent
+migration 030, do not merge or deploy without a Product Owner decision,
+and do not implement equine creation or `equine-media` authorization.
+`avatars` and `equine-media` stay deny-by-default private.
 
 ------------------------------------------------------------------------
 
