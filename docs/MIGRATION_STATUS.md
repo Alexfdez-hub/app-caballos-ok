@@ -1,7 +1,12 @@
 # MIGRATION STATUS
 
+**Live note (2026-10-02, Stage 2 branch):** `main` is still migrations
+`001`–`029` only. Remote `efkauegdlmfkonzwyyiv` is unchanged through
+`029`. This branch adds unreleased `030_activity_reads.sql`. It is not
+deployed. The Phase 14B record below is historical.
+
 PHASE: 14B — Consolidated P0 security gate
-STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030
+STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main
 DATE: 2026-09-04
 
 `main` HEAD is

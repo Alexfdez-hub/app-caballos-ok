@@ -9,14 +9,14 @@
 (`docs: add remote deployment record for 027-029`). The implementation
 merge baseline in `docs/REMOTE_DEPLOYMENT_027_029.md` is
 `de90f90fa5d71f43b0fd4aba660bd7f522479ad3` (PR #34). Migrations
-`001`–`029` are on `main`. There is no migration `030`. Remote Supabase
-`efkauegdlmfkonzwyyiv` is deployed and verified through exact migration
-`029`. Open pull requests at this verification: none. Issue #32 is
-closed. This train does not deploy and does not modify remote. Next
-executable work is issue #35: a local/CI pilot fixture, then a stacked
-Activity slice, then an equine/photo authorization proposal only. Do not
-merge or deploy without a Product Owner decision. Do not implement
-equine creation or `equine-media` authorization. Storage stays
+`001`–`029` are on `main`. `main` has no migration `030`. This branch
+adds unreleased `supabase/migrations/030_activity_reads.sql`
+(`public.list_my_activity()`), which is not deployed. Remote Supabase
+`efkauegdlmfkonzwyyiv` stays aligned through exact migration `029`.
+Issue #32 is closed. This train does not deploy and does not modify
+remote. Issue #35 Stage 2 is the personal Activity read on this branch.
+Do not merge or deploy without a Product Owner decision. Do not
+implement equine creation or `equine-media` authorization. Storage stays
 deny-by-default private.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
@@ -380,9 +380,9 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-02):**
-Issue #35 pilot readiness. Stage 1 is the local/CI rollback journey
-`npm run pilot:journey` (`docs/PILOT_RUNBOOK.md`). Do not create
-migration 030 unless a schema defect is reproduced. Do not start equine
-creation or `equine-media` authorization implementation. Do not merge or
-deploy without a Product Owner decision.
+**Siguiente fase (live 2026-10-02, Stage 2 branch):**
+Issue #35 Stage 2 adds unreleased `030_activity_reads.sql` for the
+personal Activity list. `main` still has migrations `001`–`029` only.
+The new migration is not deployed. Do not start equine creation or
+`equine-media` authorization implementation. Do not merge or deploy
+without a Product Owner decision.
