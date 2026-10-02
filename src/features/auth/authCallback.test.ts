@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  AUTH_NATIVE_REDIRECT_URI,
   getAuthRedirectAllowList,
   interpretAuthCallbackUrl,
   isAuthCallbackUrl,
   parseAuthCallbackParams,
+  selectAuthRedirectUrl,
 } from './authCallback.ts';
 
 describe('auth callback URLs', () => {
@@ -73,6 +75,63 @@ describe('auth callback URLs', () => {
     assert.deepEqual(interpretAuthCallbackUrl('exp://192.168.1.24:8081'), {
       status: 'ignored',
     });
+  });
+
+  it('selects the Expo Go callback from makeRedirectUri path only', () => {
+    const calls: Array<{ scheme?: string; path?: string }> = [];
+    const url = selectAuthRedirectUrl({
+      platformOs: 'android',
+      executionEnvironment: 'storeClient',
+      makeRedirectUri: (options) => {
+        calls.push(options);
+        return 'exp://192.0.2.10:8081/--/auth/callback';
+      },
+    });
+
+    assert.deepEqual(calls, [{ path: 'auth/callback' }]);
+    assert.equal(url, 'exp://192.0.2.10:8081/--/auth/callback');
+    assert.equal(isAuthCallbackUrl(url), true);
+  });
+
+  it('keeps the custom scheme for development builds, standalone apps, and web scheme options', () => {
+    for (const executionEnvironment of ['bare', 'standalone', null, undefined]) {
+      let called = false;
+      const url = selectAuthRedirectUrl({
+        platformOs: 'ios',
+        executionEnvironment,
+        makeRedirectUri: () => {
+          called = true;
+          return 'exp://192.0.2.10:8081/--/auth/callback';
+        },
+      });
+      assert.equal(called, false);
+      assert.equal(url, AUTH_NATIVE_REDIRECT_URI);
+    }
+
+    const webCalls: Array<{ scheme?: string; path?: string }> = [];
+    const webUrl = selectAuthRedirectUrl({
+      platformOs: 'web',
+      executionEnvironment: 'storeClient',
+      makeRedirectUri: (options) => {
+        webCalls.push(options);
+        return 'http://localhost:8081/auth/callback';
+      },
+    });
+    assert.deepEqual(webCalls, [
+      { scheme: 'app-caballos-ok', path: 'auth/callback' },
+    ]);
+    assert.equal(webUrl, 'http://localhost:8081/auth/callback');
+  });
+
+  it('keeps a recovery code from an Expo Go callback', () => {
+    const callback = interpretAuthCallbackUrl(
+      'exp://192.0.2.10:8081/--/auth/callback?code=recovery-code&type=recovery',
+    );
+    assert.equal(callback.status, 'code');
+    if (callback.status === 'code') {
+      assert.equal(callback.type, 'recovery');
+      assert.equal(callback.code, 'recovery-code');
+    }
   });
 
   it('publishes a path-constrained allow-list without a global exp://** wildcard', () => {

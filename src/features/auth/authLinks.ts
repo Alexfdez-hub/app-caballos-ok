@@ -1,12 +1,11 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { makeRedirectUri } from 'expo-auth-session';
 
 import { supabase } from '../../services/supabase/client';
 import {
-  AUTH_APP_SCHEME,
-  AUTH_NATIVE_REDIRECT_URI,
-  AUTH_REDIRECT_PATH,
   interpretAuthCallbackUrl,
+  selectAuthRedirectUrl,
 } from './authCallback';
 
 export {
@@ -18,14 +17,11 @@ export {
 } from './authCallback';
 
 export function getAuthRedirectUrl() {
-  if (Platform.OS === 'web') {
-    return makeRedirectUri({
-      scheme: AUTH_APP_SCHEME,
-      path: AUTH_REDIRECT_PATH,
-    });
-  }
-
-  return AUTH_NATIVE_REDIRECT_URI;
+  return selectAuthRedirectUrl({
+    platformOs: Platform.OS,
+    executionEnvironment: Constants.executionEnvironment,
+    makeRedirectUri,
+  });
 }
 
 export async function createSessionFromUrl(url: string) {

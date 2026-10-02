@@ -116,6 +116,22 @@ describe('expected auth errors', () => {
       status: 422,
     });
 
+    assert.equal(
+      userFacingAuthMessage('signUp', {
+        message: 'User already registered',
+        code: 'user_repeated_signup',
+        status: 422,
+      }),
+      'Si ya tenías cuenta, inicia sesión o restablece la contraseña.',
+    );
+    assert.doesNotMatch(
+      userFacingAuthMessage('signUp', {
+        message: 'User already registered',
+        code: 'user_repeated_signup',
+        status: 422,
+      }),
+      /cuenta creada|hemos creado|nueva cuenta/i,
+    );
     assert.equal(errorSpy.mock.callCount(), 0);
     errorSpy.mock.restore();
   });

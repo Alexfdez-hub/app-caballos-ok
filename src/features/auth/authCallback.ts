@@ -3,6 +3,33 @@ export const AUTH_APP_SCHEME = 'app-caballos-ok';
 export const AUTH_NATIVE_REDIRECT_URI = `${AUTH_APP_SCHEME}://${AUTH_REDIRECT_PATH}`;
 export const AUTH_NATIVE_REDIRECT_URI_TRIPLE = `${AUTH_APP_SCHEME}:///${AUTH_REDIRECT_PATH}`;
 export const AUTH_WEB_DEV_PORT = '8081';
+export const AUTH_EXECUTION_STORE_CLIENT = 'storeClient';
+
+type AuthRedirectUriOptions = {
+  scheme?: string;
+  path?: string;
+};
+
+export function selectAuthRedirectUrl(input: {
+  platformOs: string;
+  executionEnvironment: string | null | undefined;
+  makeRedirectUri: (options: AuthRedirectUriOptions) => string;
+}) {
+  if (input.platformOs === 'web') {
+    return input.makeRedirectUri({
+      scheme: AUTH_APP_SCHEME,
+      path: AUTH_REDIRECT_PATH,
+    });
+  }
+
+  if (input.executionEnvironment === AUTH_EXECUTION_STORE_CLIENT) {
+    return input.makeRedirectUri({
+      path: AUTH_REDIRECT_PATH,
+    });
+  }
+
+  return AUTH_NATIVE_REDIRECT_URI;
+}
 
 export function getAuthRedirectAllowList() {
   return [
