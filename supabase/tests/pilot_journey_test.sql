@@ -515,7 +515,7 @@ begin
 
   select saved.experience_start_year
     into profile_year
-    from public.upsert_my_rider_profile(null, 2010, 'PRIVATE') as saved;
+    from public.upsert_my_rider_profile(null::text, 2010::smallint, 'PRIVATE'::text) as saved;
   if profile_year is distinct from 2010 then
     raise exception 'Rider profile experience year was not stored';
   end if;
