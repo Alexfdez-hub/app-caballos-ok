@@ -4,13 +4,13 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
 
-**Live status (verified 2026-10-03, stage 031 branch):** repository
+**Live status (verified 2026-10-03, stage 032 branch):** repository
 `main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40`. Migrations
-`001`–`030` are on `main`. This branch adds unreleased
-`031_equine_self_create.sql`. It is not deployed. Remote
-`efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts Option A
-only. This PR does not open `equine-media` and does not start migration
-`035`. Storage stays deny-by-default private.
+`001`–`030` are on `main`. This branch stacks unreleased
+`031_equine_self_create.sql` and `032_equine_photo_authorization.sql`.
+Neither is deployed. Remote `efkauegdlmfkonzwyyiv` is not modified here.
+Issue #41 accepts Option A only. This PR does not open `equine-media`
+and does not start migration `035`. Storage stays deny-by-default private.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
 described Phase 14B as unmerged on parent
@@ -373,8 +373,9 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-03, stage 031 branch):**
-Issue #41 accepts Option A. This branch adds unreleased
-`031_equine_self_create.sql`. Repository `main` already contains
-`001`–`030`. This PR does not deploy and does not open
-`equine-media`. Do not start migration `035`.
+**Siguiente fase (live 2026-10-03, stage 032 branch):**
+Issue #41 accepts Option A. This branch stacks unreleased
+`031_equine_self_create.sql` and `032_equine_photo_authorization.sql`.
+Repository `main` already contains `001`–`030`. This PR does not deploy
+and does not open `equine-media`. SQL authorizes photo metadata and
+does not sign URLs. Do not start migration `035`.
