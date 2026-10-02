@@ -383,6 +383,8 @@ Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, 
 **Siguiente fase (live 2026-10-02, Stage 2 branch):**
 Issue #35 Stage 2 adds unreleased `030_activity_reads.sql` for the
 personal Activity list. `main` still has migrations `001`–`029` only.
-The new migration is not deployed. Do not start equine creation or
-`equine-media` authorization implementation. Do not merge or deploy
+The new migration is not deployed.
+`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md` records an unaccepted
+recommendation for equine creation and private equine-media. Do not
+implement it and do not open the buckets. Do not merge or deploy
 without a Product Owner decision.

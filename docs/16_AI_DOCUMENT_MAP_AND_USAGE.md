@@ -334,8 +334,9 @@ filenames named above (`08_DATA_ARCHITECTURE_2_1_FULL.md`,
 `04_IMPLEMENTATION_STATUS.md`, `06_NEXT_PHASES.md`) are not in this
 repository. Use `docs/DATA_ARCHITECTURE.md`, `docs/MIGRATION_STATUS.md`,
 the phase reports, `docs/REMOTE_DEPLOYMENT_027_029.md`,
-`docs/PILOT_STAGE0_INVENTORY.md` and `docs/ACTIVITY_READ_MODEL.md`.
-Do not merge or deploy without a Product Owner decision,
+`docs/PILOT_STAGE0_INVENTORY.md`, `docs/ACTIVITY_READ_MODEL.md` and
+`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md`. The equine proposal is
+unaccepted. Do not merge or deploy without a Product Owner decision,
 and do not implement equine creation or `equine-media` authorization.
 `avatars` and `equine-media` stay deny-by-default private.
 
