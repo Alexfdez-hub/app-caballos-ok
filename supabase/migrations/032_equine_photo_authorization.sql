@@ -3,6 +3,8 @@
 -- PRIMARY_MANAGER and stores the canonical path. It does not sign,
 -- inspect or delete a Storage object, and it does not accept a path
 -- or a person, account, owner, manager or center id.
+-- Post-storage metadata mutations are executable by service_role only.
+-- Their audit actor is the Auth user resolved through user_accounts.
 -- equine-media stays private. This file does not deploy.
 
 alter table public.equine_media
@@ -167,7 +169,51 @@ revoke all on function public.authorize_my_equine_photo_prepare(uuid, boolean)
 grant execute on function public.authorize_my_equine_photo_prepare(uuid, boolean)
   to authenticated;
 
-create function public.abandon_my_equine_photo(p_media_id uuid)
+create function public.equine_photo_bind_auth_user(p_auth_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  resolved_person uuid;
+begin
+  if p_auth_user_id is null then
+    raise exception using
+      errcode = '42501',
+      message = 'Authentication required';
+  end if;
+
+  select account.person_id
+    into resolved_person
+    from public.user_accounts as account
+   where account.auth_user_id = p_auth_user_id;
+
+  if resolved_person is null then
+    raise exception using
+      errcode = 'P0001',
+      message = 'Identity could not be resolved';
+  end if;
+
+  perform set_config('request.jwt.claim.sub', p_auth_user_id::text, true);
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', p_auth_user_id::text, 'role', 'authenticated')::text,
+    true
+  );
+end;
+$$;
+
+comment on function public.equine_photo_bind_auth_user(uuid) is
+  'Binds later authorization and audit to an Auth user that already has a user_accounts row. The argument is an Auth user id, never a PERSON id or an ACCOUNT id. Not granted to clients.';
+
+revoke all on function public.equine_photo_bind_auth_user(uuid)
+  from public, anon, authenticated, service_role;
+
+create function public.abandon_my_equine_photo(
+  p_media_id uuid,
+  p_auth_user_id uuid
+)
 returns void
 language plpgsql
 security definer
@@ -176,6 +222,8 @@ as $$
 declare
   current_equine_id uuid;
 begin
+  perform public.equine_photo_bind_auth_user(p_auth_user_id);
+
   select current_photo.equine_id
     into current_equine_id
     from public.equine_photo_require_current(p_media_id) as current_photo;
@@ -192,13 +240,13 @@ begin
 end;
 $$;
 
-comment on function public.abandon_my_equine_photo(uuid) is
-  'Removes current photo metadata the caller manages and audits equine_photo_abandoned. Does not inspect or delete a Storage object.';
+comment on function public.abandon_my_equine_photo(uuid, uuid) is
+  'Server-only removal of current photo metadata. The Auth user id is resolved through user_accounts before the row is checked, and the audit actor is that resolved caller. Does not accept a PERSON id, an ACCOUNT id or a path, and does not inspect or delete a Storage object.';
 
-revoke all on function public.abandon_my_equine_photo(uuid)
+revoke all on function public.abandon_my_equine_photo(uuid, uuid)
   from public, anon, authenticated;
-grant execute on function public.abandon_my_equine_photo(uuid)
-  to authenticated;
+grant execute on function public.abandon_my_equine_photo(uuid, uuid)
+  to service_role;
 
 create function public.authorize_my_equine_photo_finalize(p_media_id uuid)
 returns text
@@ -226,7 +274,10 @@ revoke all on function public.authorize_my_equine_photo_finalize(uuid)
 grant execute on function public.authorize_my_equine_photo_finalize(uuid)
   to authenticated;
 
-create function public.record_my_equine_photo_finalized(p_media_id uuid)
+create function public.record_my_equine_photo_finalized(
+  p_media_id uuid,
+  p_auth_user_id uuid
+)
 returns void
 language plpgsql
 security definer
@@ -235,6 +286,8 @@ as $$
 declare
   current_equine_id uuid;
 begin
+  perform public.equine_photo_bind_auth_user(p_auth_user_id);
+
   select current_photo.equine_id
     into current_equine_id
     from public.equine_photo_require_current(p_media_id) as current_photo;
@@ -248,13 +301,13 @@ begin
 end;
 $$;
 
-comment on function public.record_my_equine_photo_finalized(uuid) is
-  'Audits equine_photo_finalized for a current photo the caller manages. Leaves the row in place and does not inspect Storage.';
+comment on function public.record_my_equine_photo_finalized(uuid, uuid) is
+  'Server-only audit of equine_photo_finalized. The Auth user id is resolved through user_accounts and becomes the audit actor. Leaves the row in place. Does not accept a PERSON id, an ACCOUNT id or a path, and does not inspect Storage.';
 
-revoke all on function public.record_my_equine_photo_finalized(uuid)
+revoke all on function public.record_my_equine_photo_finalized(uuid, uuid)
   from public, anon, authenticated;
-grant execute on function public.record_my_equine_photo_finalized(uuid)
-  to authenticated;
+grant execute on function public.record_my_equine_photo_finalized(uuid, uuid)
+  to service_role;
 
 create function public.list_my_equine_photos(p_equine_id uuid)
 returns table (
@@ -352,7 +405,10 @@ revoke all on function public.authorize_my_equine_photo_retire(uuid)
 grant execute on function public.authorize_my_equine_photo_retire(uuid)
   to authenticated;
 
-create function public.retire_my_equine_photo_metadata(p_media_id uuid)
+create function public.retire_my_equine_photo_metadata(
+  p_media_id uuid,
+  p_auth_user_id uuid
+)
 returns void
 language plpgsql
 security definer
@@ -361,6 +417,8 @@ as $$
 declare
   current_equine_id uuid;
 begin
+  perform public.equine_photo_bind_auth_user(p_auth_user_id);
+
   select current_photo.equine_id
     into current_equine_id
     from public.equine_photo_require_current(p_media_id) as current_photo;
@@ -386,10 +444,10 @@ begin
 end;
 $$;
 
-comment on function public.retire_my_equine_photo_metadata(uuid) is
-  'Marks current photo metadata historical, clears is_primary and audits equine_photo_retired. Does not delete a Storage object.';
+comment on function public.retire_my_equine_photo_metadata(uuid, uuid) is
+  'Server-only retirement of current photo metadata. The Auth user id is resolved through user_accounts and becomes the audit actor. Clears is_primary. Does not accept a PERSON id, an ACCOUNT id or a path, and does not delete a Storage object.';
 
-revoke all on function public.retire_my_equine_photo_metadata(uuid)
+revoke all on function public.retire_my_equine_photo_metadata(uuid, uuid)
   from public, anon, authenticated;
-grant execute on function public.retire_my_equine_photo_metadata(uuid)
-  to authenticated;
+grant execute on function public.retire_my_equine_photo_metadata(uuid, uuid)
+  to service_role;

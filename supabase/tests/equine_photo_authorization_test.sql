@@ -178,7 +178,15 @@ begin
     raise exception 'Finalize authorization changed the path';
   end if;
 
-  perform public.record_my_equine_photo_finalized(primary_media);
+  begin
+    perform public.record_my_equine_photo_finalized(
+      primary_media,
+      '03210000-0000-4000-8000-000000000001'
+    );
+    raise exception 'Authenticated finalized photo metadata directly';
+  exception
+    when insufficient_privilege then null;
+  end;
 
   authorized_path := public.authorize_my_equine_photo_read(primary_media);
   if authorized_path is distinct from primary_path then
@@ -194,6 +202,53 @@ begin
   perform set_config('photo.primary_media', primary_media::text, true);
   perform set_config('photo.primary_path', primary_path, true);
   perform set_config('photo.second_media', second_media::text, true);
+end;
+$$;
+
+reset role;
+
+select pg_temp.photo_jwt('03210000-0000-4000-8000-000000000002');
+set local role service_role;
+
+do $$
+#variable_conflict use_variable
+declare
+  primary_media uuid := current_setting('photo.primary_media')::uuid;
+begin
+  begin
+    perform public.record_my_equine_photo_finalized(
+      primary_media,
+      '03210000-0000-4000-8000-000000000011'
+    );
+    raise exception using
+      errcode = 'P0002',
+      message = 'A person id was accepted as the audit actor';
+  exception
+    when sqlstate 'P0001' then
+      if sqlerrm is distinct from 'Identity could not be resolved' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.record_my_equine_photo_finalized(
+      primary_media,
+      '03210000-0000-4000-8000-000000000002'
+    );
+    raise exception using
+      errcode = 'P0002',
+      message = 'Another adult finalized photo metadata';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Equine photo is not available' then
+        raise;
+      end if;
+  end;
+
+  perform public.record_my_equine_photo_finalized(
+    primary_media,
+    '03210000-0000-4000-8000-000000000001'
+  );
 end;
 $$;
 
@@ -222,6 +277,8 @@ begin
       from public.audit_events as audit_event
      where audit_event.entity_id = primary_media
        and audit_event.event_type = 'equine_photo_finalized'
+       and audit_event.actor_person_id = '03210000-0000-4000-8000-000000000011'
+       and audit_event.actor_account_id = '03210000-0000-4000-8000-000000000021'
        and audit_event.metadata = jsonb_build_object('equine_id', equine_id)
   ) then
     raise exception 'Finalize audit is missing';
@@ -248,8 +305,57 @@ declare
   second_media uuid := current_setting('photo.second_media')::uuid;
   listed integer;
 begin
-  perform public.retire_my_equine_photo_metadata(primary_media);
+  begin
+    perform public.retire_my_equine_photo_metadata(
+      primary_media,
+      '03210000-0000-4000-8000-000000000001'
+    );
+    raise exception 'Authenticated retired photo metadata directly';
+  exception
+    when insufficient_privilege then null;
+  end;
 
+  begin
+    perform public.abandon_my_equine_photo(
+      second_media,
+      '03210000-0000-4000-8000-000000000001'
+    );
+    raise exception 'Authenticated abandoned photo metadata directly';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+reset role;
+
+select pg_temp.photo_jwt('03210000-0000-4000-8000-000000000002');
+set local role service_role;
+
+do $$
+#variable_conflict use_variable
+declare
+  primary_media uuid := current_setting('photo.primary_media')::uuid;
+begin
+  perform public.retire_my_equine_photo_metadata(
+    primary_media,
+    '03210000-0000-4000-8000-000000000001'
+  );
+end;
+$$;
+
+reset role;
+
+select pg_temp.photo_jwt('03210000-0000-4000-8000-000000000001');
+set local role authenticated;
+
+do $$
+#variable_conflict use_variable
+declare
+  equine_id uuid := current_setting('photo.equine_id')::uuid;
+  primary_media uuid := current_setting('photo.primary_media')::uuid;
+  listed integer;
+begin
   begin
     perform public.authorize_my_equine_photo_read(primary_media);
     raise exception 'Retired photo remained readable';
@@ -263,7 +369,23 @@ begin
   end if;
 
   perform public.authorize_my_equine_photo_prepare(equine_id, true);
-  perform public.abandon_my_equine_photo(second_media);
+end;
+$$;
+
+reset role;
+
+select pg_temp.photo_jwt('03210000-0000-4000-8000-000000000002');
+set local role service_role;
+
+do $$
+#variable_conflict use_variable
+declare
+  second_media uuid := current_setting('photo.second_media')::uuid;
+begin
+  perform public.abandon_my_equine_photo(
+    second_media,
+    '03210000-0000-4000-8000-000000000001'
+  );
 end;
 $$;
 
@@ -298,12 +420,14 @@ begin
       from public.audit_events as audit_event
      where audit_event.entity_id = primary_media
        and audit_event.event_type = 'equine_photo_retired'
+       and audit_event.actor_person_id = '03210000-0000-4000-8000-000000000011'
        and audit_event.metadata = jsonb_build_object('equine_id', equine_id)
   ) or not exists (
     select 1
       from public.audit_events as audit_event
      where audit_event.entity_id = second_media
        and audit_event.event_type = 'equine_photo_abandoned'
+       and audit_event.actor_person_id = '03210000-0000-4000-8000-000000000011'
        and audit_event.metadata = jsonb_build_object('equine_id', equine_id)
   ) then
     raise exception 'Photo lifecycle audit is missing';
@@ -450,6 +574,7 @@ begin
      where namespace.nspname = 'public'
        and procedure.proname in (
          'authorize_my_equine_photo_prepare',
+         'equine_photo_bind_auth_user',
          'abandon_my_equine_photo',
          'authorize_my_equine_photo_finalize',
          'record_my_equine_photo_finalized',
@@ -468,18 +593,30 @@ begin
 
   foreach function_name in array array[
     'public.authorize_my_equine_photo_prepare(uuid, boolean)',
-    'public.abandon_my_equine_photo(uuid)',
     'public.authorize_my_equine_photo_finalize(uuid)',
-    'public.record_my_equine_photo_finalized(uuid)',
     'public.list_my_equine_photos(uuid)',
     'public.authorize_my_equine_photo_read(uuid)',
-    'public.authorize_my_equine_photo_retire(uuid)',
-    'public.retire_my_equine_photo_metadata(uuid)'
+    'public.authorize_my_equine_photo_retire(uuid)'
   ]
   loop
     if has_function_privilege('anon', function_name, 'EXECUTE')
-       or has_function_privilege('public', function_name, 'EXECUTE') then
-      raise exception 'anon or PUBLIC can execute %', function_name;
+       or has_function_privilege('public', function_name, 'EXECUTE')
+       or not has_function_privilege('authenticated', function_name, 'EXECUTE') then
+      raise exception 'Photo authorization grant is wrong for %', function_name;
+    end if;
+  end loop;
+
+  foreach function_name in array array[
+    'public.abandon_my_equine_photo(uuid, uuid)',
+    'public.record_my_equine_photo_finalized(uuid, uuid)',
+    'public.retire_my_equine_photo_metadata(uuid, uuid)'
+  ]
+  loop
+    if has_function_privilege('anon', function_name, 'EXECUTE')
+       or has_function_privilege('public', function_name, 'EXECUTE')
+       or has_function_privilege('authenticated', function_name, 'EXECUTE')
+       or not has_function_privilege('service_role', function_name, 'EXECUTE') then
+      raise exception 'Post-storage photo mutation grant is wrong for %', function_name;
     end if;
   end loop;
 
@@ -491,6 +628,16 @@ begin
      or has_function_privilege(
        'authenticated',
        'public.equine_photo_require_current(uuid)',
+       'EXECUTE'
+     )
+     or has_function_privilege(
+       'authenticated',
+       'public.equine_photo_bind_auth_user(uuid)',
+       'EXECUTE'
+     )
+     or has_function_privilege(
+       'service_role',
+       'public.equine_photo_bind_auth_user(uuid)',
        'EXECUTE'
      )
      or has_table_privilege('authenticated', 'public.equine_media', 'SELECT')
