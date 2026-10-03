@@ -1,8 +1,8 @@
 # Identity and Equine Verification Plan
 
-**Status:** approved planning clarification; implementation design pending  
-**Date:** 2026-10-03  
-**Scope:** MVP0 trust gates before public marketplace operations  
+**Status:** approved planning clarification; implementation design pending
+**Date:** 2026-10-03
+**Scope:** MVP0 trust gates before public marketplace operations
 **Out of scope:** selecting a KYC provider, legal certification, payments, migration 035
 
 ## 1. Why this exists
