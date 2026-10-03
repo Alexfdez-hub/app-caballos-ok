@@ -1,12 +1,15 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03, stage 034 branch):** repository `main` contains
-migrations `001`–`030`. This branch stacks unreleased migrations `031`
-and `032`, four undeployed equine-photo Edge Functions, and the Android
-pilot screens. Post-storage photo metadata mutations are `service_role`
-only. None of this is deployed. Remote `efkauegdlmfkonzwyyiv` is not
-modified here. `equine-media` stays
-deny-by-default private. The Phase 14B record below is historical.
+**Live note (2026-10-03 after train 031–034):** repository `main` is
+`72287679f87a56941f10fd468903b3fa7b4b4bf6` and contains migrations
+`001`–`032`. Logical migrations `031_equine_self_create` and
+`032_equine_photo_authorization` are deployed to
+`efkauegdlmfkonzwyyiv`; the remote history uses connector-generated
+timestamp versions. The four equine-photo Edge Functions are deployed
+and active with JWT verification. `equine-media` remains private and
+deny-by-default. Android smoke testing passed. Issue #41 is closed and
+issue #47 remains open for country/market capture. No migration `035`
+exists. The Phase 14B record below is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main
@@ -59,6 +62,12 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 
 ## Next phase
 
-Do not create a speculative migration 030. Continue from the verified
-029 remote baseline and keep future schema work in new numbered
-migrations.
+1. Implement issue #47: explicit country/market capture, validation
+   against active markets and remediation for existing accounts.
+2. Approve the detailed manual MVP0 identity and equine-verification
+   workflow in `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`.
+3. Only then allocate migration `035` if the approved schema requires
+   it. Do not infer a KYC provider or legal evidence rule.
+4. Keep private declared-equine and private-photo functionality working;
+   block public listing, service enablement, real booking and payment
+   until backend verification gates are satisfied.

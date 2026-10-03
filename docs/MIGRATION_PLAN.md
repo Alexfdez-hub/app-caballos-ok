@@ -4,15 +4,15 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
 
-**Live status (verified 2026-10-03, stage 034 branch):** repository
-`main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40`. Migrations
-`001`–`030` are on `main`. This branch stacks unreleased migrations
-`031` and `032`, four undeployed equine-photo Edge Functions, and the
-pilot screens. Post-storage photo metadata mutations are `service_role`
-only. None are deployed. Remote `efkauegdlmfkonzwyyiv` is not modified
-here. Issue #41 accepts Option A only. This PR does not open
-`equine-media` and does not start migration `035`. Storage stays
-deny-by-default private.
+**Live status (verified 2026-10-03 after train 031–034):** repository
+`main` is `72287679f87a56941f10fd468903b3fa7b4b4bf6`. Migrations
+`001`–`032` are merged. Logical migrations `031` and `032` and
+the four private equine-photo Edge Functions are deployed to
+`efkauegdlmfkonzwyyiv`; the Android smoke test passed. The
+`equine-media` bucket remains private. Issue #47 tracks country/market
+capture. The next schema number is reserved pending approval of the
+identity and equine-verification design; do not create migration `035`
+speculatively.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
 described Phase 14B as unmerged on parent
@@ -375,10 +375,11 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-03, stage 034 branch):**
-Issue #41 accepts Option A. This branch stacks the unreleased equine
-create and private-photo train through the Android pilot screens. The
-functions sign only the path SQL returns, with a separate server-only
-client, and call post-storage metadata mutations only after the Storage
-result. They are not deployed. Do not open `equine-media`. Do not start
-migration `035`.
+**Siguiente fase (live 2026-10-03):** implement issue #47 for explicit
+country/market capture, then approve and deliver the manual MVP0
+identity/equine-verification slice described in
+`docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`. Existing ownership and
+management migrations remain valid. A private self-created equine is
+declared, not verified. Do not enable public listing, services, real
+bookings or payments without the approved backend verification gates.
+Do not start migration `035` before the detailed design gate.
