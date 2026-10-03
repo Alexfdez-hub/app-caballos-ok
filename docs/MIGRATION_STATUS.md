@@ -1,9 +1,10 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03, stage 031 branch):** repository `main` contains
-migrations `001`–`030`. This branch adds unreleased
-`031_equine_self_create.sql`. It is not deployed. Remote
-`efkauegdlmfkonzwyyiv` is not modified here. The Phase 14B record below
+**Live note (2026-10-03, stage 032 branch):** repository `main` contains
+migrations `001`–`030`. This branch stacks unreleased
+`031_equine_self_create.sql` and `032_equine_photo_authorization.sql`.
+Neither is deployed. Remote `efkauegdlmfkonzwyyiv` is not modified here.
+`equine-media` stays deny-by-default private. The Phase 14B record below
 is historical.
 
 PHASE: 14B — Consolidated P0 security gate
