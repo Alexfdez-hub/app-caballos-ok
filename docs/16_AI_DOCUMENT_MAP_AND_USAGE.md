@@ -321,14 +321,27 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-03, stage 034 branch):** repository
-`main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40` and contains
-migrations `001`–`030` plus the Expo Go auth redirect. This branch stacks
-unreleased migrations `031` and `032`, four undeployed equine-photo Edge
-Functions, and the pilot screens. Post-storage photo metadata mutations
-are `service_role` only. None of that is deployed. Remote
-`efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts Option A
-only. `avatars` and `equine-media` stay deny-by-default private. Do not
+**Live status (verified 2026-10-03 after train 031–034):** repository
+`main` is `72287679f87a56941f10fd468903b3fa7b4b4bf6`. Migrations
+`001`–`032` are merged; logical migrations `031_equine_self_create`
+and `032_equine_photo_authorization` are deployed to
+`efkauegdlmfkonzwyyiv` (the remote connector recorded timestamped
+versions). The four private equine-photo Edge Functions are deployed and
+active with JWT verification. The `equine-media` bucket remains private
+and deny-by-default. Issue #41 and the 031–034 train are complete; Android
+smoke testing passed. Issue #47 tracks permanent country/market capture.
+Do not start migration `035` until the identity and equine-verification
+design is approved.
+
+The Level 1–3 handoff documents named above are maintained outside this
+repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
+`docs/MIGRATION_STATUS.md`, the phase reports,
+`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md` and
+`docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`. Authentication,
+civil-identity verification, declared ownership, verified ownership and
+verified management authority are distinct. A privately declared equine
+may be completed and photographed, but publication, service enablement,
+real booking and payment require backend-enforced verification gates. Do not
 open buckets and do not start migration `035`. The Level 1–3 handoff
 filenames named above (`08_DATA_ARCHITECTURE_2_1_FULL.md`,
 `07_DECISION_LOG.md`, `03_SECURITY_AND_BUSINESS_RULES.md`,
