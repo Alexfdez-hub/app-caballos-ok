@@ -37,6 +37,8 @@ export type ProfileStackParamList = {
   GuardianRelationships: undefined;
   MyCenters: undefined;
   MyEquines: undefined;
+  CreateEquine: undefined;
+  EquineDetail: { equineId: string };
   MyManagedEquines: undefined;
 };
 
@@ -91,6 +93,16 @@ export type MyCentersScreenProps = NativeStackScreenProps<
 export type MyEquinesScreenProps = NativeStackScreenProps<
   ProfileStackParamList,
   'MyEquines'
+>;
+
+export type CreateEquineScreenProps = NativeStackScreenProps<
+  ProfileStackParamList,
+  'CreateEquine'
+>;
+
+export type EquineDetailScreenProps = NativeStackScreenProps<
+  ProfileStackParamList,
+  'EquineDetail'
 >;
 
 export type MyManagedEquinesScreenProps = NativeStackScreenProps<

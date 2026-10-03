@@ -1,9 +1,10 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-02, Stage 2 branch):** `main` is still migrations
-`001`–`029` only. Remote `efkauegdlmfkonzwyyiv` is unchanged through
-`029`. This branch adds unreleased `030_activity_reads.sql`. It is not
-deployed. The Phase 14B record below is historical.
+**Live note (2026-10-03, stage 031 branch):** repository `main` contains
+migrations `001`–`030`. This branch adds unreleased
+`031_equine_self_create.sql`. It is not deployed. Remote
+`efkauegdlmfkonzwyyiv` is not modified here. The Phase 14B record below
+is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main

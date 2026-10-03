@@ -5,21 +5,30 @@ import { ScreenHeader } from '../app/ui/ScreenHeader';
 import { ScreenScaffold } from '../app/ui/ScreenScaffold';
 import { SectionCard } from '../app/ui/SectionCard';
 import { colors } from '../app/ui/theme';
-import {
-  equineTypeLabel,
-  effectiveRelationStatusLabel,
-} from '../features/equines/labels';
-import { useMyEquineOwnerships } from '../features/equines/useMyEquineOwnerships';
+import type { MyEquinesScreenProps } from '../app/navigation/types';
+import { equineTypeLabel } from '../features/equines/labels';
+import { useMyEquines } from '../features/equines/useMyEquines';
 
-export default function MyEquinesScreen() {
-  const { rows, isLoading, errorMessage, refresh } = useMyEquineOwnerships();
+export default function MyEquinesScreen({ navigation }: MyEquinesScreenProps) {
+  const { rows, isLoading, errorMessage, refresh } = useMyEquines();
 
   return (
     <ScreenScaffold>
       <ScreenHeader
         title="Mis equinos"
-        subtitle="Participaciones de tu identidad. El alta, la cesión y el directorio público no están en la app."
+        subtitle="Equinos de tu identidad. Una membresía de centro o una tutela no crean esta relación."
       />
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => navigation.navigate('CreateEquine')}
+        style={({ pressed }) => [
+          styles.primaryButton,
+          pressed && styles.buttonPressed,
+        ]}
+      >
+        <Text style={styles.primaryButtonText}>Añadir equino</Text>
+      </Pressable>
 
       {isLoading ? <ActivityIndicator color={colors.text} /> : null}
 
@@ -34,11 +43,11 @@ export default function MyEquinesScreen() {
               void refresh();
             }}
             style={({ pressed }) => [
-              styles.primaryButton,
+              styles.secondaryButton,
               pressed && styles.buttonPressed,
             ]}
           >
-            <Text style={styles.primaryButtonText}>Reintentar</Text>
+            <Text style={styles.secondaryButtonText}>Reintentar</Text>
           </Pressable>
         </>
       ) : null}
@@ -46,23 +55,28 @@ export default function MyEquinesScreen() {
       {!isLoading && !errorMessage && rows.length === 0 ? (
         <SectionCard>
           <EmptyStateCard
-            title="Sin participaciones"
-            description="Aún no figura una propiedad de equino a tu nombre. Una membresía de centro o un perfil de jinete no crean esta relación."
+            title="Sin equinos"
+            description="Todavía no hay un equino vinculado a tu identidad. Puedes crear uno si tu cuenta es de una persona adulta con mercado."
           />
         </SectionCard>
       ) : null}
 
       {rows.map((row) => (
-        <SectionCard key={row.ownershipId} title={row.equineName}>
-          <Text style={styles.roleLine}>
-            {equineTypeLabel(row.equineType)} · {row.ownershipPercentage}% ·{' '}
-            {effectiveRelationStatusLabel(row.status, row.isCurrentlyEffective)}
-          </Text>
-          <Text style={styles.hint}>
-            Esto es propiedad, no gestión ni asignación a un centro. No publica
-            el equino ni abre reservas.
-          </Text>
-        </SectionCard>
+        <Pressable
+          key={row.equineId}
+          accessibilityRole="button"
+          onPress={() =>
+            navigation.navigate('EquineDetail', { equineId: row.equineId })
+          }
+        >
+          <SectionCard title={row.equineName}>
+            <Text style={styles.roleLine}>
+              {equineTypeLabel(row.equineType)}
+              {row.isOwner ? ' · Propiedad' : ''}
+              {row.isPrimaryManager ? ' · Gestor principal' : ''}
+            </Text>
+          </SectionCard>
+        </Pressable>
       ))}
     </ScreenScaffold>
   );
@@ -83,6 +97,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.text,
   },
+  secondaryButton: {
+    minHeight: 50,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   buttonPressed: {
     opacity: 0.8,
   },
@@ -91,16 +114,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  secondaryButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   roleLine: {
-    marginBottom: 8,
     color: colors.text,
     fontSize: 15,
     fontWeight: '600',
-  },
-  hint: {
-    marginTop: 12,
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
   },
 });

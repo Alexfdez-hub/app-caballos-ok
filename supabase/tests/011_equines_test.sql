@@ -158,7 +158,6 @@ begin
         on namespace.oid = procedure.pronamespace
      where namespace.nspname = 'public'
        and procedure.proname in (
-         'list_my_equines',
          'get_my_equines',
          'create_equine',
          'upsert_equine',
@@ -168,7 +167,22 @@ begin
          'list_public_equines'
        )
   ) then
-    raise exception 'Client equine mutation or my-equines RPC must not exist';
+    raise exception 'Client equine mutation or public equine RPC must not exist';
+  end if;
+
+  if (
+    select count(*)
+      from pg_catalog.pg_proc as procedure
+      join pg_catalog.pg_namespace as namespace
+        on namespace.oid = procedure.pronamespace
+     where namespace.nspname = 'public'
+       and procedure.proname in (
+         'create_my_equine',
+         'list_my_equines',
+         'get_my_equine'
+       )
+  ) <> 3 then
+    raise exception 'Caller-scoped equine create and read RPCs are missing';
   end if;
 
   if (
@@ -885,7 +899,10 @@ begin
            and procedure.proname not in (
              'list_my_equine_ownerships',
              'list_my_equine_management_assignments',
-             'record_equine_activity'
+             'record_equine_activity',
+             'create_my_equine',
+             'list_my_equines',
+             'get_my_equine'
            )
          )
        )
