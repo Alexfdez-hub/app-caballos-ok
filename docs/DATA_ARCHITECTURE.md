@@ -20,6 +20,8 @@
 10. RLS es obligatoria y deny-by-default.
 11. Las políticas por rol y sus aceptaciones están versionadas y auditadas.
 12. Cursor implementa esta arquitectura; no debe rediseñarla.
+13. Autenticación, verificación de identidad, declaración de propiedad y verificación de propiedad son estados distintos.
+14. Un dato declarado puede existir en ámbito privado, pero no habilita por sí solo publicación, reserva ni pago.
 
 ## 2. Identidad
 
@@ -46,6 +48,10 @@ No almacenar edad; se calcula para la fecha de actividad.
 - timestamps
 
 Usar `person_id` para identidad ecuestre y `user_account_id` sólo para acciones autenticadas/auditoría.
+
+### 2.1 Niveles de confianza de identidad
+
+Supabase Auth acredita el control del método de acceso, no la identidad civil. Separar `ACCOUNT_AUTHENTICATED`, `MARKET_CONFIRMED`, `IDENTITY_VERIFIED` y, cuando pagos o normativa lo exijan, `FISCAL_IDENTITY_VERIFIED`. La futura integración KYC debe abstraer proveedor, minimizar datos y mantener evidencia privada. El esquema definitivo requiere aprobación antes de una nueva migración.
 
 ## 3. Roles
 
@@ -160,6 +166,12 @@ CHECK: exactamente uno de los owner FK es no nulo y coincide con `owner_type`.
 
 Roles: `PRIMARY_MANAGER`, `CO_MANAGER`, `AUTHORIZED_MANAGER`.
 MVP0 exige un único `PRIMARY_MANAGER` activo para un equino publicable.
+
+### 7.1 Declaración, verificación y puertas
+
+El alta autónoma puede crear atómicamente un equino privado, `EQUINE_OWNERSHIP_DECLARED` y un `PRIMARY_MANAGER`; no demuestra propiedad legal. Separar `EQUINE_OWNERSHIP_VERIFIED` y `MANAGEMENT_AUTHORITY_VERIFIED`. La prueba podrá combinar pasaporte/UELN o microchip, documentos de titularidad o cesión, corroboración por hípica y revisión manual, con rechazo, caducidad, revocación, conflicto y auditoría.
+
+Un equino solo declarado puede editarse y fotografiarse en privado. No puede publicarse, ofrecer servicios, aceptar reservas ni intervenir en pagos hasta cumplir las puertas de verificación definidas por mercado y riesgo. El backend impone la puerta. Entidades candidatas: `identity_verifications`, `equine_ownership_claims` o `equine_ownership_verifications`, y `equine_verification_evidence`; no crear todavía hasta aprobar el diseño.
 
 ## 8. Equino ↔ centro
 
