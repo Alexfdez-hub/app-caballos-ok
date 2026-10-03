@@ -110,8 +110,11 @@ one verified guardian who are not the primary manager of the equine.
 
 ## Identity market capture
 
-Not part of `npm run pilot:journey` and not a remote change. Migration
-`035_identity_market_capture.sql` is unreleased.
+Not part of `npm run pilot:journey`. Migration
+`035_identity_market_capture.sql` is deployed to `efkauegdlmfkonzwyyiv`
+as exact version `035`. Android smoke passed for authentication, Spain
+selection and persistence, profile edit, navigation, and fictional equine
+creation.
 
 1. A new account, or an existing account whose `persons.country_code` is
    null, stays on Completa tu perfil until the person chooses a country.
@@ -124,4 +127,4 @@ Not part of `npm run pilot:journey` and not a remote change. Migration
 4. An inactive, unknown or rule-less country is refused with the generic
    save message. The previous person row is left unchanged.
 5. After a valid adult market is stored, private equine creation can use
-   that market. This step does not deploy the migration.
+   that market. The Android smoke already exercised that path once.

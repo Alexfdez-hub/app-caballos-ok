@@ -1,9 +1,10 @@
 # Identity market capture
 
-**Status:** implemented on this branch, not deployed
+**Status:** merged, deployed, and verified
 **Date:** 2026-10-03
-**Migration:** `035_identity_market_capture.sql`
-**Issue:** #47
+**Migration:** `035_identity_market_capture.sql`, exact remote version `035`
+**Issue:** #47, closed
+**Main:** `fb599bba25f994bb0bd54ce6e872324523f56e92` (merge of PR #49)
 
 ## What changed
 
@@ -31,6 +32,8 @@ public listing, real bookings, payments and migration `036`.
 
 ## Deployment
 
-Not applied to `efkauegdlmfkonzwyyiv` by this branch. Apply `035` only
-after review, and do not run a second manual Spain seed on top of a
-matching baseline.
+Applied to `efkauegdlmfkonzwyyiv` and registered as exact version `035`.
+Android smoke passed: authentication, selecting and persisting Spain,
+profile edit, navigation, and creation of a fictional equine. Do not run
+a second manual Spain seed on top of the matching baseline. Migration
+`036` does not exist and is not authorized.

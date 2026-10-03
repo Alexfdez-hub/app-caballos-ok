@@ -1,6 +1,7 @@
 # Identity and Equine Verification Plan
 
-**Status:** approved planning clarification; implementation design pending
+**Status:** planning clarification approved. Manual flow proposed in
+`docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`. Implementation is not authorized.
 **Date:** 2026-10-03
 **Scope:** MVP0 trust gates before public marketplace operations
 **Out of scope:** selecting a KYC provider, legal certification, payments, migration 036
@@ -79,9 +80,13 @@ Verification records trust in those relationships; they do not replace them.
 
 ## 7. Delivery sequence
 
-1. Issue #47: explicit country/market capture and existing-account remediation.
+1. Issue #47: explicit country/market capture and existing-account
+   remediation. Done in merged PR #49. Migration `035` is deployed as exact
+   version `035`. Android smoke passed.
 2. Docs/design PR: states, reviewer roles, evidence categories, retention and
-   exact publication gates.
+   publication gates. Proposed in `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`.
+   Open `DECISION_REQUIRED` items remain. This step does not implement the
+   flow and does not allocate migration `036`.
 3. Manual identity-verification slice with tests.
 4. Manual equine ownership/management verification slice with tests.
 5. Integrate gates into publication and service enablement.
