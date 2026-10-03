@@ -11,6 +11,8 @@
     "**/*.tsx"
   ],
   "exclude": [
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "supabase/functions/**/index.ts",
+    "supabase/functions/_shared/serve.ts"
   ]
 }
