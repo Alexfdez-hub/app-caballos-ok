@@ -25,7 +25,7 @@ declare
   adult_age integer;
   rule_count integer;
   equine_id uuid;
-  established_at timestamptz := clock_timestamp();
+  established_at timestamptz := now();
 begin
   select caller.person_id
     into caller_person_id
@@ -191,45 +191,41 @@ begin
     equine.equine_type,
     equine.status,
     equine.visibility_status,
-    exists (
-      select 1
-        from public.equine_ownerships as ownership
-       where ownership.equine_id = equine.id
-         and ownership.owner_type = 'PERSON'
-         and ownership.owner_person_id = caller_person_id
+    public.has_effective_equine_person_ownership(
+      caller_person_id,
+      equine.id
     ) as is_owner,
-    exists (
-      select 1
-        from public.equine_management_assignments as assignment
-       where assignment.equine_id = equine.id
-         and assignment.manager_type = 'PERSON'
-         and assignment.manager_person_id = caller_person_id
-         and assignment.management_role = 'PRIMARY_MANAGER'
-         and assignment.status = 'ACTIVE'
-         and assignment.valid_until is null
-         and assignment.valid_from <= now()
+    public.has_active_equine_management_role(
+      caller_person_id,
+      equine.id,
+      'PRIMARY_MANAGER'
     ) as is_primary_manager
   from public.equines as equine
-  where exists (
-          select 1
-            from public.equine_ownerships as ownership
-           where ownership.equine_id = equine.id
-             and ownership.owner_type = 'PERSON'
-             and ownership.owner_person_id = caller_person_id
+  where public.has_effective_equine_person_ownership(
+          caller_person_id,
+          equine.id
         )
-     or exists (
-          select 1
-            from public.equine_management_assignments as assignment
-           where assignment.equine_id = equine.id
-             and assignment.manager_type = 'PERSON'
-             and assignment.manager_person_id = caller_person_id
+     or public.has_active_equine_management_role(
+          caller_person_id,
+          equine.id,
+          'PRIMARY_MANAGER'
+        )
+     or public.has_active_equine_management_role(
+          caller_person_id,
+          equine.id,
+          'CO_MANAGER'
+        )
+     or public.has_active_equine_management_role(
+          caller_person_id,
+          equine.id,
+          'AUTHORIZED_MANAGER'
         )
   order by equine.created_at desc, equine.id;
 end;
 $$;
 
 comment on function public.list_my_equines() is
-  'Lists equines the caller PERSON owns or manages. Does not accept an identity argument and does not return other people, centers or media.';
+  'Lists equines the caller PERSON currently owns or manages. Ownership is effective only when ACTIVE, ended_at is null and started_at <= now(). Management is effective only when ACTIVE, valid_until is null and valid_from <= now(). Ended, expired and future rows do not authorize. Does not accept an identity argument and does not return other people, centers or media.';
 
 revoke all on function public.list_my_equines() from public, anon, authenticated;
 grant execute on function public.list_my_equines() to authenticated;
@@ -281,40 +277,36 @@ begin
     equine.temperament_description,
     equine.status,
     equine.visibility_status,
-    exists (
-      select 1
-        from public.equine_ownerships as ownership
-       where ownership.equine_id = equine.id
-         and ownership.owner_type = 'PERSON'
-         and ownership.owner_person_id = caller_person_id
+    public.has_effective_equine_person_ownership(
+      caller_person_id,
+      equine.id
     ),
-    exists (
-      select 1
-        from public.equine_management_assignments as assignment
-       where assignment.equine_id = equine.id
-         and assignment.manager_type = 'PERSON'
-         and assignment.manager_person_id = caller_person_id
-         and assignment.management_role = 'PRIMARY_MANAGER'
-         and assignment.status = 'ACTIVE'
-         and assignment.valid_until is null
-         and assignment.valid_from <= now()
+    public.has_active_equine_management_role(
+      caller_person_id,
+      equine.id,
+      'PRIMARY_MANAGER'
     )
   from public.equines as equine
   where equine.id = p_equine_id
     and (
-      exists (
-        select 1
-          from public.equine_ownerships as ownership
-         where ownership.equine_id = equine.id
-           and ownership.owner_type = 'PERSON'
-           and ownership.owner_person_id = caller_person_id
+      public.has_effective_equine_person_ownership(
+        caller_person_id,
+        equine.id
       )
-      or exists (
-        select 1
-          from public.equine_management_assignments as assignment
-         where assignment.equine_id = equine.id
-           and assignment.manager_type = 'PERSON'
-           and assignment.manager_person_id = caller_person_id
+      or public.has_active_equine_management_role(
+        caller_person_id,
+        equine.id,
+        'PRIMARY_MANAGER'
+      )
+      or public.has_active_equine_management_role(
+        caller_person_id,
+        equine.id,
+        'CO_MANAGER'
+      )
+      or public.has_active_equine_management_role(
+        caller_person_id,
+        equine.id,
+        'AUTHORIZED_MANAGER'
       )
     );
 
@@ -327,7 +319,7 @@ end;
 $$;
 
 comment on function public.get_my_equine(uuid) is
-  'Returns one equine the caller PERSON owns or manages. A missing or foreign id raises the same unavailable error. No media and no other person.';
+  'Returns one equine the caller PERSON currently owns or manages. Uses the same effective ownership and management predicates as list_my_equines. A missing, foreign, ended, expired or future relationship raises the same unavailable error. No media and no other person.';
 
 revoke all on function public.get_my_equine(uuid) from public, anon, authenticated;
 grant execute on function public.get_my_equine(uuid) to authenticated;

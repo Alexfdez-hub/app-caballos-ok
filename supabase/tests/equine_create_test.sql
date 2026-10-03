@@ -158,6 +158,8 @@ declare
   second_id uuid;
   listed integer;
   detail_name text;
+  owner_flag boolean;
+  manager_flag boolean;
 begin
   first_id := public.create_my_equine('  Nube  ', 'HORSE', null, null, null, null, null, null);
   second_id := public.create_my_equine('Bruma', 'PONY');
@@ -171,11 +173,14 @@ begin
     raise exception 'Creator list should contain two equines, got %', listed;
   end if;
 
-  select detail.equine_name
-    into detail_name
+  select detail.equine_name, detail.is_owner, detail.is_primary_manager
+    into detail_name, owner_flag, manager_flag
     from public.get_my_equine(first_id) as detail;
   if detail_name is distinct from 'Nube' then
     raise exception 'Detail name was not trimmed, got %', detail_name;
+  end if;
+  if not owner_flag or not manager_flag then
+    raise exception 'Current creator should be owner and primary manager';
   end if;
 
   begin
@@ -537,5 +542,342 @@ begin
   end if;
 end;
 $$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_ownerships
+     set status = 'ENDED',
+         ended_at = now()
+   where equine_id = target
+     and owner_person_id = blair;
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  seen_owner boolean;
+  seen_manager boolean;
+begin
+  select detail.is_owner, detail.is_primary_manager
+    into seen_owner, seen_manager
+    from public.get_my_equine(target) as detail;
+  if seen_owner or not seen_manager then
+    raise exception 'Ended ownership should keep effective primary management';
+  end if;
+
+  if not exists (
+    select 1
+      from public.list_my_equines() as equine
+     where equine.equine_id = target
+       and equine.is_owner = false
+       and equine.is_primary_manager = true
+  ) then
+    raise exception 'Effective primary manager lost the equine after ownership ended';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_management_assignments
+     set status = 'ENDED',
+         valid_from = now() - interval '1 day',
+         valid_until = now() + interval '1 day'
+   where equine_id = target
+     and manager_person_id = blair
+     and management_role = 'PRIMARY_MANAGER';
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  listed integer;
+begin
+  select count(*)
+    into listed
+    from public.list_my_equines() as equine
+   where equine.equine_id = target;
+  if listed <> 0 then
+    raise exception 'Inactive management still listed the equine';
+  end if;
+
+  begin
+    perform public.get_my_equine(target);
+    raise exception using
+      errcode = 'P0002',
+      message = 'Inactive management was accepted';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Equine is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_management_assignments
+     set status = 'ENDED',
+         valid_from = now() - interval '2 days',
+         valid_until = now() - interval '1 day'
+   where equine_id = target
+     and manager_person_id = blair
+     and management_role = 'PRIMARY_MANAGER';
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  listed integer;
+begin
+  select count(*)
+    into listed
+    from public.list_my_equines() as equine
+   where equine.equine_id = target;
+  if listed <> 0 then
+    raise exception 'Expired management still listed the equine';
+  end if;
+
+  begin
+    perform public.get_my_equine(target);
+    raise exception using
+      errcode = 'P0002',
+      message = 'Expired management was accepted';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Equine is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_management_assignments
+     set status = 'ACTIVE',
+         valid_from = now() + interval '1 day',
+         valid_until = null
+   where equine_id = target
+     and manager_person_id = blair
+     and management_role = 'PRIMARY_MANAGER';
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  listed integer;
+begin
+  select count(*)
+    into listed
+    from public.list_my_equines() as equine
+   where equine.equine_id = target;
+  if listed <> 0 then
+    raise exception 'Future management still listed the equine';
+  end if;
+
+  begin
+    perform public.get_my_equine(target);
+    raise exception using
+      errcode = 'P0002',
+      message = 'Future management was accepted';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Equine is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_management_assignments
+     set status = 'ENDED',
+         valid_from = now() - interval '2 days',
+         valid_until = now() - interval '1 day'
+   where equine_id = target
+     and manager_person_id = blair
+     and management_role = 'PRIMARY_MANAGER';
+
+  update public.equine_ownerships
+     set status = 'ACTIVE',
+         started_at = now() + interval '1 day',
+         ended_at = null
+   where equine_id = target
+     and owner_person_id = blair;
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  listed integer;
+begin
+  select count(*)
+    into listed
+    from public.list_my_equines() as equine
+   where equine.equine_id = target;
+  if listed <> 0 then
+    raise exception 'Future ownership still listed the equine';
+  end if;
+
+  begin
+    perform public.get_my_equine(target);
+    raise exception using
+      errcode = 'P0002',
+      message = 'Future ownership was accepted';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Equine is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_ownerships
+     set status = 'ACTIVE',
+         started_at = now(),
+         ended_at = null
+   where equine_id = target
+     and owner_person_id = blair;
+
+  update public.equine_management_assignments
+     set status = 'ENDED',
+         valid_from = now() - interval '2 days',
+         valid_until = now() - interval '1 day'
+   where equine_id = target
+     and manager_person_id = blair
+     and management_role = 'PRIMARY_MANAGER';
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  seen_owner boolean;
+  seen_manager boolean;
+begin
+  select detail.is_owner, detail.is_primary_manager
+    into seen_owner, seen_manager
+    from public.get_my_equine(target) as detail;
+  if not seen_owner or seen_manager then
+    raise exception 'Effective ownership should remain readable after management expired';
+  end if;
+
+  if not exists (
+    select 1
+      from public.list_my_equines() as equine
+     where equine.equine_id = target
+       and equine.is_owner = true
+       and equine.is_primary_manager = false
+  ) then
+    raise exception 'Effective owner lost the equine after management expired';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  blair uuid := '03110000-0000-4000-8000-000000000012';
+begin
+  update public.equine_ownerships
+     set status = 'ENDED',
+         ended_at = now()
+   where equine_id = target
+     and owner_person_id = blair;
+end;
+$$;
+
+select pg_temp.equine_jwt('03110000-0000-4000-8000-000000000002');
+set local role authenticated;
+
+do $$
+declare
+  target uuid := current_setting('equine.blair_id')::uuid;
+  listed integer;
+begin
+  select count(*)
+    into listed
+    from public.list_my_equines() as equine
+   where equine.equine_id = target;
+  if listed <> 0 then
+    raise exception 'Ended ownership still listed the equine';
+  end if;
+
+  begin
+    perform public.get_my_equine(target);
+    raise exception using
+      errcode = 'P0002',
+      message = 'Ended ownership was accepted';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Equine is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
 
 rollback;
