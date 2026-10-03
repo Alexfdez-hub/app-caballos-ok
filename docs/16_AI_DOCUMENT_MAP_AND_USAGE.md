@@ -341,25 +341,7 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 civil-identity verification, declared ownership, verified ownership and
 verified management authority are distinct. A privately declared equine
 may be completed and photographed, but publication, service enablement,
-real booking and payment require backend-enforced verification gates. Do not
-open buckets and do not start migration `035`. The Level 1–3 handoff
-filenames named above (`08_DATA_ARCHITECTURE_2_1_FULL.md`,
-`07_DECISION_LOG.md`, `03_SECURITY_AND_BUSINESS_RULES.md`,
-`10_AI_INSTRUCTIONS_FULL.md`,
-`13_POLICY_AND_CONSENT_MODEL_RECONSTRUCTED.md`,
-`04_IMPLEMENTATION_STATUS.md`, `06_NEXT_PHASES.md`) are not in this
-repository. Use `docs/DATA_ARCHITECTURE.md`, `docs/MIGRATION_STATUS.md`,
-the phase reports, `docs/REMOTE_DEPLOYMENT_027_029.md`,
-`docs/PILOT_STAGE0_INVENTORY.md`, `docs/ACTIVITY_READ_MODEL.md` and
-`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md`. Option A is accepted for
-issue #41. Stage 031 implements adult self-create. Stage 032 authorizes
-photo metadata and canonical paths. Post-storage metadata mutations
-are `service_role` only. Stage 033 signs, inspects and deletes with a
-server-only client after SQL authorization, then calls those mutations
-only after the Storage result. Stage 034 adds the pilot list, create
-form, detail and private-photo flow. Those Edge Functions are not
-deployed. Do not merge or deploy without the train gates. `avatars`
-and `equine-media` stay deny-by-default private.
+real booking and payment require backend-enforced verification gates..
 
 ------------------------------------------------------------------------
 
