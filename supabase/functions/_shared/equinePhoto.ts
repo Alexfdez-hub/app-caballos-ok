@@ -130,7 +130,9 @@ export function serverClientOptions() {
   };
 }
 
-export function adaptServerClient(storage: StructuralStorage): ServerPhotoClient {
+export function adaptServerClient(
+  storage: StructuralStorage,
+): Omit<ServerPhotoClient, 'mutateMetadata'> {
   return {
     async signUpload(path) {
       const signed = await storage.createSignedUploadUrl(path);
