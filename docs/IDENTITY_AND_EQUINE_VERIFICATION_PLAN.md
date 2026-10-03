@@ -3,7 +3,7 @@
 **Status:** approved planning clarification; implementation design pending
 **Date:** 2026-10-03
 **Scope:** MVP0 trust gates before public marketplace operations
-**Out of scope:** selecting a KYC provider, legal certification, payments, migration 035
+**Out of scope:** selecting a KYC provider, legal certification, payments, migration 036
 
 ## 1. Why this exists
 
@@ -89,6 +89,9 @@ Verification records trust in those relationships; they do not replace them.
 7. Before payments: choose provider, complete privacy/legal review and add
    fiscal/KYC requirements.
 
+Migration `035_identity_market_capture.sql` is allocated only to issue #47.
+It does not add KYC, evidence storage or publication gates.
+
 ## 8. Acceptance tests for the future train
 
 - Authenticated but unverified account cannot cross a verification gate.
@@ -103,6 +106,6 @@ Verification records trust in those relationships; they do not replace them.
 
 ## 9. Stop conditions
 
-Do not create migration 035, select a provider, enable public supply, process
-payments or encode market-specific legal evidence rules until the corresponding
-design and legal/product decisions are approved.
+Do not create migration `036`, select a provider, enable public supply, process
+payments or encode further market-specific legal evidence rules until the
+corresponding design and legal/product decisions are approved.

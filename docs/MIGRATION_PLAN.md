@@ -4,15 +4,11 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
 
-**Live status (verified 2026-10-03 after train 031–034):** repository
-`main` is `72287679f87a56941f10fd468903b3fa7b4b4bf6`. Migrations
-`001`–`032` are merged. Logical migrations `031` and `032` and
-the four private equine-photo Edge Functions are deployed to
-`efkauegdlmfkonzwyyiv`; the Android smoke test passed. The
-`equine-media` bucket remains private. Issue #47 tracks country/market
-capture. The next schema number is reserved pending approval of the
-identity and equine-verification design; do not create migration `035`
-speculatively.
+**Live status (verified 2026-10-03, issue #47 branch):** repository
+`main` is `399189d8580c64f1b4dc164a289e7306e15d8c09`. Migrations
+`001`–`032` are on `main`. This branch adds unreleased
+`035_identity_market_capture.sql` and does not deploy it. Null person
+countries are not backfilled. Do not start migration `036`.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
 described Phase 14B as unmerged on parent
@@ -375,11 +371,12 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-03):** implement issue #47 for explicit
-country/market capture, then approve and deliver the manual MVP0
-identity/equine-verification slice described in
+**Siguiente fase (live 2026-10-03, issue #47 branch):** migration `035`
+captures an explicit identity market and installs the Spain pilot
+baseline. It is not deployed. Next, approve the remaining manual MVP0
+identity and equine-verification slice in
 `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`. Existing ownership and
 management migrations remain valid. A private self-created equine is
 declared, not verified. Do not enable public listing, services, real
 bookings or payments without the approved backend verification gates.
-Do not start migration `035` before the detailed design gate.
+Do not start migration `036`.

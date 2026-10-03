@@ -1,15 +1,11 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03 after train 031–034):** repository `main` is
-`72287679f87a56941f10fd468903b3fa7b4b4bf6` and contains migrations
-`001`–`032`. Logical migrations `031_equine_self_create` and
-`032_equine_photo_authorization` are deployed to
-`efkauegdlmfkonzwyyiv`; the remote history uses connector-generated
-timestamp versions. The four equine-photo Edge Functions are deployed
-and active with JWT verification. `equine-media` remains private and
-deny-by-default. Android smoke testing passed. Issue #41 is closed and
-issue #47 remains open for country/market capture. No migration `035`
-exists. The Phase 14B record below is historical.
+**Live note (2026-10-03, issue #47 branch):** repository `main` is
+`399189d8580c64f1b4dc164a289e7306e15d8c09` and contains migrations
+`001`–`032`. This branch adds unreleased `035_identity_market_capture.sql`
+for explicit country capture and the Spain pilot baseline. Nothing in
+this change is deployed. Existing null countries are not assigned `ES`.
+Do not start migration `036`. The Phase 14B record below is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main
@@ -62,12 +58,12 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 
 ## Next phase
 
-1. Implement issue #47: explicit country/market capture, validation
-   against active markets and remediation for existing accounts.
-2. Approve the detailed manual MVP0 identity and equine-verification
+1. Issue #47 adds unreleased migration `035_identity_market_capture.sql`:
+   explicit country selection, selectable-market validation and the
+   Spain pilot baseline. It is not deployed.
+2. Approve the remaining manual MVP0 identity and equine-verification
    workflow in `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`.
-3. Only then allocate migration `035` if the approved schema requires
-   it. Do not infer a KYC provider or legal evidence rule.
+3. Do not allocate migration `036` for KYC, evidence or publication.
 4. Keep private declared-equine and private-photo functionality working;
    block public listing, service enablement, real booking and payment
    until backend verification gates are satisfied.

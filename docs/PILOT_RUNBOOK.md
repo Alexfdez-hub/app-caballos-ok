@@ -107,3 +107,21 @@ one verified guardian who are not the primary manager of the equine.
    They cannot see it in their list, cannot open its detail, and cannot
    upload, read or retire its photo. A membership or a guardianship does
    not create ownership.
+
+## Identity market capture
+
+Not part of `npm run pilot:journey` and not a remote change. Migration
+`035_identity_market_capture.sql` is unreleased.
+
+1. A new account, or an existing account whose `persons.country_code` is
+   null, stays on Completa tu perfil until the person chooses a country.
+   Spain is not assigned automatically.
+2. The country list comes from `list_identity_markets`. Choose España
+   only by tapping it. Do not treat the phone language, locale, time
+   zone or location as the market.
+3. Saving stores `ES` for that choice. The profile screen can change it
+   to another selectable market later.
+4. An inactive, unknown or rule-less country is refused with the generic
+   save message. The previous person row is left unchanged.
+5. After a valid adult market is stored, private equine creation can use
+   that market. This step does not deploy the migration.
