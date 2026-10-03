@@ -11,10 +11,14 @@ import {
 
 import type { EditIdentityScreenProps } from '../app/navigation/types';
 import { DateOfBirthField } from '../features/identity/DateOfBirthField';
+import { IdentityCountryField } from '../features/identity/IdentityCountryField';
 import { useIdentity } from '../features/identity/useIdentity';
+import { userFacingIdentityMessage } from '../features/identity/identityMarket';
 import {
+  isValidCountryCode,
   isValidDateOfBirth,
   isValidIdentityName,
+  normalizeCountryCode,
 } from '../features/identity/validation';
 
 export default function EditIdentityScreen({
@@ -26,6 +30,7 @@ export default function EditIdentityScreen({
   const [dateOfBirth, setDateOfBirth] = useState(
     identity?.dateOfBirth ?? '',
   );
+  const [countryCode, setCountryCode] = useState(identity?.countryCode ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -40,16 +45,24 @@ export default function EditIdentityScreen({
       return;
     }
 
+    if (!isValidCountryCode(countryCode)) {
+      setMessage('Elige un país de la lista.');
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage(null);
 
     try {
-      await completeIdentity({ firstName, lastName, dateOfBirth });
+      await completeIdentity({
+        firstName,
+        lastName,
+        dateOfBirth,
+        countryCode: normalizeCountryCode(countryCode),
+      });
       navigation.goBack();
-    } catch {
-      setMessage(
-        'No se pudieron guardar los cambios. Inténtalo de nuevo en unos instantes.',
-      );
+    } catch (error) {
+      setMessage(userFacingIdentityMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -88,6 +101,13 @@ export default function EditIdentityScreen({
           editable={!isSubmitting}
           onChange={setDateOfBirth}
           value={dateOfBirth}
+        />
+
+        <Text style={styles.label}>País</Text>
+        <IdentityCountryField
+          editable={!isSubmitting}
+          onChange={setCountryCode}
+          value={countryCode}
         />
 
         {message ? (

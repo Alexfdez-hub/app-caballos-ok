@@ -3,6 +3,22 @@ export function isValidIdentityName(value: string) {
   return normalized.length > 0 && normalized.length <= 100;
 }
 
+export function normalizeCountryCode(value: string) {
+  return value.trim().toUpperCase();
+}
+
+export function isValidCountryCode(value: string) {
+  return /^[A-Z]{2}$/.test(normalizeCountryCode(value));
+}
+
+const IDENTITY_MARKET_LABELS: Record<string, string> = {
+  ES: 'España',
+};
+
+export function identityMarketLabel(countryCode: string) {
+  return IDENTITY_MARKET_LABELS[countryCode] ?? countryCode;
+}
+
 export function isValidDateOfBirth(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
 

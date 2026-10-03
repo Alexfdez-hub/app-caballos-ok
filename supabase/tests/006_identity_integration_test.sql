@@ -172,7 +172,7 @@ begin
     'execute'
   ) or not has_function_privilege(
     'authenticated',
-    'public.complete_my_identity(text,text,date)',
+    'public.complete_my_identity(text,text,date,text)',
     'execute'
   ) or has_function_privilege(
     'anon',
@@ -180,7 +180,7 @@ begin
     'execute'
   ) or has_function_privilege(
     'anon',
-    'public.complete_my_identity(text,text,date)',
+    'public.complete_my_identity(text,text,date,text)',
     'execute'
   ) or has_function_privilege(
     'authenticated',
@@ -226,7 +226,7 @@ begin
   end if;
 
   select * into completed_result
-  from public.complete_my_identity('  Ana  ', '  Example  ', '2000-01-02');
+  from public.complete_my_identity('  Ana  ', '  Example  ', '2000-01-02', 'ES');
 
   if completed_result.first_name <> 'Ana'
      or completed_result.last_name <> 'Example'
@@ -276,7 +276,7 @@ begin
 
   begin
     perform *
-    from public.complete_my_identity('Ana', 'Example', current_date + 1);
+    from public.complete_my_identity('Ana', 'Example', current_date + 1, 'ES');
     raise exception 'Future date of birth was accepted';
   exception
     when invalid_parameter_value then null;
@@ -317,7 +317,7 @@ begin
   end;
 
   begin
-    perform * from public.complete_my_identity('Ana', 'Example', '2000-01-02');
+    perform * from public.complete_my_identity('Ana', 'Example', '2000-01-02', 'ES');
     raise exception 'Anonymous role executed identity completion';
   exception
     when insufficient_privilege then null;
@@ -442,6 +442,7 @@ begin
       and person.first_name = 'Ana'
       and person.last_name = 'Example'
       and person.date_of_birth = date '2000-01-02'
+      and person.country_code = 'ES'
   ) <> 1 then
     raise exception 'Caller profile was not updated exactly once';
   end if;
@@ -458,6 +459,7 @@ begin
         person.first_name is not null
         or person.last_name is not null
         or person.date_of_birth is not null
+        or person.country_code is not null
       )
   ) then
     raise exception 'Profile completion modified an unrelated identity';

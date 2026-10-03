@@ -13,10 +13,14 @@ import {
 
 import { signOut } from '../features/auth/authService';
 import { DateOfBirthField } from '../features/identity/DateOfBirthField';
+import { IdentityCountryField } from '../features/identity/IdentityCountryField';
 import { useIdentity } from '../features/identity/useIdentity';
+import { userFacingIdentityMessage } from '../features/identity/identityMarket';
 import {
+  isValidCountryCode,
   isValidDateOfBirth,
   isValidIdentityName,
+  normalizeCountryCode,
 } from '../features/identity/validation';
 
 export default function IdentityOnboardingScreen() {
@@ -26,6 +30,7 @@ export default function IdentityOnboardingScreen() {
   const [dateOfBirth, setDateOfBirth] = useState(
     identity?.dateOfBirth ?? '',
   );
+  const [countryCode, setCountryCode] = useState(identity?.countryCode ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -40,6 +45,11 @@ export default function IdentityOnboardingScreen() {
       return;
     }
 
+    if (!isValidCountryCode(countryCode)) {
+      setMessage('Elige un país de la lista.');
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage(null);
 
@@ -48,11 +58,10 @@ export default function IdentityOnboardingScreen() {
         firstName,
         lastName,
         dateOfBirth,
+        countryCode: normalizeCountryCode(countryCode),
       });
-    } catch {
-      setMessage(
-        'No se pudo guardar tu identidad. Inténtalo de nuevo en unos instantes.',
-      );
+    } catch (error) {
+      setMessage(userFacingIdentityMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -101,6 +110,13 @@ export default function IdentityOnboardingScreen() {
             editable={!isSubmitting}
             onChange={setDateOfBirth}
             value={dateOfBirth}
+          />
+
+          <Text style={styles.label}>País</Text>
+          <IdentityCountryField
+            editable={!isSubmitting}
+            onChange={setCountryCode}
+            value={countryCode}
           />
 
           {message ? (

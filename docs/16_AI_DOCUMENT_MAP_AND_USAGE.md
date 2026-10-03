@@ -321,27 +321,24 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-03 after train 031–034):** repository
-`main` is `72287679f87a56941f10fd468903b3fa7b4b4bf6`. Migrations
-`001`–`032` are merged; logical migrations `031_equine_self_create`
-and `032_equine_photo_authorization` are deployed to
-`efkauegdlmfkonzwyyiv` (the remote connector recorded timestamped
-versions). The four private equine-photo Edge Functions are deployed and
-active with JWT verification. The `equine-media` bucket remains private
-and deny-by-default. Issue #41 and the 031–034 train are complete; Android
-smoke testing passed. Issue #47 tracks permanent country/market capture.
-Do not start migration `035` until the identity and equine-verification
-design is approved.
+**Live status (verified 2026-10-03, issue #47 branch):** repository
+`main` is `399189d8580c64f1b4dc164a289e7306e15d8c09`. Migrations
+`001`–`032` are on `main`. This branch adds unreleased
+`035_identity_market_capture.sql`. It is not deployed and it does not
+modify `efkauegdlmfkonzwyyiv`. Identity completion requires an explicit
+selectable country. Null `persons.country_code` stays incomplete and is
+not backfilled with Spain. Do not start migration `036`.
 
 The Level 1–3 handoff documents named above are maintained outside this
 repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/MIGRATION_STATUS.md`, the phase reports,
 `docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md` and
-`docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`. Authentication,
+`docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md` and
+`docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`. Authentication,
 civil-identity verification, declared ownership, verified ownership and
 verified management authority are distinct. A privately declared equine
 may be completed and photographed, but publication, service enablement,
-real booking and payment require backend-enforced verification gates..
+real booking and payment require backend-enforced verification gates.
 
 ------------------------------------------------------------------------
 
