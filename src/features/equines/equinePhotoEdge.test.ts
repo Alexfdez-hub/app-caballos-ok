@@ -18,8 +18,14 @@ import type {
 
 const equineId = '03210000-0000-4000-8000-0000000000aa';
 const mediaId = '03210000-0000-4000-8000-0000000000bb';
+const callerAuthUserId = '03210000-0000-4000-8000-000000000001';
 const canonicalPath = `${equineId}/${mediaId}`;
 const token = 'header.payload.signature-token';
+const directMutations = [
+  'abandon_my_equine_photo',
+  'record_my_equine_photo_finalized',
+  'retire_my_equine_photo_metadata',
+];
 const signedUploadUrl = 'https://storage.example/upload-token';
 const signedReadUrl = 'https://storage.example/read-token';
 
@@ -36,10 +42,13 @@ function request(body: unknown, authorization = `Bearer ${token}`) {
 
 function harness(options?: {
   rpc?: UserPhotoClient['rpc'];
+  authUserId?: string | null;
   server?: Partial<ServerPhotoClient>;
+  mutate?: ServerPhotoClient['mutateMetadata'];
 }) {
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const serverCalls: string[] = [];
+  const serverMutations: Array<{ name: string; mediaId: string; authUserId: string }> = [];
   let serverCreated = 0;
   const userJwts: string[] = [];
   const logs: unknown[][] = [];
@@ -76,15 +85,37 @@ function harness(options?: {
       serverCalls.push(`delete:${path}`);
       return 'deleted';
     },
+    async mutateMetadata(name, mediaId, authUserId) {
+      serverMutations.push({ name, mediaId, authUserId });
+      if (options?.mutate) {
+        return options.mutate(name, mediaId, authUserId);
+      }
+      return { data: null, errorMessage: null };
+    },
     ...options?.server,
+  };
+  server.mutateMetadata = async (name, mediaId, authUserId) => {
+    serverMutations.push({ name, mediaId, authUserId });
+    if (options?.mutate) {
+      return options.mutate(name, mediaId, authUserId);
+    }
+    return { data: null, errorMessage: null };
   };
 
   const deps: PhotoDeps = {
     createUserClient(jwt) {
       userJwts.push(jwt);
       return {
+        async authenticatedUserId() {
+          return options && 'authUserId' in options
+            ? options.authUserId ?? null
+            : callerAuthUserId;
+        },
         async rpc(name, args) {
           rpcCalls.push({ name, args });
+          if (directMutations.includes(name)) {
+            throw new Error('direct client mutation');
+          }
           if (options?.rpc) {
             return options.rpc(name, args);
           }
@@ -108,6 +139,7 @@ function harness(options?: {
     deps,
     rpcCalls,
     serverCalls,
+    serverMutations,
     userJwts,
     logs,
     serverCreated: () => serverCreated,
@@ -165,6 +197,19 @@ describe('equine photo edge boundary', () => {
     assert.equal(photo.rpcCalls.length, 0);
   });
 
+  it('does not prepare metadata when the caller JWT cannot be validated', async () => {
+    const photo = harness({ authUserId: null });
+    const response = await handleEquinePhoto(
+      'prepare',
+      request({ equineId, isPrimary: true, contentType: 'image/jpeg' }),
+      photo.deps,
+    );
+    photo.restore();
+    assert.equal(response.status, 401);
+    assert.equal(photo.rpcCalls.length, 0);
+    assert.equal(photo.serverCreated(), 0);
+  });
+
   it('does not sign when prepare authorization fails', async () => {
     const photo = harness({
       rpc: async () => ({
@@ -186,11 +231,11 @@ describe('equine photo edge boundary', () => {
 
   it('records a valid object and does not delete it when metadata recording fails', async () => {
     const photo = harness({
-      rpc: async (name) => {
+      mutate: async (name) => {
         if (name === 'record_my_equine_photo_finalized') {
           return { data: null, errorMessage: 'statement timeout' };
         }
-        return { data: canonicalPath, errorMessage: null };
+        return { data: null, errorMessage: null };
       },
     });
     const response = await handleEquinePhoto(
@@ -202,8 +247,12 @@ describe('equine photo edge boundary', () => {
     assert.equal(response.status, 503);
     assert.equal(response.body.error, 'retry');
     assert.deepEqual(photo.serverCalls, ['inspect']);
+    assert.deepEqual(
+      photo.serverMutations.map((call) => call.name),
+      ['record_my_equine_photo_finalized'],
+    );
     assert.equal(
-      photo.rpcCalls.some((call) => call.name === 'abandon_my_equine_photo'),
+      photo.rpcCalls.some((call) => directMutations.includes(call.name)),
       false,
     );
   });
@@ -223,7 +272,11 @@ describe('equine photo edge boundary', () => {
     );
     photo.restore();
     assert.equal(response.status, 503);
-    assert.equal(photo.rpcCalls.length, 1);
+    assert.deepEqual(
+      photo.rpcCalls.map((call) => call.name),
+      ['authorize_my_equine_photo_finalize'],
+    );
+    assert.equal(photo.serverMutations.length, 0);
   });
 
   it('abandons metadata when the object is absent', async () => {
@@ -242,7 +295,17 @@ describe('equine photo edge boundary', () => {
     photo.restore();
     assert.equal(response.status, 200);
     assert.equal(response.body.abandoned, true);
-    assert.equal(photo.rpcCalls.at(-1)?.name, 'abandon_my_equine_photo');
+    assert.deepEqual(photo.serverMutations, [
+      {
+        name: 'abandon_my_equine_photo',
+        mediaId,
+        authUserId: callerAuthUserId,
+      },
+    ]);
+    assert.deepEqual(
+      photo.rpcCalls.map((call) => call.name),
+      ['authorize_my_equine_photo_finalize'],
+    );
   });
 
   it('deletes an oversized object before abandoning its metadata', async () => {
@@ -261,7 +324,11 @@ describe('equine photo edge boundary', () => {
     photo.restore();
     assert.equal(response.status, 200);
     assert.equal(photo.serverCalls.includes(`delete:${canonicalPath}`), true);
-    assert.equal(photo.rpcCalls.at(-1)?.name, 'abandon_my_equine_photo');
+    assert.equal(photo.serverMutations.at(-1)?.name, 'abandon_my_equine_photo');
+    assert.equal(
+      photo.rpcCalls.some((call) => directMutations.includes(call.name)),
+      false,
+    );
   });
 
   it('signs a read URL for 300 seconds and returns none when the object is absent', async () => {
@@ -304,6 +371,7 @@ describe('equine photo edge boundary', () => {
       photo.rpcCalls.map((call) => call.name),
       ['authorize_my_equine_photo_retire'],
     );
+    assert.equal(photo.serverMutations.length, 0);
   });
 
   it('retries metadata retirement when the object is already absent', async () => {
@@ -321,7 +389,100 @@ describe('equine photo edge boundary', () => {
     );
     photo.restore();
     assert.equal(response.status, 200);
-    assert.equal(photo.rpcCalls.at(-1)?.name, 'retire_my_equine_photo_metadata');
+    assert.deepEqual(photo.serverMutations, [
+      {
+        name: 'retire_my_equine_photo_metadata',
+        mediaId,
+        authUserId: callerAuthUserId,
+      },
+    ]);
+    assert.equal(
+      photo.rpcCalls.some((call) => directMutations.includes(call.name)),
+      false,
+    );
+  });
+
+  it('abandons the new row when signed upload creation fails', async () => {
+    const photo = harness({
+      server: {
+        async signUpload() {
+          return { error: true };
+        },
+      },
+    });
+    const response = await handleEquinePhoto(
+      'prepare',
+      request({ equineId, isPrimary: true, contentType: 'image/jpeg' }),
+      photo.deps,
+    );
+    photo.restore();
+    assert.equal(response.status, 503);
+    assert.equal(response.body.error, 'retry');
+    assert.equal('signedUploadUrl' in response.body, false);
+    assert.equal('mediaId' in response.body, false);
+    assert.deepEqual(photo.serverMutations, [
+      {
+        name: 'abandon_my_equine_photo',
+        mediaId,
+        authUserId: callerAuthUserId,
+      },
+    ]);
+    assert.deepEqual(
+      photo.rpcCalls.map((call) => call.name),
+      ['authorize_my_equine_photo_prepare'],
+    );
+  });
+
+  it('returns the media id for reconciliation when upload cleanup fails', async () => {
+    const photo = harness({
+      server: {
+        async signUpload() {
+          return { error: true };
+        },
+      },
+      mutate: async () => ({ data: null, errorMessage: 'statement timeout' }),
+    });
+    const response = await handleEquinePhoto(
+      'prepare',
+      request({ equineId, isPrimary: true, contentType: 'image/jpeg' }),
+      photo.deps,
+    );
+    photo.restore();
+    assert.equal(response.status, 503);
+    assert.deepEqual(response.body, { error: 'retry', mediaId });
+    assert.equal('signedUploadUrl' in response.body, false);
+    assert.deepEqual(
+      photo.serverMutations.map((call) => call.name),
+      ['abandon_my_equine_photo'],
+    );
+  });
+
+  it('refuses a client identity and never calls a metadata mutation from the user client', async () => {
+    const injected = harness();
+    const rejected = await handleEquinePhoto(
+      'finalize',
+      request({ mediaId, authUserId: '03210000-0000-4000-8000-000000000002' }),
+      injected.deps,
+    );
+    injected.restore();
+    assert.equal(rejected.status, 400);
+    assert.equal(injected.rpcCalls.length, 0);
+    assert.equal(injected.serverCreated(), 0);
+
+    const photo = harness();
+    const finalized = await handleEquinePhoto('finalize', request({ mediaId }), photo.deps);
+    const retired = await handleEquinePhoto('retire', request({ mediaId }), photo.deps);
+    photo.restore();
+    assert.equal(finalized.status, 200);
+    assert.equal(retired.status, 200);
+    assert.deepEqual(
+      photo.rpcCalls.map((call) => call.name),
+      ['authorize_my_equine_photo_finalize', 'authorize_my_equine_photo_retire'],
+    );
+    assert.deepEqual(
+      photo.serverMutations.map((call) => call.authUserId),
+      [callerAuthUserId, callerAuthUserId],
+    );
   });
 
   it('keeps the user client on the anon key and the server client on the service role', () => {

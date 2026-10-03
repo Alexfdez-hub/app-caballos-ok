@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { adaptServerClient, handleEquinePhoto, userClientOptions, serverClientOptions } from './equinePhoto.ts';
-import type { UserPhotoClient } from './equinePhoto.ts';
+import type { ServerPhotoClient, UserPhotoClient } from './equinePhoto.ts';
 
 type PhotoAction = 'prepare' | 'finalize' | 'read' | 'retire';
 
@@ -25,11 +25,31 @@ export function serveEquinePhoto(action: PhotoAction) {
               errorMessage: error?.message ?? null,
             };
           },
+          async authenticatedUserId() {
+            const { data, error } = await client.auth.getUser(jwt);
+            if (error || !data.user?.id) {
+              return null;
+            }
+            return data.user.id;
+          },
         } satisfies UserPhotoClient;
       },
       createServerClient() {
         const client = createClient(url, serviceRoleKey, serverClientOptions());
-        return adaptServerClient(client.storage.from('equine-media'));
+        const storage = adaptServerClient(client.storage.from('equine-media'));
+        return {
+          ...storage,
+          async mutateMetadata(name, mediaId, authUserId) {
+            const { data, error } = await client.rpc(name, {
+              p_media_id: mediaId,
+              p_auth_user_id: authUserId,
+            });
+            return {
+              data,
+              errorMessage: error?.message ?? null,
+            };
+          },
+        } satisfies ServerPhotoClient;
       },
     });
 

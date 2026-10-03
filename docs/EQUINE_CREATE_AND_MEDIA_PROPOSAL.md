@@ -236,36 +236,46 @@ not receive either secret. Signing, object inspection, and object
 deletion are Edge Function endpoints. SQL functions authorize the
 caller and change metadata only.
 
-Every SQL function below runs with the caller's JWT and `auth.uid()`,
-is `SECURITY DEFINER`, uses `search_path = pg_catalog, public`, is
-revoked from PUBLIC and `anon`, and is granted to `authenticated` only.
-None of them accept a person id, an arbitrary storage path, a signed
-URL, or a client flag that claims an object exists.
+Caller authorization and read functions run with the caller's JWT and
+`auth.uid()`. They are `SECURITY DEFINER`, use
+`search_path = pg_catalog, public`, are revoked from PUBLIC and `anon`,
+and are granted to `authenticated` only. Post-storage metadata mutations
+are the exception: `abandon_my_equine_photo`,
+`record_my_equine_photo_finalized` and
+`retire_my_equine_photo_metadata` are revoked from PUBLIC, `anon` and
+`authenticated`, and are granted only to `service_role`. The Edge
+Function calls them only after user-scoped authorization and the Storage
+result. The audit actor is the Auth user id from `auth.getUser` on that
+JWT, resolved through `user_accounts`. None of these functions accept a
+person id, an account id, an arbitrary storage path, a signed URL, or a
+client flag that claims an object exists.
 
 | SQL function | Effect |
 |---|---|
 | `create_my_equine(...)` | Equine + 100 percent PERSON ownership + PERSON `PRIMARY_MANAGER` + audit. Returns equine id. No Storage call. |
 | `authorize_my_equine_photo_prepare(equine_id, is_primary)` | Checks effective PERSON `PRIMARY_MANAGER`. Inserts `equine_media`. Returns `media_id` and the exact path `{equine_id}/{media_id}` only. |
-| `abandon_my_equine_photo(media_id)` | Same manager check. Removes that metadata row and audits `equine_photo_abandoned`. Does not inspect Storage. |
+| `abandon_my_equine_photo(media_id, auth_user_id)` | Server-only. Resolves the Auth user, checks that PERSON is the effective primary manager, removes that metadata row and audits `equine_photo_abandoned`. Does not inspect Storage. |
 | `authorize_my_equine_photo_finalize(media_id)` | Same manager check. Refuses a retired row. Returns the canonical path and does not mutate. |
-| `record_my_equine_photo_finalized(media_id)` | Same manager check. Leaves the row in place and audits `equine_photo_finalized`. Does not inspect Storage. |
+| `record_my_equine_photo_finalized(media_id, auth_user_id)` | Server-only. Resolves the Auth user, checks the manager, leaves the row in place and audits `equine_photo_finalized`. Does not inspect Storage. |
 | `list_my_equine_photos(equine_id)` | Same manager check. Returns metadata for that equine only: id, storage path, sort order, is_primary, created_at. No signed URL. |
 | `authorize_my_equine_photo_read(media_id)` | Same manager check. Refuses a retired row. Returns the canonical path only. |
 | `authorize_my_equine_photo_retire(media_id)` | Same manager check. Refuses a retired row. Returns the canonical path and does not mutate. |
-| `retire_my_equine_photo_metadata(media_id)` | Same manager check. Sets `retired_at`, clears `is_primary`, audits `equine_photo_retired`. Does not delete the object. |
+| `retire_my_equine_photo_metadata(media_id, auth_user_id)` | Server-only. Resolves the Auth user, checks the manager, sets `retired_at`, clears `is_primary`, audits `equine_photo_retired`. Does not delete the object. |
 
 Expo calls these Edge Function endpoints for anything that signs,
 inspects, or deletes a Storage object. Each endpoint creates a
 user-scoped Supabase client with the caller's `Authorization` header,
-invokes the SQL function with that client, and only after that call
-succeeds uses a separate server-only client with `service_role`.
+invokes the authorization or read function with that client, and only
+after that call succeeds uses a separate server-only client with
+`service_role`. Metadata mutations go through that server-only client.
+Expo never receives `service_role`.
 
 | Edge Function | Order |
 |---|---|
-| `prepare-my-equine-photo` | `authorize_my_equine_photo_prepare`, then sign an upload URL for the returned path. |
-| `finalize-my-equine-photo` | `authorize_my_equine_photo_finalize`, inspect that object with `service_role`, then call either `record_my_equine_photo_finalized` or `abandon_my_equine_photo`. |
+| `prepare-my-equine-photo` | Validate the caller JWT, `authorize_my_equine_photo_prepare`, then sign an upload URL for the returned path. If signing fails, abandon that new row through the server-only client. |
+| `finalize-my-equine-photo` | `authorize_my_equine_photo_finalize` with the caller JWT, inspect that object with `service_role`, then call either `record_my_equine_photo_finalized` or `abandon_my_equine_photo` through the server-only client. |
 | `sign-my-equine-photo-read` | `authorize_my_equine_photo_read`, then sign a read URL for the returned path. If the object is absent, return no URL. |
-| `retire-my-equine-photo` | `authorize_my_equine_photo_retire`, delete that object with `service_role`, then `retire_my_equine_photo_metadata`. |
+| `retire-my-equine-photo` | `authorize_my_equine_photo_retire` with the caller JWT, delete that object with `service_role`, then `retire_my_equine_photo_metadata` through the server-only client. |
 
 The Edge Function never signs a path taken from the request body. The
 TTL, MIME type, and byte size are Product Owner parameters. This
@@ -273,6 +283,11 @@ proposal does not pick them. That TTL is the maximum exposure window
 after revocation, as stated above. An already issued upload or read URL
 stays valid until it expires. Until those parameters are named,
 do not implement `prepare-my-equine-photo` or the other media endpoints.
+
+`prepare-my-equine-photo` failure and reconciliation:
+
+- Signing the upload URL fails and `abandon_my_equine_photo` succeeds. The new metadata row is gone. The response is retry and includes no signed URL. The client may call prepare again.
+- Signing fails and the abandon call also fails. The row stays. The response is retry and includes that `mediaId`. The client calls `finalize-my-equine-photo` for that id. The object is absent, so finalize abandons the row. No signed URL is issued.
 
 `finalize-my-equine-photo` failure and reconciliation:
 

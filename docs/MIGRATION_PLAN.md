@@ -7,7 +7,8 @@
 **Live status (verified 2026-10-03, stage 033 branch):** repository
 `main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40`. Migrations
 `001`–`030` are on `main`. This branch stacks unreleased migrations
-`031` and `032` and four equine-photo Edge Functions. None are deployed.
+`031` and `032` and four equine-photo Edge Functions. Post-storage
+photo metadata mutations are `service_role` only. None are deployed.
 Remote `efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts
 Option A only. This PR does not open `equine-media` and does not start
 migration `035`. Storage stays deny-by-default private.
@@ -376,5 +377,6 @@ Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, 
 **Siguiente fase (live 2026-10-03, stage 033 branch):**
 Issue #41 accepts Option A. This branch stacks unreleased migrations
 `031` and `032` and the equine-photo Edge Functions. The functions sign
-only the path SQL returns, with a separate server-only client. They are
+only the path SQL returns, with a separate server-only client, and call
+post-storage metadata mutations only after the Storage result. They are
 not deployed. Do not open `equine-media`. Do not start migration `035`.

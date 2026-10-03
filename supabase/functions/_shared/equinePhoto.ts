@@ -1,6 +1,20 @@
 // Stage 033. PostgreSQL authorizes. This module signs, inspects and
 // deletes only the canonical path SQL returned. It never reads a path
-// from the request body and never logs tokens, signed URLs or secrets.
+// or a person, account or auth-user id from the request body, and it
+// never logs tokens, signed URLs or secrets.
+//
+// Prepare:
+// - the caller JWT is validated, then authorize_my_equine_photo_prepare
+//   inserts metadata
+// - sign an upload URL for that path
+// - if signing fails, abandon that new row through the server-only client
+// - if that cleanup fails, return retry with mediaId. Finalize then
+//   reconciles an absent object by abandoning the same row
+//
+// Finalize and retire call post-storage metadata mutations only through
+// the server-only client, and only after user-scoped authorization and
+// the Storage result. The mutation actor is the Auth user id from that
+// validated JWT. The user client cannot call those mutations.
 //
 // Finalize:
 // - present and valid, then record_my_equine_photo_finalized: row stays
@@ -36,8 +50,14 @@ export type RpcResult = {
   errorMessage: string | null;
 };
 
+export type MetadataMutation =
+  | 'abandon_my_equine_photo'
+  | 'record_my_equine_photo_finalized'
+  | 'retire_my_equine_photo_metadata';
+
 export type UserPhotoClient = {
   rpc(name: string, args: Record<string, unknown>): Promise<RpcResult>;
+  authenticatedUserId(): Promise<string | null>;
 };
 
 export type InspectedObject =
@@ -50,6 +70,11 @@ export type ServerPhotoClient = {
   signRead(path: string, expiresIn: number): Promise<{ signedUrl: string } | { error: true }>;
   inspect(path: string): Promise<InspectedObject>;
   deleteObject(path: string): Promise<'deleted' | 'absent' | 'error'>;
+  mutateMetadata(
+    name: MetadataMutation,
+    mediaId: string,
+    authUserId: string,
+  ): Promise<RpcResult>;
 };
 
 export type PhotoDeps = {
@@ -166,7 +191,7 @@ export async function handleEquinePhoto(
     return errorResponse(400, 'invalid_photo');
   }
 
-  if (hasClientPath(body)) {
+  if (hasClientPath(body) || hasClientIdentity(body)) {
     return errorResponse(400, 'invalid_photo');
   }
 
@@ -196,6 +221,11 @@ async function preparePhoto(
     return errorResponse(400, 'invalid_photo');
   }
 
+  const authUserId = await user.authenticatedUserId();
+  if (!authUserId) {
+    return errorResponse(401, 'unauthorized');
+  }
+
   const authorized = await user.rpc('authorize_my_equine_photo_prepare', {
     p_equine_id: body.equineId,
     p_is_primary: body.isPrimary,
@@ -212,9 +242,10 @@ async function preparePhoto(
     return errorResponse(503, 'retry');
   }
 
-  const signed = await deps.createServerClient().signUpload(storagePath);
+  const server = deps.createServerClient();
+  const signed = await server.signUpload(storagePath);
   if ('error' in signed) {
-    return errorResponse(503, 'retry');
+    return compensateFailedUpload(server, mediaId, authUserId);
   }
 
   return {
@@ -234,6 +265,11 @@ async function finalizePhoto(
 ): Promise<PhotoResponse> {
   if (!isUuid(body.mediaId)) {
     return errorResponse(400, 'invalid_photo');
+  }
+
+  const authUserId = await user.authenticatedUserId();
+  if (!authUserId) {
+    return errorResponse(401, 'unauthorized');
   }
 
   const authorized = await user.rpc('authorize_my_equine_photo_finalize', {
@@ -256,7 +292,7 @@ async function finalizePhoto(
   }
 
   if (inspected.state === 'absent') {
-    return abandonPhoto(user, body.mediaId);
+    return abandonPhoto(server, body.mediaId, authUserId);
   }
 
   if (!photoIsAcceptable(inspected)) {
@@ -264,12 +300,14 @@ async function finalizePhoto(
     if (removed === 'error') {
       return errorResponse(503, 'retry');
     }
-    return abandonPhoto(user, body.mediaId);
+    return abandonPhoto(server, body.mediaId, authUserId);
   }
 
-  const recorded = await user.rpc('record_my_equine_photo_finalized', {
-    p_media_id: body.mediaId,
-  });
+  const recorded = await server.mutateMetadata(
+    'record_my_equine_photo_finalized',
+    body.mediaId,
+    authUserId,
+  );
   const recordedError = rpcError(recorded.errorMessage);
   if (recordedError) {
     return recordedError.status === 403
@@ -332,6 +370,11 @@ async function retirePhoto(
     return errorResponse(400, 'invalid_photo');
   }
 
+  const authUserId = await user.authenticatedUserId();
+  if (!authUserId) {
+    return errorResponse(401, 'unauthorized');
+  }
+
   const authorized = await user.rpc('authorize_my_equine_photo_retire', {
     p_media_id: body.mediaId,
   });
@@ -345,14 +388,17 @@ async function retirePhoto(
     return errorResponse(503, 'retry');
   }
 
-  const removed = await deps.createServerClient().deleteObject(storagePath);
+  const server = deps.createServerClient();
+  const removed = await server.deleteObject(storagePath);
   if (removed === 'error') {
     return errorResponse(503, 'retry');
   }
 
-  const retired = await user.rpc('retire_my_equine_photo_metadata', {
-    p_media_id: body.mediaId,
-  });
+  const retired = await server.mutateMetadata(
+    'retire_my_equine_photo_metadata',
+    body.mediaId,
+    authUserId,
+  );
   const retiredError = rpcError(retired.errorMessage);
   if (retiredError) {
     return retiredError.status === 403
@@ -363,13 +409,32 @@ async function retirePhoto(
   return { status: 200, body: { mediaId: body.mediaId } };
 }
 
-async function abandonPhoto(
-  user: UserPhotoClient,
+async function compensateFailedUpload(
+  server: ServerPhotoClient,
   mediaId: string,
+  authUserId: string,
 ): Promise<PhotoResponse> {
-  const abandoned = await user.rpc('abandon_my_equine_photo', {
-    p_media_id: mediaId,
-  });
+  const abandoned = await server.mutateMetadata(
+    'abandon_my_equine_photo',
+    mediaId,
+    authUserId,
+  );
+  if (abandoned.errorMessage) {
+    return { status: 503, body: { error: 'retry', mediaId } };
+  }
+  return errorResponse(503, 'retry');
+}
+
+async function abandonPhoto(
+  server: ServerPhotoClient,
+  mediaId: string,
+  authUserId: string,
+): Promise<PhotoResponse> {
+  const abandoned = await server.mutateMetadata(
+    'abandon_my_equine_photo',
+    mediaId,
+    authUserId,
+  );
   const abandonedError = rpcError(abandoned.errorMessage);
   if (abandonedError) {
     return abandonedError.status === 403
@@ -413,6 +478,23 @@ function hasClientPath(body: Record<string, unknown>): boolean {
   return ['path', 'storagePath', 'storage_path', 'objectPath', 'object_path'].some(
     (key) => key in body,
   );
+}
+
+function hasClientIdentity(body: Record<string, unknown>): boolean {
+  return [
+    'personId',
+    'person_id',
+    'accountId',
+    'account_id',
+    'authUserId',
+    'auth_user_id',
+    'ownerId',
+    'owner_id',
+    'managerId',
+    'manager_id',
+    'userId',
+    'user_id',
+  ].some((key) => key in body);
 }
 
 function isUuid(value: unknown): value is string {
