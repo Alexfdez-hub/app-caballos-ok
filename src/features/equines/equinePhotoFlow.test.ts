@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   equinePhotoListState,
   finalizeUploadedPhoto,
+  photoInvokeFailure,
   refreshEquinePhotoRead,
   retireEquinePhoto,
   uploadEquinePhoto,
@@ -148,6 +149,48 @@ describe('equine photo pilot flow', () => {
     });
     assert.deepEqual(photoGateway.calls, ['sign']);
     assert.equal('signedAt' in refreshed && refreshed.signedAt, 1_000 + 300_000);
+  });
+
+  it('reconciles a prepared row when upload signing cleanup did not finish', async () => {
+    const photoGateway = gateway({
+      async prepare() {
+        photoGateway.calls.push('prepare');
+        return { error: 'retry', mediaId };
+      },
+    });
+    const result = await uploadEquinePhoto({
+      equineId,
+      photo: jpeg(),
+      isPrimary: true,
+      gateway: photoGateway,
+    });
+    assert.equal(result.status, 'retry');
+    assert.equal('mediaId' in result, false);
+    assert.deepEqual(photoGateway.calls, ['prepare', 'finalize']);
+  });
+
+  it('keeps the media id when reconciliation itself must be retried', async () => {
+    const photoGateway = gateway({
+      async prepare() {
+        photoGateway.calls.push('prepare');
+        return { error: 'retry', mediaId };
+      },
+      async finalize() {
+        photoGateway.calls.push('finalize');
+        return { error: 'retry' };
+      },
+    });
+    const result = await uploadEquinePhoto({
+      equineId,
+      photo: jpeg(),
+      isPrimary: false,
+      gateway: photoGateway,
+    });
+    assert.deepEqual(result.status === 'retry' ? result.mediaId : null, mediaId);
+    assert.deepEqual(photoInvokeFailure({ error: 'retry', mediaId }), {
+      code: 'retry',
+      mediaId,
+    });
   });
 
   it('retries finalize and retire without preparing again', async () => {

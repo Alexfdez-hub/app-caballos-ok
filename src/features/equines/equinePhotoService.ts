@@ -1,27 +1,37 @@
 import { supabase } from '../../services/supabase/client';
-import { userFacingEquinePhotoMessage } from './equinePhotoFlow';
+import { photoInvokeFailure, userFacingEquinePhotoMessage } from './equinePhotoFlow';
 import type { EquinePhotoSummary, PhotoGateway } from './equinePhotoFlow';
-
-type FunctionError = { error?: unknown };
-
-function functionCode(data: unknown, error: unknown): string | null {
-  if (error) {
-    return 'retry';
-  }
-  if (data && typeof data === 'object' && 'error' in data) {
-    const code = (data as FunctionError).error;
-    return typeof code === 'string' ? code : 'retry';
-  }
-  return null;
-}
 
 async function invoke(name: string, body: Record<string, unknown>): Promise<unknown> {
   const { data, error } = await supabase.functions.invoke(name, { body });
-  const code = functionCode(data, error);
-  if (code) {
-    throw new Error(code);
+  if (error) {
+    throw await photoFunctionError(error);
+  }
+  const failure = photoInvokeFailure(data);
+  if (failure) {
+    throw photoError(failure.code, failure.mediaId);
   }
   return data;
+}
+
+async function photoFunctionError(error: unknown): Promise<Error> {
+  const context =
+    error && typeof error === 'object' && 'context' in error
+      ? (error as { context?: { json?: () => Promise<unknown> } }).context
+      : null;
+  if (!context || typeof context.json !== 'function') {
+    return new Error('retry');
+  }
+  try {
+    const failure = photoInvokeFailure(await context.json());
+    return photoError(failure?.code ?? 'retry', failure?.mediaId);
+  } catch {
+    return new Error('retry');
+  }
+}
+
+function photoError(code: string, mediaId?: string): Error {
+  return Object.assign(new Error(code), mediaId ? { mediaId } : {});
 }
 
 export const equinePhotoGateway: PhotoGateway = {
@@ -49,7 +59,16 @@ export const equinePhotoGateway: PhotoGateway = {
         signedUploadUrl: data.signedUploadUrl,
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : 'retry' };
+      const mediaId =
+        error &&
+        typeof error === 'object' &&
+        'mediaId' in error &&
+        typeof (error as { mediaId?: unknown }).mediaId === 'string'
+          ? (error as { mediaId: string }).mediaId
+          : undefined;
+      return mediaId
+        ? { error: error instanceof Error ? error.message : 'retry', mediaId }
+        : { error: error instanceof Error ? error.message : 'retry' };
     }
   },
 

@@ -34,7 +34,7 @@ export type PhotoGateway = {
     contentType: string;
   }): Promise<
     | { mediaId: string; storagePath: string; signedUploadUrl: string }
-    | { error: string }
+    | { error: string; mediaId?: string }
   >;
   upload(input: {
     signedUploadUrl: string;
@@ -145,7 +145,7 @@ export async function uploadEquinePhoto(input: {
     contentType: input.photo.contentType,
   });
   if ('error' in prepared) {
-    return failureFromCode(prepared.error);
+    return reconcileUnfinishedPrepare(prepared, input.gateway);
   }
   if (!prepared.storagePath.startsWith(`${input.equineId}/`)) {
     return { status: 'retry', message: RETRY };
@@ -211,6 +211,35 @@ export async function retireEquinePhoto(
     return failure.status === 'retry' ? { ...failure, mediaId } : failure;
   }
   return { status: 'ready' };
+}
+
+async function reconcileUnfinishedPrepare(
+  prepared: { error: string; mediaId?: string },
+  gateway: PhotoGateway,
+): Promise<PhotoFlowFailure> {
+  if (!prepared.mediaId) {
+    return failureFromCode(prepared.error);
+  }
+  const reconciled = await gateway.finalize(prepared.mediaId);
+  if ('error' in reconciled) {
+    const failure = failureFromCode(reconciled.error);
+    return failure.status === 'retry' ? { ...failure, mediaId: prepared.mediaId } : failure;
+  }
+  return { status: 'retry', message: RETRY };
+}
+
+export function photoInvokeFailure(
+  body: unknown,
+): { code: string; mediaId?: string } | null {
+  if (!body || typeof body !== 'object' || !('error' in body)) {
+    return null;
+  }
+  const code = (body as { error?: unknown }).error;
+  const mediaId = (body as { mediaId?: unknown }).mediaId;
+  return {
+    code: typeof code === 'string' ? code : 'retry',
+    ...(typeof mediaId === 'string' ? { mediaId } : {}),
+  };
 }
 
 function failureFromCode(code: string): PhotoFlowFailure {
