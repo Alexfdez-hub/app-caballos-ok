@@ -1,10 +1,11 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03, stage 033 branch):** repository `main` contains
+**Live note (2026-10-03, stage 034 branch):** repository `main` contains
 migrations `001`–`030`. This branch stacks unreleased migrations `031`
-and `032` and the four equine-photo Edge Functions. Post-storage photo
-metadata mutations are `service_role` only. None of this is deployed.
-Remote `efkauegdlmfkonzwyyiv` is not modified here. `equine-media` stays
+and `032`, four undeployed equine-photo Edge Functions, and the Android
+pilot screens. Post-storage photo metadata mutations are `service_role`
+only. None of this is deployed. Remote `efkauegdlmfkonzwyyiv` is not
+modified here. `equine-media` stays
 deny-by-default private. The Phase 14B record below is historical.
 
 PHASE: 14B — Consolidated P0 security gate

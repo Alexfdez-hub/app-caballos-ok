@@ -321,12 +321,12 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-03, stage 033 branch):** repository
+**Live status (verified 2026-10-03, stage 034 branch):** repository
 `main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40` and contains
 migrations `001`–`030` plus the Expo Go auth redirect. This branch stacks
-unreleased migrations `031` and `032` and four equine-photo Edge
-Functions. Post-storage photo metadata mutations are `service_role`
-only. None are deployed. Remote
+unreleased migrations `031` and `032`, four undeployed equine-photo Edge
+Functions, and the pilot screens. Post-storage photo metadata mutations
+are `service_role` only. None of that is deployed. Remote
 `efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts Option A
 only. `avatars` and `equine-media` stay deny-by-default private. Do not
 open buckets and do not start migration `035`. The Level 1–3 handoff
@@ -343,8 +343,10 @@ issue #41. Stage 031 implements adult self-create. Stage 032 authorizes
 photo metadata and canonical paths. Post-storage metadata mutations
 are `service_role` only. Stage 033 signs, inspects and deletes with a
 server-only client after SQL authorization, then calls those mutations
-only after the Storage result. Those Edge Functions are not deployed. Do not merge or deploy without the train
-gates. `avatars` and `equine-media` stay deny-by-default private.
+only after the Storage result. Stage 034 adds the pilot list, create
+form, detail and private-photo flow. Those Edge Functions are not
+deployed. Do not merge or deploy without the train gates. `avatars`
+and `equine-media` stay deny-by-default private.
 
 ------------------------------------------------------------------------
 
