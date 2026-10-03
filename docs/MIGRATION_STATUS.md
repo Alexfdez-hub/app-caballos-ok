@@ -1,11 +1,12 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03, stage 033 branch):** repository `main` contains
+**Live note (2026-10-03, stage 034 branch):** repository `main` contains
 migrations `001`–`030`. This branch stacks unreleased migrations `031`
-and `032` and the four equine-photo Edge Functions. None of them are
-deployed. Remote `efkauegdlmfkonzwyyiv` is not modified here.
-`equine-media` stays deny-by-default private. The Phase 14B record below
-is historical.
+and `032`, the four equine-photo Edge Functions, and the Android pilot
+that calls them. Migrations `031` and `032` are not deployed. The Edge
+Functions are not deployed. Remote `efkauegdlmfkonzwyyiv` is not modified
+here. `equine-media` stays deny-by-default private. The Phase 14B record
+below is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main

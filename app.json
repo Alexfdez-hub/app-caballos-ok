@@ -24,7 +24,13 @@
     "plugins": [
       "expo-web-browser",
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La aplicación usa tus fotos para subir una imagen del equino."
+        }
+      ]
     ]
   }
 }

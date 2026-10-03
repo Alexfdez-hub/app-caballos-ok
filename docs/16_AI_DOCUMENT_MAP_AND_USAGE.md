@@ -321,28 +321,31 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-03, stage 033 branch):** repository
+**Live status (verified 2026-10-03, stage 034 branch):** repository
 `main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40` and contains
 migrations `001`–`030` plus the Expo Go auth redirect. This branch stacks
-unreleased migrations `031` and `032` and four equine-photo Edge
-Functions. None are deployed. Remote
-`efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts Option A
-only. `avatars` and `equine-media` stay deny-by-default private. Do not
-open buckets and do not start migration `035`. The Level 1–3 handoff
-filenames named above (`08_DATA_ARCHITECTURE_2_1_FULL.md`,
-`07_DECISION_LOG.md`, `03_SECURITY_AND_BUSINESS_RULES.md`,
-`10_AI_INSTRUCTIONS_FULL.md`,
+unreleased migrations `031` and `032`, four equine-photo Edge Functions,
+and the Android pilot UI. Migrations `031` and `032` are not deployed.
+The Edge Functions are not deployed. Remote `efkauegdlmfkonzwyyiv` is not
+modified here. Issue #41 accepts Option A only. `avatars` and
+`equine-media` stay deny-by-default private. Do not open buckets and do
+not start migration `035`. The Level 1–3 handoff filenames named above
+(`08_DATA_ARCHITECTURE_2_1_FULL.md`, `07_DECISION_LOG.md`,
+`03_SECURITY_AND_BUSINESS_RULES.md`, `10_AI_INSTRUCTIONS_FULL.md`,
 `13_POLICY_AND_CONSENT_MODEL_RECONSTRUCTED.md`,
 `04_IMPLEMENTATION_STATUS.md`, `06_NEXT_PHASES.md`) are not in this
 repository. Use `docs/DATA_ARCHITECTURE.md`, `docs/MIGRATION_STATUS.md`,
 the phase reports, `docs/REMOTE_DEPLOYMENT_027_029.md`,
-`docs/PILOT_STAGE0_INVENTORY.md`, `docs/ACTIVITY_READ_MODEL.md` and
-`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md`. Option A is accepted for
-issue #41. Stage 031 implements adult self-create. Stage 032 authorizes
-photo metadata and canonical paths. Stage 033 signs, inspects and
-deletes with a server-only client after SQL authorization. Those Edge
-Functions are not deployed. Do not merge or deploy without the train
-gates. `avatars` and `equine-media` stay deny-by-default private.
+`docs/PILOT_STAGE0_INVENTORY.md`, `docs/ACTIVITY_READ_MODEL.md`,
+`docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md` and `docs/PILOT_RUNBOOK.md`.
+Option A is accepted for issue #41. Stage 031 implements adult
+self-create. Stage 032 authorizes photo metadata and canonical paths.
+Stage 033 signs, inspects and deletes with a server-only client after
+SQL authorization. Those Edge Functions are not deployed. Stage 034 is
+the Android list, adult create form, detail screen and private photo
+flow. It calls the stage 031 RPCs and the stage 033 function names. It
+does not deploy them. Do not merge or deploy without the train gates.
+`avatars` and `equine-media` stay deny-by-default private.
 
 ------------------------------------------------------------------------
 

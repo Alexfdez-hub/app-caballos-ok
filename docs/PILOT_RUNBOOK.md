@@ -80,3 +80,50 @@ the local database if a transaction is ever committed by hand.
 - remote deployment
 - equine creation
 - `equine-media` upload or read
+- deployment of migrations `031` and `032`
+- deployment of the equine-photo Edge Functions
+
+## Android equine and photo smoke
+
+This section is manual. `npm run pilot:journey` does not run it. Stage
+034 does not deploy migrations or Edge Functions, so this smoke is not
+claimed as passed here. Record it as not run until a later authorized
+deploy of migrations `031` and `032` and of these undeployed functions:
+`prepare-my-equine-photo`, `finalize-my-equine-photo`,
+`sign-my-equine-photo-read`, and `retire-my-equine-photo`.
+
+Do not point the smoke at production before that deploy. Do not open
+`equine-media`. Do not add a client Storage policy. Do not use
+`service_role` in the app. The bucket stays private. Signed read URLs
+last 300 seconds. Upload URLs use Storage platform validity.
+
+Use two adult accounts that already have identity and a resolvable
+market, plus one center member and one guardian who are not the adult
+primary manager. No role selector is part of the app.
+
+1. Adult A signs in and opens Mis equinos. The list comes from
+   `list_my_equines`. An empty account shows the empty state, not a
+   fabricated equine.
+2. Adult A creates one fictitious equine with a name and type horse or
+   pony. The app calls `create_my_equine` only. There is no center,
+   guardian, or minor create path.
+3. The new equine appears for Adult A. Open its detail. Detail comes
+   from `get_my_equine`. Photos come from `list_my_equine_photos`.
+4. Choose a JPEG, PNG, or WebP of at most 8 MiB. The app calls
+   `prepare-my-equine-photo`, uploads the bytes only to the returned
+   signed URL, then calls `finalize-my-equine-photo`. A GIF or a file
+   over 8 MiB is refused before prepare.
+5. The photo renders from `sign-my-equine-photo-read`. It is not a
+   public object URL. After 300 seconds, or when the image fails to
+   load, the app asks for a new signed read.
+6. Adult A retires the photo with `retire-my-equine-photo`. The photo
+   leaves the list. If finalize or retire answers `retry`, the app
+   repeats that call once and does not upload a second time.
+7. Adult B cannot list, upload, read, or retire Adult A's photo.
+8. A center member who is not the person primary manager cannot create
+   the equine for Adult A and cannot prepare, read, or retire the photo.
+9. A guardian cannot create an equine for a minor and cannot manage
+   Adult A's photo. Guardianship is not management.
+
+Errors shown in the app stay in Spanish and do not include database or
+SQL text. A failed list does not invent an equine or a photo card.

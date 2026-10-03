@@ -45,6 +45,9 @@ export default function CreateEquineScreen({
 
   return (
     <ScreenScaffold>
+      <Text style={styles.hint}>
+        El equino se crea para tu identidad, en privado y con tu gestión principal.
+      </Text>
       <Text style={styles.label}>Nombre</Text>
       <TextInput
         accessibilityLabel="Nombre del equino"
@@ -128,6 +131,12 @@ function TypeButton({
 }
 
 const styles = StyleSheet.create({
+  hint: {
+    marginBottom: 16,
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   label: {
     marginBottom: 8,
     color: colors.text,
