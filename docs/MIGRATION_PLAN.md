@@ -4,14 +4,15 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
 
-**Live status (verified 2026-10-03, stage 033 branch):** repository
+**Live status (verified 2026-10-03, stage 034 branch):** repository
 `main` is `8bec537a2e518e1be522bdf8d7dbd7f976ff9a40`. Migrations
 `001`–`030` are on `main`. This branch stacks unreleased migrations
-`031` and `032` and four equine-photo Edge Functions. Post-storage
-photo metadata mutations are `service_role` only. None are deployed.
-Remote `efkauegdlmfkonzwyyiv` is not modified here. Issue #41 accepts
-Option A only. This PR does not open `equine-media` and does not start
-migration `035`. Storage stays deny-by-default private.
+`031` and `032`, four undeployed equine-photo Edge Functions, and the
+pilot screens. Post-storage photo metadata mutations are `service_role`
+only. None are deployed. Remote `efkauegdlmfkonzwyyiv` is not modified
+here. Issue #41 accepts Option A only. This PR does not open
+`equine-media` and does not start migration `035`. Storage stays
+deny-by-default private.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
 described Phase 14B as unmerged on parent
@@ -374,9 +375,10 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-03, stage 033 branch):**
-Issue #41 accepts Option A. This branch stacks unreleased migrations
-`031` and `032` and the equine-photo Edge Functions. The functions sign
-only the path SQL returns, with a separate server-only client, and call
-post-storage metadata mutations only after the Storage result. They are
-not deployed. Do not open `equine-media`. Do not start migration `035`.
+**Siguiente fase (live 2026-10-03, stage 034 branch):**
+Issue #41 accepts Option A. This branch stacks the unreleased equine
+create and private-photo train through the Android pilot screens. The
+functions sign only the path SQL returns, with a separate server-only
+client, and call post-storage metadata mutations only after the Storage
+result. They are not deployed. Do not open `equine-media`. Do not start
+migration `035`.

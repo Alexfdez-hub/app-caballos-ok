@@ -80,3 +80,30 @@ the local database if a transaction is ever committed by hand.
 - remote deployment
 - equine creation
 - `equine-media` upload or read
+
+## Android smoke for equine creation and private photos
+
+This section is a manual check. It is not run by `npm run pilot:journey`
+and it does not deploy migrations `031` or `032` or the equine-photo
+Edge Functions. Do not run it against remote `efkauegdlmfkonzwyyiv`
+until those artifacts have been deployed by a later, separate decision.
+`equine-media` stays private. Do not open the bucket and do not put a
+`service_role` key in the app.
+
+Use two adult accounts in the same market, plus one center manager and
+one verified guardian who are not the primary manager of the equine.
+
+1. Adult A opens Mis equinos. The list is empty or shows only equines
+   that adult already owns or manages. No sample card is invented.
+2. Adult A creates a horse or pony. The detail shows 100 percent
+   ownership and primary management, and the equine stays private.
+3. Adult A adds a JPEG, PNG or WebP photo of at most 8 MB. The app
+   prepares, uploads to the signed URL and finalizes. The photo renders
+   from a signed read URL.
+4. Adult A waits for the read URL to expire, or forces a load error, and
+   confirms the image refreshes. Retire the photo and confirm it leaves
+   the list.
+5. Adult B, the center manager and the guardian open the same equine.
+   They cannot see it in their list, cannot open its detail, and cannot
+   upload, read or retire its photo. A membership or a guardianship does
+   not create ownership.
