@@ -337,7 +337,8 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md`,
 `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`,
 `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`, and
-`docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`. Authentication,
+`docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`, and
+`docs/PRODUCT_DECISION_LOG.md`. Authentication,
 civil-identity verification, declared ownership, verified ownership and
 verified management authority are distinct. A privately declared equine
 may be completed and photographed, but publication, service enablement,
