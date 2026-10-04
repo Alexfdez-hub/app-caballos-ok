@@ -11,6 +11,11 @@ const files = {
   sessionB: path.join(testsDir, '037_verification_review_concurrency_session_b.sql'),
   assert: path.join(testsDir, '037_verification_review_concurrency_assert.sql'),
   cleanup: path.join(testsDir, '037_verification_review_concurrency_cleanup.sql'),
+  subjectSetup: path.join(testsDir, '037_verification_review_subject_concurrency_setup.sql'),
+  subjectSessionA: path.join(testsDir, '037_verification_review_subject_concurrency_session_a.sql'),
+  subjectSessionB: path.join(testsDir, '037_verification_review_subject_concurrency_session_b.sql'),
+  subjectAssert: path.join(testsDir, '037_verification_review_subject_concurrency_assert.sql'),
+  subjectCleanup: path.join(testsDir, '037_verification_review_subject_concurrency_cleanup.sql'),
 };
 
 for (const file of Object.values(files)) {
@@ -163,6 +168,35 @@ async function main() {
     sessionB.status !== 0 ||
     assert.status !== 0 ||
     cleanup.status !== 0
+  ) {
+    process.exit(1);
+  }
+
+  const subjectSetup = runSqlFile(container, files.subjectSetup);
+  printResult('subject setup', subjectSetup);
+  if (subjectSetup.status !== 0) {
+    runSqlFile(container, files.subjectCleanup);
+    process.exit(1);
+  }
+
+  const [subjectA, subjectB] = await Promise.all([
+    runSession(container, files.subjectSessionA, 20000),
+    runSession(container, files.subjectSessionB, 20000),
+  ]);
+  printResult('subject session A', subjectA);
+  printResult('subject session B', subjectB);
+
+  const subjectAssert = runSqlFile(container, files.subjectAssert);
+  printResult('subject assert', subjectAssert);
+
+  const subjectCleanup = runSqlFile(container, files.subjectCleanup);
+  printResult('subject cleanup', subjectCleanup);
+
+  if (
+    subjectA.status !== 0 ||
+    subjectB.status !== 0 ||
+    subjectAssert.status !== 0 ||
+    subjectCleanup.status !== 0
   ) {
     process.exit(1);
   }

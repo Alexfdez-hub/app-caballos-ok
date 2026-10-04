@@ -115,6 +115,121 @@ comment on function public.verification_person_acts_for_center(uuid, uuid) is
 revoke all on function public.verification_person_acts_for_center(uuid, uuid)
   from public, anon, authenticated;
 
+create function public.verification_has_current_identity_acceptance(
+  p_person_id uuid,
+  p_market_country_code text,
+  p_except_case_id uuid,
+  p_as_of timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+      from public.identity_verification_cases as other_case
+      join lateral (
+        select decision.outcome, decision.expires_at
+          from public.identity_verification_decisions as decision
+         where decision.case_id = other_case.id
+         order by decision.decided_at desc, decision.id desc
+         limit 1
+      ) as latest on true
+     where other_case.subject_person_id = p_person_id
+       and other_case.market_country_code = p_market_country_code
+       and other_case.id is distinct from p_except_case_id
+       and latest.outcome = 'ACCEPTED'
+       and (
+         latest.expires_at is null
+         or latest.expires_at > p_as_of
+       )
+  );
+$$;
+
+comment on function public.verification_has_current_identity_acceptance(uuid, text, uuid, timestamptz) is
+  'True when another case for the same PERSON and market has a latest ACCEPTED decision that is still current. expires_at null means no stored expiry. This does not choose a retention interval.';
+
+revoke all on function public.verification_has_current_identity_acceptance(uuid, text, uuid, timestamptz)
+  from public, anon, authenticated;
+
+create function public.verification_has_current_ownership_acceptance(
+  p_effective_ownership_id uuid,
+  p_except_claim_id uuid,
+  p_as_of timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select p_effective_ownership_id is not null
+     and exists (
+       select 1
+         from public.equine_ownership_claims as other_claim
+         join lateral (
+           select decision.outcome, decision.expires_at
+             from public.equine_relationship_decisions as decision
+            where decision.ownership_claim_id = other_claim.id
+            order by decision.decided_at desc, decision.id desc
+            limit 1
+         ) as latest on true
+        where other_claim.effective_ownership_id = p_effective_ownership_id
+          and other_claim.id is distinct from p_except_claim_id
+          and latest.outcome = 'ACCEPTED'
+          and (
+            latest.expires_at is null
+            or latest.expires_at > p_as_of
+          )
+     );
+$$;
+
+comment on function public.verification_has_current_ownership_acceptance(uuid, uuid, timestamptz) is
+  'True when another claim for the same effective ownership has a latest ACCEPTED decision that is still current. Does not set expires_at.';
+
+revoke all on function public.verification_has_current_ownership_acceptance(uuid, uuid, timestamptz)
+  from public, anon, authenticated;
+
+create function public.verification_has_current_management_acceptance(
+  p_effective_assignment_id uuid,
+  p_except_claim_id uuid,
+  p_as_of timestamptz
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select p_effective_assignment_id is not null
+     and exists (
+       select 1
+         from public.equine_management_authority_claims as other_claim
+         join lateral (
+           select decision.outcome, decision.expires_at
+             from public.equine_relationship_decisions as decision
+            where decision.management_claim_id = other_claim.id
+            order by decision.decided_at desc, decision.id desc
+            limit 1
+         ) as latest on true
+        where other_claim.effective_assignment_id = p_effective_assignment_id
+          and other_claim.id is distinct from p_except_claim_id
+          and latest.outcome = 'ACCEPTED'
+          and (
+            latest.expires_at is null
+            or latest.expires_at > p_as_of
+          )
+     );
+$$;
+
+comment on function public.verification_has_current_management_acceptance(uuid, uuid, timestamptz) is
+  'True when another claim for the same effective assignment has a latest ACCEPTED decision that is still current. Does not set expires_at.';
+
+revoke all on function public.verification_has_current_management_acceptance(uuid, uuid, timestamptz)
+  from public, anon, authenticated;
+
 create function public.submit_my_identity_case(
   p_market_country_code text
 )
@@ -206,7 +321,11 @@ begin
     end if;
     owner_person := caller_person;
   else
-    if p_owner_center_id is null then
+    if p_owner_center_id is null
+       or not public.verification_person_acts_for_center(
+         caller_person,
+         p_owner_center_id
+       ) then
       raise exception using
         errcode = '42501',
         message = 'Verification request is not available';
@@ -272,7 +391,7 @@ end;
 $$;
 
 comment on function public.submit_my_equine_ownership_claim(uuid, text, text, uuid, numeric, uuid) is
-  'Submits an ownership claim. A PERSON owner is the caller. Does not write equine_ownerships.';
+  'Submits an ownership claim. A PERSON owner is the caller. A CENTER claim requires the caller''s active affiliation with that center. Affiliation is not review authority. Does not write equine_ownerships.';
 
 create function public.submit_my_equine_management_claim(
   p_equine_id uuid,
@@ -318,7 +437,11 @@ begin
     end if;
     manager_person := caller_person;
   else
-    if p_manager_center_id is null then
+    if p_manager_center_id is null
+       or not public.verification_person_acts_for_center(
+         caller_person,
+         p_manager_center_id
+       ) then
       raise exception using
         errcode = '42501',
         message = 'Verification request is not available';
@@ -388,7 +511,7 @@ end;
 $$;
 
 comment on function public.submit_my_equine_management_claim(uuid, text, text, uuid, text, timestamptz, timestamptz, uuid) is
-  'Submits a management-authority claim. A PERSON manager is the caller. Does not write equine_management_assignments.';
+  'Submits a management-authority claim. A PERSON manager is the caller. A CENTER claim requires the caller''s active affiliation with that center. Affiliation is not review authority. Does not write equine_management_assignments.';
 
 create function public.list_my_identity_cases()
 returns table (
@@ -571,7 +694,8 @@ begin
     into caller_account, caller_person
     from public.verification_resolve_caller() as resolved;
 
-  if p_outcome not in ('ACCEPTED', 'REJECTED')
+  if p_outcome is null
+     or p_outcome not in ('ACCEPTED', 'REJECTED')
      or p_reason_code is null
      or char_length(btrim(p_reason_code)) not between 1 and 80 then
     raise exception using
@@ -602,6 +726,26 @@ begin
   end if;
 
   decision_at := clock_timestamp();
+
+  if p_outcome = 'ACCEPTED' then
+    perform pg_catalog.pg_advisory_xact_lock(
+      374,
+      pg_catalog.hashtext(
+        subject_case.subject_person_id::text || ':' || subject_case.market_country_code
+      )
+    );
+
+    if public.verification_has_current_identity_acceptance(
+      subject_case.subject_person_id,
+      subject_case.market_country_code,
+      subject_case.id,
+      decision_at
+    ) then
+      raise exception using
+        errcode = '42501',
+        message = 'Verification request is not available';
+    end if;
+  end if;
 
   update public.identity_verification_cases as open_case
      set state = p_outcome,
@@ -659,7 +803,7 @@ end;
 $$;
 
 comment on function public.review_identity_case(uuid, text, text) is
-  'Reviews one identity case. The reviewer is auth.uid(). Competing decisions serialize on the case. Decision and audit_events commit together.';
+  'Reviews one identity case. The reviewer is auth.uid(). Acceptance serializes on PERSON plus market and refuses a second current acceptance. Decision and audit_events commit together. Does not set expires_at.';
 
 create function public.review_equine_ownership_claim(
   p_claim_id uuid,
@@ -681,13 +825,15 @@ declare
   caller_account uuid;
   caller_person uuid;
   claim public.equine_ownership_claims%rowtype;
+  ownership public.equine_ownerships%rowtype;
   decision_at timestamptz;
 begin
   select resolved.account_id, resolved.person_id
     into caller_account, caller_person
     from public.verification_resolve_caller() as resolved;
 
-  if p_outcome not in ('ACCEPTED', 'REJECTED')
+  if p_outcome is null
+     or p_outcome not in ('ACCEPTED', 'REJECTED')
      or p_reason_code is null
      or char_length(btrim(p_reason_code)) not between 1 and 80 then
     raise exception using
@@ -722,6 +868,44 @@ begin
   end if;
 
   decision_at := clock_timestamp();
+
+  if p_outcome = 'ACCEPTED' then
+    if claim.effective_ownership_id is null then
+      raise exception using
+        errcode = '42501',
+        message = 'Verification request is not available';
+    end if;
+
+    perform pg_catalog.pg_advisory_xact_lock(
+      375,
+      pg_catalog.hashtext(claim.effective_ownership_id::text)
+    );
+
+    select ownership_row.*
+      into ownership
+      from public.equine_ownerships as ownership_row
+     where ownership_row.id = claim.effective_ownership_id
+     for update;
+
+    if not found
+       or ownership.status is distinct from 'ACTIVE'
+       or ownership.ended_at is not null
+       or ownership.started_at > decision_at
+       or ownership.equine_id is distinct from claim.equine_id
+       or ownership.owner_type is distinct from claim.owner_type
+       or ownership.owner_person_id is distinct from claim.owner_person_id
+       or ownership.owner_center_id is distinct from claim.owner_center_id
+       or ownership.ownership_percentage is distinct from claim.ownership_percentage
+       or public.verification_has_current_ownership_acceptance(
+         claim.effective_ownership_id,
+         claim.id,
+         decision_at
+       ) then
+      raise exception using
+        errcode = '42501',
+        message = 'Verification request is not available';
+    end if;
+  end if;
 
   update public.equine_ownership_claims as open_claim
      set state = p_outcome,
@@ -781,7 +965,7 @@ end;
 $$;
 
 comment on function public.review_equine_ownership_claim(uuid, text, text) is
-  'Reviews one ownership claim. Refuses the claimant and anyone acting for the claimant center. Does not write equine_ownerships.';
+  'Reviews one ownership claim. Acceptance requires the locked current effective ownership to match equine, owner and percentage, and refuses a second current acceptance of that row. Rejection may describe an unlinked claim. Does not write equine_ownerships.';
 
 create function public.review_equine_management_claim(
   p_claim_id uuid,
@@ -803,13 +987,15 @@ declare
   caller_account uuid;
   caller_person uuid;
   claim public.equine_management_authority_claims%rowtype;
+  assignment public.equine_management_assignments%rowtype;
   decision_at timestamptz;
 begin
   select resolved.account_id, resolved.person_id
     into caller_account, caller_person
     from public.verification_resolve_caller() as resolved;
 
-  if p_outcome not in ('ACCEPTED', 'REJECTED')
+  if p_outcome is null
+     or p_outcome not in ('ACCEPTED', 'REJECTED')
      or p_reason_code is null
      or char_length(btrim(p_reason_code)) not between 1 and 80 then
     raise exception using
@@ -844,6 +1030,46 @@ begin
   end if;
 
   decision_at := clock_timestamp();
+
+  if p_outcome = 'ACCEPTED' then
+    if claim.effective_assignment_id is null then
+      raise exception using
+        errcode = '42501',
+        message = 'Verification request is not available';
+    end if;
+
+    perform pg_catalog.pg_advisory_xact_lock(
+      376,
+      pg_catalog.hashtext(claim.effective_assignment_id::text)
+    );
+
+    select assignment_row.*
+      into assignment
+      from public.equine_management_assignments as assignment_row
+     where assignment_row.id = claim.effective_assignment_id
+     for update;
+
+    if not found
+       or assignment.status is distinct from 'ACTIVE'
+       or assignment.valid_until is not null
+       or assignment.valid_from > decision_at
+       or assignment.equine_id is distinct from claim.equine_id
+       or assignment.manager_type is distinct from claim.manager_type
+       or assignment.manager_person_id is distinct from claim.manager_person_id
+       or assignment.manager_center_id is distinct from claim.manager_center_id
+       or assignment.management_role is distinct from claim.management_role
+       or assignment.valid_from is distinct from claim.valid_from
+       or assignment.valid_until is distinct from claim.valid_until
+       or public.verification_has_current_management_acceptance(
+         claim.effective_assignment_id,
+         claim.id,
+         decision_at
+       ) then
+      raise exception using
+        errcode = '42501',
+        message = 'Verification request is not available';
+    end if;
+  end if;
 
   update public.equine_management_authority_claims as open_claim
      set state = p_outcome,
@@ -903,7 +1129,7 @@ end;
 $$;
 
 comment on function public.review_equine_management_claim(uuid, text, text) is
-  'Reviews one management claim. Refuses the claimant and anyone acting for the claimant center. Does not write equine_management_assignments.';
+  'Reviews one management claim. Acceptance requires the locked current effective assignment to match equine, manager, role and validity window, and refuses a second current acceptance of that row. Rejection may describe an unlinked claim. Does not write equine_management_assignments.';
 
 revoke all on function public.submit_my_identity_case(text) from public, anon;
 revoke all on function public.submit_my_equine_ownership_claim(uuid, text, text, uuid, numeric, uuid) from public, anon;
