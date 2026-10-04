@@ -1,6 +1,6 @@
 # Manual MVP0 verification design
 
-**Status:** design proposal only. Not approved for implementation.
+**Status:** design proposal updated with Product Owner decisions from 2026-10-04. Not approved for implementation.
 **Date:** 2026-10-03
 **Repository `main`:** `fb599bba25f994bb0bd54ce6e872324523f56e92`
 **Remote project:** `efkauegdlmfkonzwyyiv`, exact migration version `035`
@@ -166,29 +166,46 @@ is in scope.
 
 ## 8. Evidence categories
 
-Categories name the kind of artifact. They do not say that the artifact is
-legally sufficient.
+Categories name the kind of artifact. Acceptance records corroboration of an
+existing effective relationship; it does not itself transfer ownership or
+management.
 
 | Category | Applies to |
 | --- | --- |
-| `IDENTITY_ARTIFACT` | Identity case |
-| `EQUINE_IDENTIFIER_REFERENCE` | Passport, UELN, microchip, or another equine identifier reference |
-| `OWNERSHIP_OR_DELEGATION_ARTIFACT` | Ownership claim |
-| `MANAGEMENT_DELEGATION_ARTIFACT` | Management claim |
-| `CENTER_CORROBORATION` | A center attestation attached to a claim |
+| `IDENTITY_PROVIDER_REFERENCE` | Opaque result from the external identity provider |
+| `EQUINE_IDENTIFIER_REFERENCE` | Passport/DIE, UELN, microchip and issuing body |
+| `OWNERSHIP_ARTIFACT` | Registry/issuer evidence, sale invoice or contract, donation, inheritance or court decision |
+| `MANAGEMENT_DELEGATION_ARTIFACT` | Owner authorization, loan, lease, boarding/custody or management contract |
+| `CENTER_CORROBORATION` | Center attestation of physical custody, passport/horse match or day-to-day responsibility |
+| `INSURANCE_REFERENCE` | Policy/receipt metadata linked to an activity, not to ownership |
 | `REVIEWER_NOTE` | A reviewer note stored with the decision |
 
-`CENTER_CORROBORATION` records the center id, the attesting membership
-that the server resolved, and the artifact or structured statement. It
-does not change ownership, management, or publication.
+### Spain-first minimum evidence rule
 
-The legal document catalog, the combination that is sufficient in Spain,
-and any other market rule are `DECISION_REQUIRED` `LEGAL-EVIDENCE-CATALOG`.
+The initial operating market is Spain. Equine identity requires passport/DIE,
+UELN, microchip and issuing country/body. An ownership claim requires that
+identity set plus one principal ownership artifact. A management claim requires
+the identity set plus one current authorization or contract naming its scope and
+validity.
 
-Evidence files go to a private Storage bucket. PostgreSQL stores the
-object path, category, subject, submitter account, and timestamps. It does
-not store a public URL. An external provider reference may exist later as
-an opaque id. This design does not choose a provider.
+A center may corroborate that the equine is present, that passport and equine
+were checked, and that a person has custody or day-to-day responsibility. That
+attestation is not, by itself, legal proof of ownership and cannot change an
+effective ownership row.
+
+For France, Germany, Italy, Belgium, the Netherlands and Austria, the same EU
+passport/UELN/microchip intake is used. Country adapters may accept an official
+registry or issuing-body extract as strong evidence, but the system must not
+assume that possession of an equine passport proves ownership. Activities in
+the first market remain governed by the Spanish center/service context even
+when the rider, owner or passport is foreign.
+
+Evidence files stay private. PostgreSQL stores only minimum metadata and object
+references. Identity verification uses an external provider reference; raw
+identity-document images, liveness captures and biometric templates must not
+be copied into the application database. Provider selection, processor terms,
+lawful basis, DPIA, retention and fallback handling remain pending privacy/legal
+work.
 
 ## 9. Evidence, decision, and effective relationship
 
@@ -300,6 +317,76 @@ not a product approval, is:
 Setting `visibility_status` does not satisfy `PUBLICATION`. A center
 membership does not satisfy it. A declared ownership row does not satisfy
 it.
+
+## 13.1 Activity insurance and owner-center calendar invariants
+
+These rules clarify existing Architecture 2.1 calendar authority. They do not
+replace `equine_availability_rules`, `equine_calendar_blocks`,
+`equine_center_permissions`, `service_equines`, or the booking snapshot.
+
+### Insurance belongs to the activity
+
+Insurance is not required to create or keep a private equine profile and does
+not prove ownership or management authority. Before a real activity, the
+system reports the applicable coverage as `VERIFIED`, `DECLARED`, or
+`NOT_VERIFIED`.
+
+For a center-organized activity, the center's professional/operational
+liability cover is the primary operational evidence. A federation licence is
+recorded separately and must not be presented as complete third-party
+liability cover unless its actual policy says so. Indoor/on-premises activity
+and an exterior ride are different coverage scopes; exterior activity requires
+explicit off-premises coverage. The terms may allocate information, safety and
+cooperation duties, but must not claim to displace statutory liability or the
+rights of an injured third party.
+
+`LEGAL_AND_INSURANCE_REVIEW_REQUIRED`: before real paid bookings, Spanish
+legal counsel and an insurance broker must validate wording, minimum cover,
+territorial/activity scope, exclusions and whether each gate is warning-only
+or blocking. That review may change insurance gates without changing ownership
+or management relationships.
+
+### Owner release, center use and rider visibility
+
+The owner, or a manager with explicit delegated scope, defines the maximum
+window in which the equine is released to one center and the services for which
+it may be used. Within that release, the center may reduce availability
+according to opening hours, facilities, staff, service rules and resources. It
+may never expand beyond the owner release or override welfare, veterinary,
+rest, owner-use or existing booking blocks.
+
+The rider sees only derived bookable slots. The rider must not see the owner's
+private calendar, owner-use reasons, unused release windows, center internal
+capacity, or the negotiation between owner and center.
+
+Conceptually:
+
+`BOOKABLE_SLOT = OWNER_RELEASE_WINDOW ∩ CENTER_SERVICE_WINDOW ∩ WELFARE_RULES
+∩ NO_CALENDAR_CONFLICT`
+
+Confirmed bookings are not silently removed when a later release window is
+reduced. Cancellation requires an allowed workflow, reason, audit and
+notification; emergency welfare/veterinary handling remains fail-closed.
+
+For an exterior ride, riding time need not remain inside normal center opening
+hours. Pickup and return must each fall in an authorized handover window unless
+an explicit late-return, overnight or temporary-custody authorization exists.
+The equine is unavailable for the whole interval from preparation/pickup
+through travel, activity, return and recovery.
+
+Duration and rest are not one global hard-coded number. The backend applies the
+most restrictive current legal/market, veterinary/welfare, owner, center and
+service rule, including consecutive duration, rest between activities and
+daily/weekly accumulation.
+
+The existing permission split stays authoritative:
+
+- `MANAGE_AVAILABILITY` lets a center operate only inside delegated scope.
+- `MANAGE_BOOKINGS` does not create owner release or remove owner blocks.
+- center membership alone grants neither permission.
+- owner and center may each reduce availability; neither can make a forbidden
+  slot bookable.
+
 
 ## 14. Candidate tables
 
@@ -485,16 +572,14 @@ private equine creation and private photos.
 
 ### LEGAL-EVIDENCE-CATALOG
 
-- Pending decision: which artifacts are legally sufficient, alone or in
-  combination, for Spain and for any later market.
-- Why it blocks implementation: an acceptance rule that treats one
-  category as sufficient would encode a legal rule this design is not
-  allowed to invent.
-- Safe options: manual review may accept or reject any stored category
-  without an automatic sufficiency rule; or the Product Owner and legal
-  review publish a per-market matrix before any automatic check exists.
-- Reversible recommendation: manual review only, with no automatic
-  sufficiency check.
+- Product decision closed for the Spain-first MVP design: use the minimum
+  evidence combinations in section 8, keep ownership and management separate,
+  and send mismatches, competing claims or unverifiable foreign evidence to
+  manual review.
+- The catalog corroborates an existing relationship; it never transfers or
+  overwrites ownership.
+- Country-specific automation beyond the documented EU intake remains pending
+  legal validation before activation.
 
 ### RETENTION-AND-EXPIRY
 
@@ -534,13 +619,15 @@ private equine creation and private photos.
 
 ### KYC-PROVIDER
 
-- Pending decision: whether manual review remains the only identity
-  method, and which provider would be used later.
-- Why it blocks implementation: a provider integration collects personal
-  data, chooses a processor, and changes the evidence model.
-- Safe options: manual review with private artifacts; a later provider
-  behind an opaque reference, after privacy review.
-- Reversible recommendation: no provider in the first slices.
+- Product method decided: civil identity verification will use an external KYC
+  provider with DNI/NIE or passport, liveness and 1:1 facial comparison.
+- Still pending: provider/vendor selection, supported countries/documents,
+  processor terms, lawful basis, DPIA, retention, deletion and an auditable
+  exception/fallback path.
+- The application stores an opaque provider reference, outcome, assurance
+  level and timestamps. It must not treat raw document images or biometric
+  templates as ordinary application evidence.
+- Manual review is an exception path, not the primary identity method.
 
 ### FISCAL-GATE
 
