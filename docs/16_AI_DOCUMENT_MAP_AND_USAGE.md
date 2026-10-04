@@ -321,13 +321,14 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-04, after PR #50):** repository `main`
-is `365225c419e44f1ed8a1776f2a7a9838aeb35273`. Issue #47 is closed.
-Migrations `001`–`032` and `035_identity_market_capture` are on `main`.
-Remote project `efkauegdlmfkonzwyyiv` remains at exact version `035`.
-PR #50 is merged. Stage 0 inventory is
-`docs/VERIFICATION_FOUNDATION_STAGE0.md`. This branch adds unreleased `036_verification_foundation.sql`. It is
-schema only and is not deployed. Migration `037` is not authorized.
+**Live status (verified 2026-10-04, Stage 2 branch):** repository `main`
+is `511fde55855e9afaecfbf9a21a197f9b9dd576f4`. Issue #47 is closed.
+Migrations `001`–`032`, `035_identity_market_capture` and
+`036_verification_foundation` are on `main`. Remote project
+`efkauegdlmfkonzwyyiv` remains at exact version `035`. This branch adds
+unreleased `037_verification_review.sql`. The RPCs submit, read, and review
+cases and claims. They are not deployed. Grant management and a KYC vendor
+stay out of this slice.
 Identity completion still requires an explicit selectable country.
 
 The Level 1–3 handoff documents named above are maintained outside this

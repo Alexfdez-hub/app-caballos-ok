@@ -29,11 +29,11 @@ The foundation follows Architecture 2.1 and
 | --- | --- | --- |
 | Stage 0 | This document | Inventory and the boundary of migration `036` |
 | Stage 1, migration `036` | Next Draft PR, after this stage is green | Cases, claims, append-only decisions, referenced evidence, review-grant rows, expiry columns, rejection and revocation outcomes, RLS deny-by-default |
-| Stage 2 | Not started | Submit, read, and review RPCs. Submitter and reviewer stay separate |
+| Stage 2 | This branch, unreleased | Submit, read, and review RPCs in migration `037`. Submitter and reviewer stay separate |
 | Stage 3 | Not started | Backend predicates for verified owner, authorized manager, and center corroboration |
 | Stage 4 | Not started | Minimal state and evidence UI. No simulated KYC |
 | Stage 5 | Not started | Broader SQL, concurrency, TypeScript, and runbook coverage |
-| Migration `037` | Not authorized | Do not create it in this train |
+| Migration `037` | This branch, unreleased | Review RPCs only. No grant management, vendor, or effective-relationship writes |
 
 Stage 1 may include one SQL test that the new tables reject client reads,
 reject decision updates, and reject biometric or document-byte columns. That
