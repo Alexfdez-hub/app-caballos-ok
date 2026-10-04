@@ -6,10 +6,12 @@
 -- Does not deploy. audit_events emission waits for the Stage 2 RPC that
 -- resolves the caller from auth.uid().
 
+alter table public.user_accounts
+  add constraint user_accounts_id_person_key unique (id, person_id);
+
 create function public.enforce_verification_decision_immutability()
 returns trigger
 language plpgsql
-security definer
 set search_path = pg_catalog, public
 as $$
 begin
@@ -68,7 +70,7 @@ end;
 $$;
 
 comment on function public.enforce_verification_decision_immutability() is
-  'Insert refuses a reviewer who is the subject, claimant, or submitter. Update and delete are refused. Not granted to clients.';
+  'SECURITY INVOKER. Insert refuses a reviewer who is the subject PERSON, the claimant PERSON, or the submitter ACCOUNT. It does not resolve center affiliation or serialize competing reviews. Update and delete are refused. Not granted to clients.';
 
 revoke all on function public.enforce_verification_decision_immutability()
   from public, anon, authenticated;
@@ -78,7 +80,7 @@ create table public.identity_verification_cases (
   subject_person_id uuid not null references public.persons (id),
   market_country_code text not null references public.markets (country_code),
   state text not null default 'DRAFT',
-  submitted_by_account_id uuid references public.user_accounts (id),
+  submitted_by_account_id uuid not null references public.user_accounts (id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint identity_verification_cases_state_check
@@ -109,10 +111,13 @@ create table public.identity_verification_decisions (
   case_id uuid not null references public.identity_verification_cases (id),
   outcome text not null,
   reason_code text not null,
-  reviewer_account_id uuid not null references public.user_accounts (id),
-  reviewer_person_id uuid not null references public.persons (id),
+  reviewer_account_id uuid not null,
+  reviewer_person_id uuid not null,
   decided_at timestamptz not null default now(),
   expires_at timestamptz,
+  constraint identity_verification_decisions_reviewer_fk
+    foreign key (reviewer_account_id, reviewer_person_id)
+    references public.user_accounts (id, person_id),
   constraint identity_verification_decisions_outcome_check
     check (
       outcome in ('ACCEPTED', 'REJECTED', 'EXPIRED', 'REVOKED', 'SUPERSEDED')
@@ -143,7 +148,7 @@ create table public.equine_ownership_claims (
   owner_center_id uuid references public.equestrian_centers (id),
   ownership_percentage numeric not null,
   effective_ownership_id uuid references public.equine_ownerships (id),
-  submitted_by_account_id uuid references public.user_accounts (id),
+  submitted_by_account_id uuid not null references public.user_accounts (id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint equine_ownership_claims_state_check
@@ -197,7 +202,7 @@ create table public.equine_management_authority_claims (
   valid_from timestamptz not null,
   valid_until timestamptz,
   effective_assignment_id uuid references public.equine_management_assignments (id),
-  submitted_by_account_id uuid references public.user_accounts (id),
+  submitted_by_account_id uuid not null references public.user_accounts (id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint equine_management_authority_claims_state_check
@@ -252,10 +257,13 @@ create table public.equine_relationship_decisions (
   management_claim_id uuid references public.equine_management_authority_claims (id),
   outcome text not null,
   reason_code text not null,
-  reviewer_account_id uuid not null references public.user_accounts (id),
-  reviewer_person_id uuid not null references public.persons (id),
+  reviewer_account_id uuid not null,
+  reviewer_person_id uuid not null,
   decided_at timestamptz not null default now(),
   expires_at timestamptz,
+  constraint equine_relationship_decisions_reviewer_fk
+    foreign key (reviewer_account_id, reviewer_person_id)
+    references public.user_accounts (id, person_id),
   constraint equine_relationship_decisions_type_check
     check (claim_type in ('OWNERSHIP', 'MANAGEMENT')),
   constraint equine_relationship_decisions_parent_check
@@ -305,7 +313,7 @@ create table public.verification_evidence (
   storage_bucket text,
   storage_path text,
   note_text text,
-  submitted_by_account_id uuid references public.user_accounts (id),
+  submitted_by_account_id uuid not null references public.user_accounts (id),
   created_at timestamptz not null default now(),
   constraint verification_evidence_parent_type_check
     check (parent_type in ('IDENTITY_CASE', 'OWNERSHIP_CLAIM', 'MANAGEMENT_CLAIM')),
@@ -446,6 +454,75 @@ create table public.verification_review_grants (
 
 comment on table public.verification_review_grants is
   'Separate review authority. Not a center membership, ownership row, or management row. No grant is seeded. REVIEWER-GRANT-AUTHORITY remains open, so clients cannot insert grants.';
+
+create index identity_verification_cases_subject_idx
+  on public.identity_verification_cases (subject_person_id);
+create index identity_verification_cases_market_idx
+  on public.identity_verification_cases (market_country_code);
+create index identity_verification_cases_submitter_idx
+  on public.identity_verification_cases (submitted_by_account_id);
+create index identity_verification_decisions_case_idx
+  on public.identity_verification_decisions (case_id, decided_at);
+create index identity_verification_decisions_reviewer_account_idx
+  on public.identity_verification_decisions (reviewer_account_id);
+create index identity_verification_decisions_reviewer_person_idx
+  on public.identity_verification_decisions (reviewer_person_id);
+
+create index equine_ownership_claims_equine_idx
+  on public.equine_ownership_claims (equine_id);
+create index equine_ownership_claims_market_idx
+  on public.equine_ownership_claims (market_country_code);
+create index equine_ownership_claims_owner_person_idx
+  on public.equine_ownership_claims (owner_person_id);
+create index equine_ownership_claims_owner_center_idx
+  on public.equine_ownership_claims (owner_center_id);
+create index equine_ownership_claims_effective_idx
+  on public.equine_ownership_claims (effective_ownership_id);
+create index equine_ownership_claims_submitter_idx
+  on public.equine_ownership_claims (submitted_by_account_id);
+
+create index equine_management_authority_claims_equine_idx
+  on public.equine_management_authority_claims (equine_id);
+create index equine_management_authority_claims_market_idx
+  on public.equine_management_authority_claims (market_country_code);
+create index equine_management_authority_claims_manager_person_idx
+  on public.equine_management_authority_claims (manager_person_id);
+create index equine_management_authority_claims_manager_center_idx
+  on public.equine_management_authority_claims (manager_center_id);
+create index equine_management_authority_claims_effective_idx
+  on public.equine_management_authority_claims (effective_assignment_id);
+create index equine_management_authority_claims_submitter_idx
+  on public.equine_management_authority_claims (submitted_by_account_id);
+
+create index equine_relationship_decisions_ownership_idx
+  on public.equine_relationship_decisions (ownership_claim_id, decided_at);
+create index equine_relationship_decisions_management_idx
+  on public.equine_relationship_decisions (management_claim_id, decided_at);
+create index equine_relationship_decisions_reviewer_account_idx
+  on public.equine_relationship_decisions (reviewer_account_id);
+create index equine_relationship_decisions_reviewer_person_idx
+  on public.equine_relationship_decisions (reviewer_person_id);
+
+create index verification_evidence_identity_case_idx
+  on public.verification_evidence (identity_case_id);
+create index verification_evidence_ownership_claim_idx
+  on public.verification_evidence (ownership_claim_id);
+create index verification_evidence_management_claim_idx
+  on public.verification_evidence (management_claim_id);
+create index verification_evidence_submitter_idx
+  on public.verification_evidence (submitted_by_account_id);
+
+create index verification_review_grants_market_idx
+  on public.verification_review_grants (market_country_code);
+create index verification_review_grants_lookup_idx
+  on public.verification_review_grants (
+    reviewer_person_id,
+    scope_type,
+    market_country_code,
+    status,
+    valid_from,
+    valid_until
+  );
 
 alter table public.identity_verification_cases enable row level security;
 alter table public.identity_verification_decisions enable row level security;
