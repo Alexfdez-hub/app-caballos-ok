@@ -4,8 +4,9 @@
 `365225c419e44f1ed8a1776f2a7a9838aeb35273`. Issue #47 is closed.
 Migrations `001`–`032` and `035` are on `main`. Remote project
 `efkauegdlmfkonzwyyiv` remains at exact version `035`. Stage 0 inventory
-is `docs/VERIFICATION_FOUNDATION_STAGE0.md`. Migration `036` is the next
-schema slice and is not created here. Migration `037` is not authorized.
+is `docs/VERIFICATION_FOUNDATION_STAGE0.md`. This branch adds unreleased
+`036_verification_foundation.sql`. It is schema only and is not deployed.
+Migration `037` is not authorized.
 Existing null countries are not assigned `ES`. The Phase 14B record below
 is historical.
 
@@ -63,9 +64,9 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. Stage 0 inventory is `docs/VERIFICATION_FOUNDATION_STAGE0.md`. The next
-   authorized slice is migration `036` schema only. Do not add RPCs, a KYC
-   vendor, calendar changes, or migration `037` in that slice.
+2. This branch adds unreleased migration `036_verification_foundation.sql`:
+   cases, claims, append-only decisions, referenced evidence, and review
+   grants. No client RPC, KYC vendor, calendar change, or migration `037`.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.

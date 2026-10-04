@@ -326,8 +326,8 @@ is `365225c419e44f1ed8a1776f2a7a9838aeb35273`. Issue #47 is closed.
 Migrations `001`–`032` and `035_identity_market_capture` are on `main`.
 Remote project `efkauegdlmfkonzwyyiv` remains at exact version `035`.
 PR #50 is merged. Stage 0 inventory is
-`docs/VERIFICATION_FOUNDATION_STAGE0.md`. Migration `036` is the next
-schema slice and is not in this stage. Migration `037` is not authorized.
+`docs/VERIFICATION_FOUNDATION_STAGE0.md`. This branch adds unreleased `036_verification_foundation.sql`. It is
+schema only and is not deployed. Migration `037` is not authorized.
 Identity completion still requires an explicit selectable country.
 
 The Level 1–3 handoff documents named above are maintained outside this
