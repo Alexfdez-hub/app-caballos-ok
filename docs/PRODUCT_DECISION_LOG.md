@@ -70,3 +70,15 @@ No architecture conflict. PERSON remains distinct from ACCOUNT; ownership from
 management; center membership from equine permission; insurance from ownership;
 and availability input from derived rider-visible bookable slots. No migration
 number is allocated by this decision.
+
+## 2026-10-04 — Verification foundation slice
+
+Supersedes only the implementation hold in the entry above, and only for the
+Stage 0 inventory plus migration `036` schema. See
+`docs/VERIFICATION_FOUNDATION_STAGE0.md`.
+
+Pending vendor, processor terms, lawful basis, DPIA, retention, deletion,
+exception handling, admissible documents, reviewer-grant authority, fiscal
+scope, and `LEGAL_AND_INSURANCE_REVIEW_REQUIRED` stay open. Calendar rules
+stay as clarified above. Migration `037`, review RPCs, Edge Functions, public
+access, and payments are not authorized by this entry.

@@ -1,13 +1,13 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03, after PR #49):** repository `main` is
-`fb599bba25f994bb0bd54ce6e872324523f56e92`. Issue #47 is closed.
-Migrations `001`–`032` and `035_identity_market_capture` are on `main`.
-Remote project `efkauegdlmfkonzwyyiv` is aligned through exact version
-`035`. Android smoke passed: authentication, Spain selection and
-persistence, profile edit, navigation, and fictional equine creation.
-Existing null countries are not assigned `ES`. Migration `036` does not
-exist and is not authorized. The Phase 14B record below is historical.
+**Live note (2026-10-04, after PR #50):** repository `main` is
+`365225c419e44f1ed8a1776f2a7a9838aeb35273`. Issue #47 is closed.
+Migrations `001`–`032` and `035` are on `main`. Remote project
+`efkauegdlmfkonzwyyiv` remains at exact version `035`. Stage 0 inventory
+is `docs/VERIFICATION_FOUNDATION_STAGE0.md`. Migration `036` is the next
+schema slice and is not created here. Migration `037` is not authorized.
+Existing null countries are not assigned `ES`. The Phase 14B record below
+is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main
@@ -63,13 +63,11 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md` proposes the manual MVP0
-   verification flow. `docs/PRODUCT_DECISION_LOG.md` records the 2026-10-04
-   product direction and is append-only. Neither document is implemented.
-   Open `DECISION_REQUIRED` items, including vendor, admissible documents,
-   retention, fiscal scope and `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`, block
-   the executable train.
-3. Do not allocate migration `036`.
+2. Stage 0 inventory is `docs/VERIFICATION_FOUNDATION_STAGE0.md`. The next
+   authorized slice is migration `036` schema only. Do not add RPCs, a KYC
+   vendor, calendar changes, or migration `037` in that slice.
+3. Open `DECISION_REQUIRED` items still block publication, services, real
+   bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.
    Public listing, service enablement, real booking, and payment stay
    blocked until a later authorized train adds backend gates.
