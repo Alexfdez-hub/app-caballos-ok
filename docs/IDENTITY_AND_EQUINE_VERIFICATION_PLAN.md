@@ -4,7 +4,7 @@
 `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`. Implementation is not authorized.
 **Date:** 2026-10-03
 **Scope:** MVP0 trust gates before public marketplace operations
-**Out of scope:** selecting a KYC provider, legal certification, payments, migration 036
+**Out of scope:** selecting the KYC vendor, final legal/insurance certification, payments, migration 036
 
 ## 1. Why this exists
 
@@ -37,13 +37,12 @@ gates before public discovery, real bookings or payments.
 - Public visibility, service enablement, real bookings and money movement are
   blocked until the backend confirms the required trust levels.
 - UI labels must say declared/pending/verified truthfully.
-- The pilot starts with human review; automation follows evidence from use.
+- Civil identity uses an external KYC provider with official document, liveness and facial comparison once the vendor/privacy review is approved.
+- Equine ownership and management start with auditable evidence review; automation follows evidence from use.
 
 ## 4. Evidence and review
 
-Possible evidence sources include equine passport or UELN, microchip where
-applicable, ownership or delegation documents, center corroboration and manual
-review. No single source is assumed universally sufficient.
+For Spain, equine identity uses passport/DIE, UELN, microchip and issuing body. Ownership adds one principal title artifact; management adds one current authorization or contract. Center corroboration may attest custody and identity checks but is not ownership proof. Equivalent EU evidence may be accepted through a country-aware review path; possession of a passport alone is not universally sufficient.
 
 Evidence is private, least-privilege and retention-limited. Store only the
 minimum metadata needed in PostgreSQL; use private Storage or an external
@@ -87,12 +86,12 @@ Verification records trust in those relationships; they do not replace them.
    publication gates. Proposed in `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`.
    Open `DECISION_REQUIRED` items remain. This step does not implement the
    flow and does not allocate migration `036`.
-3. Manual identity-verification slice with tests.
+3. External identity-provider adapter and auditable exception path, after vendor/privacy approval.
 4. Manual equine ownership/management verification slice with tests.
 5. Integrate gates into publication and service enablement.
 6. Only then expose real discovery/booking flows.
-7. Before payments: choose provider, complete privacy/legal review and add
-   fiscal/KYC requirements.
+7. Before real paid bookings: complete legal and insurance review for activity coverage and terms.
+8. Before payments: complete fiscal/KYC requirements.
 
 Migration `035_identity_market_capture.sql` is allocated only to issue #47.
 It does not add KYC, evidence storage or publication gates.
