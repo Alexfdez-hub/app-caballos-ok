@@ -321,14 +321,12 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-04, Stage 2 branch):** repository `main`
-is `511fde55855e9afaecfbf9a21a197f9b9dd576f4`. Issue #47 is closed.
-Migrations `001`–`032`, `035_identity_market_capture` and
-`036_verification_foundation` are on `main`. Remote project
-`efkauegdlmfkonzwyyiv` remains at exact version `035`. This branch adds
-unreleased `037_verification_review.sql`. The RPCs submit, read, and review
-cases and claims. They are not deployed. Grant management and a KYC vendor
-stay out of this slice.
+**Live status (verified 2026-10-04, Stage 3 branch):** repository `main`
+is `a862fd52222ce5a436c72746372b47c13afe3526`. Migrations `036` and `037`
+are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at exact
+version `037`. This branch adds unreleased `038_verification_predicates.sql`.
+See `docs/VERIFICATION_PREDICATES_STAGE3.md`. The predicates are not deployed
+and do not open publication, services, bookings or payments.
 Identity completion still requires an explicit selectable country.
 
 The Level 1–3 handoff documents named above are maintained outside this
@@ -338,8 +336,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`,
 `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`,
 `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`,
-`docs/PRODUCT_DECISION_LOG.md`, and
-`docs/VERIFICATION_FOUNDATION_STAGE0.md`. The decision log is append-only. It records
+`docs/PRODUCT_DECISION_LOG.md`,
+`docs/VERIFICATION_FOUNDATION_STAGE0.md`, and
+`docs/VERIFICATION_PREDICATES_STAGE3.md`. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
 reviews. A later entry can authorize one named slice. It does not authorize
 work beyond that slice. Authentication,

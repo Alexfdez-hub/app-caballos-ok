@@ -373,12 +373,11 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-04, Stage 2 branch):** `main` is
-`511fde55855e9afaecfbf9a21a197f9b9dd576f4` and includes migration `036`.
-Unreleased `037_verification_review.sql` adds submit, read, and review RPCs
-on that schema. It is not deployed. Do not add grant management, a KYC
-vendor, or calendar changes in this slice. Existing ownership and management
-rows
+**Siguiente fase (live 2026-10-04, Stage 3 branch):** `main` is
+`a862fd52222ce5a436c72746372b47c13afe3526` and includes migrations `036`
+and `037`. Unreleased `038_verification_predicates.sql` adds read-only
+trust predicates. It is not deployed and does not open publication,
+services, bookings or payments. Existing ownership and management rows
 remain the effective relationships. A private self-created equine stays
 declared. Do not enable public listing, services, real bookings, or
 payments.
