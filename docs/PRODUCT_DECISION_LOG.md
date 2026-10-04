@@ -82,5 +82,3 @@ exception handling, admissible documents, reviewer-grant authority, fiscal
 scope, and `LEGAL_AND_INSURANCE_REVIEW_REQUIRED` stay open. Calendar rules
 stay as clarified above. Migration `037`, review RPCs, Edge Functions, public
 access, and payments are not authorized by this entry.
-
-
