@@ -1,11 +1,13 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-03, issue #47 branch):** repository `main` is
-`399189d8580c64f1b4dc164a289e7306e15d8c09` and contains migrations
-`001`–`032`. This branch adds unreleased `035_identity_market_capture.sql`
-for explicit country capture and the Spain pilot baseline. Nothing in
-this change is deployed. Existing null countries are not assigned `ES`.
-Do not start migration `036`. The Phase 14B record below is historical.
+**Live note (2026-10-03, after PR #49):** repository `main` is
+`fb599bba25f994bb0bd54ce6e872324523f56e92`. Issue #47 is closed.
+Migrations `001`–`032` and `035_identity_market_capture` are on `main`.
+Remote project `efkauegdlmfkonzwyyiv` is aligned through exact version
+`035`. Android smoke passed: authentication, Spain selection and
+persistence, profile edit, navigation, and fictional equine creation.
+Existing null countries are not assigned `ES`. Migration `036` does not
+exist and is not authorized. The Phase 14B record below is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main
@@ -58,12 +60,16 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 
 ## Next phase
 
-1. Issue #47 adds unreleased migration `035_identity_market_capture.sql`:
-   explicit country selection, selectable-market validation and the
-   Spain pilot baseline. It is not deployed.
-2. Approve the remaining manual MVP0 identity and equine-verification
-   workflow in `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`.
-3. Do not allocate migration `036` for KYC, evidence or publication.
-4. Keep private declared-equine and private-photo functionality working;
-   block public listing, service enablement, real booking and payment
-   until backend verification gates are satisfied.
+1. Issue #47 and migration `035_identity_market_capture` are merged,
+   deployed as exact version `035`, and covered by the approved Android
+   smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
+2. `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md` proposes the manual MVP0
+   verification flow. `docs/PRODUCT_DECISION_LOG.md` records the 2026-10-04
+   product direction and is append-only. Neither document is implemented.
+   Open `DECISION_REQUIRED` items, including vendor, admissible documents,
+   retention, fiscal scope and `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`, block
+   the executable train.
+3. Do not allocate migration `036`.
+4. Keep private declared-equine and private-photo functionality working.
+   Public listing, service enablement, real booking, and payment stay
+   blocked until a later authorized train adds backend gates.

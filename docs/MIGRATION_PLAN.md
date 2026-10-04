@@ -4,11 +4,13 @@
 **Objetivo:** refactor progresivo sin reescritura total  
 **Implementación:** Codex (Cursor/Grok may resume on a later train)
 
-**Live status (verified 2026-10-03, issue #47 branch):** repository
-`main` is `399189d8580c64f1b4dc164a289e7306e15d8c09`. Migrations
-`001`–`032` are on `main`. This branch adds unreleased
-`035_identity_market_capture.sql` and does not deploy it. Null person
-countries are not backfilled. Do not start migration `036`.
+**Live status (verified 2026-10-03, after PR #49):** repository `main`
+is `fb599bba25f994bb0bd54ce6e872324523f56e92`. Issue #47 is closed.
+Migrations `001`–`032` and `035_identity_market_capture` are on `main`
+and deployed. Remote project `efkauegdlmfkonzwyyiv` records exact version
+`035`. Android smoke passed. Null person countries are not backfilled.
+Migration `036` does not exist and is not authorized. The manual MVP0
+verification proposal is `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`.
 
 **Historical branch note (Phase 14B drafting time):** an earlier header
 described Phase 14B as unmerged on parent
@@ -371,12 +373,12 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-03, issue #47 branch):** migration `035`
-captures an explicit identity market and installs the Spain pilot
-baseline. It is not deployed. Next, approve the remaining manual MVP0
-identity and equine-verification slice in
-`docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`. Existing ownership and
-management migrations remain valid. A private self-created equine is
-declared, not verified. Do not enable public listing, services, real
-bookings or payments without the approved backend verification gates.
-Do not start migration `036`.
+**Siguiente fase (live 2026-10-03, after PR #49):** migration `035` is
+merged, deployed, and verified. The next document is the manual MVP0
+verification proposal in `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`. It
+is not an implementation and it does not allocate migration `036`.
+Existing ownership and management migrations remain valid. A private
+self-created equine is declared, not verified. Do not enable public
+listing, services, real bookings, or payments until the open
+`DECISION_REQUIRED` items for that slice are closed and a later train is
+explicitly authorized.
