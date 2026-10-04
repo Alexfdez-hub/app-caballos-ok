@@ -64,8 +64,11 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
 2. `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md` proposes the manual MVP0
-   verification flow. It is not implemented. Open `DECISION_REQUIRED`
-   items block the executable train.
+   verification flow. `docs/PRODUCT_DECISION_LOG.md` records the 2026-10-04
+   product direction and is append-only. Neither document is implemented.
+   Open `DECISION_REQUIRED` items, including vendor, admissible documents,
+   retention, fiscal scope and `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`, block
+   the executable train.
 3. Do not allocate migration `036`.
 4. Keep private declared-equine and private-photo functionality working.
    Public listing, service enablement, real booking, and payment stay

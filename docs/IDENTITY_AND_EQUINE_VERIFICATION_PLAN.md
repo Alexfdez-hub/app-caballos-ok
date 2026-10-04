@@ -37,12 +37,12 @@ gates before public discovery, real bookings or payments.
 - Public visibility, service enablement, real bookings and money movement are
   blocked until the backend confirms the required trust levels.
 - UI labels must say declared/pending/verified truthfully.
-- Civil identity uses an external KYC provider with official document, liveness and facial comparison once the vendor/privacy review is approved.
+- Civil identity uses an external KYC provider with DNI/NIE or passport, liveness and 1:1 facial comparison. Vendor, lawful basis, DPIA, retention, deletion and exception handling remain pending.
 - Equine ownership and management start with auditable evidence review; automation follows evidence from use.
 
 ## 4. Evidence and review
 
-For Spain, equine identity uses passport/DIE, UELN, microchip and issuing body. Ownership adds one principal title artifact; management adds one current authorization or contract. Center corroboration may attest custody and identity checks but is not ownership proof. Equivalent EU evidence may be accepted through a country-aware review path; possession of a passport alone is not universally sufficient.
+For Spain, equine identity uses passport/DIE, UELN, microchip and issuing body. Ownership adds one principal ownership artifact; management adds one current authorization or contract. The admissible document list remains a legal review. Center corroboration may attest custody, presence or a physical identity check. It does not prove or transfer ownership. France, Germany, Italy, Belgium, the Netherlands and Austria may later use country-aware review of equivalent evidence. Possession of a passport alone is not ownership.
 
 Evidence is private, least-privilege and retention-limited. Store only the
 minimum metadata needed in PostgreSQL; use private Storage or an external

@@ -4,7 +4,7 @@
 **Date:** 2026-10-03
 **Repository `main`:** `fb599bba25f994bb0bd54ce6e872324523f56e92`
 **Remote project:** `efkauegdlmfkonzwyyiv`, exact migration version `035`
-**Does not authorize:** migration `036`, SQL, Edge Functions, a KYC provider, public access, or payments
+**Does not authorize:** migration `036`, SQL, Edge Functions, a KYC vendor, public access, or payments
 
 This document completes the manual-review design named in
 `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`. It does not amend
@@ -174,9 +174,9 @@ management.
 | --- | --- |
 | `IDENTITY_PROVIDER_REFERENCE` | Opaque result from the external identity provider |
 | `EQUINE_IDENTIFIER_REFERENCE` | Passport/DIE, UELN, microchip and issuing body |
-| `OWNERSHIP_ARTIFACT` | Registry/issuer evidence, sale invoice or contract, donation, inheritance or court decision |
-| `MANAGEMENT_DELEGATION_ARTIFACT` | Owner authorization, loan, lease, boarding/custody or management contract |
-| `CENTER_CORROBORATION` | Center attestation of physical custody, passport/horse match or day-to-day responsibility |
+| `OWNERSHIP_ARTIFACT` | One principal ownership artifact. The admissible document list remains open |
+| `MANAGEMENT_DELEGATION_ARTIFACT` | One current authorization or contract naming scope and validity |
+| `CENTER_CORROBORATION` | Custody, presence, or a physical identity check. It does not prove or transfer ownership |
 | `INSURANCE_REFERENCE` | Policy/receipt metadata linked to an activity, not to ownership |
 | `REVIEWER_NOTE` | A reviewer note stored with the decision |
 
@@ -188,10 +188,10 @@ identity set plus one principal ownership artifact. A management claim requires
 the identity set plus one current authorization or contract naming its scope and
 validity.
 
-A center may corroborate that the equine is present, that passport and equine
-were checked, and that a person has custody or day-to-day responsibility. That
-attestation is not, by itself, legal proof of ownership and cannot change an
-effective ownership row.
+A center may corroborate custody, presence, or a physical check that the
+passport and the equine match. That attestation does not, by itself, prove or
+transfer ownership, and it does not change an effective ownership row. It also
+does not create management authority.
 
 For France, Germany, Italy, Belgium, the Netherlands and Austria, the same EU
 passport/UELN/microchip intake is used. Country adapters may accept an official
@@ -327,18 +327,19 @@ replace `equine_availability_rules`, `equine_calendar_blocks`,
 ### Insurance belongs to the activity
 
 Insurance is not required to create or keep a private equine profile and does
-not prove ownership or management authority. Before a real activity, the
-system reports the applicable coverage as `VERIFIED`, `DECLARED`, or
-`NOT_VERIFIED`.
+not prove ownership or management authority. A future activity gate may report
+applicable coverage as `VERIFIED`, `DECLARED`, or `NOT_VERIFIED`. Those labels
+are not implemented.
 
 For a center-organized activity, the center's professional/operational
-liability cover is the primary operational evidence. A federation licence is
-recorded separately and must not be presented as complete third-party
-liability cover unless its actual policy says so. Indoor/on-premises activity
-and an exterior ride are different coverage scopes; exterior activity requires
-explicit off-premises coverage. The terms may allocate information, safety and
-cooperation duties, but must not claim to displace statutory liability or the
-rights of an injured third party.
+liability cover is the primary operational evidence. A federation licence or
+accident policy is recorded separately and must not be presented as complete
+third-party liability cover unless the actual policy says so. Indoor or
+on-premises activity and an exterior ride are different coverage scopes;
+exterior activity requires explicit off-premises coverage. The terms may
+allocate information, safety and cooperation duties. They must not say that
+all liability rests exclusively on the owner, and they must not displace
+statutory liability or the rights of an injured third party.
 
 `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`: before real paid bookings, Spanish
 legal counsel and an insurance broker must validate wording, minimum cover,
@@ -348,12 +349,13 @@ or management relationships.
 
 ### Owner release, center use and rider visibility
 
-The owner, or a manager with explicit delegated scope, defines the maximum
-window in which the equine is released to one center and the services for which
-it may be used. Within that release, the center may reduce availability
-according to opening hours, facilities, staff, service rules and resources. It
-may never expand beyond the owner release or override welfare, veterinary,
-rest, owner-use or existing booking blocks.
+The owner, or a manager with an express delegation, defines the maximum window
+in which the equine is released to one center and the services for which it may
+be used. Within that release, the center may only reduce availability according
+to opening hours, facilities, resources and services. The center must not
+expand beyond the owner release. Neither the owner release nor the center
+reduction may ignore welfare, veterinary, rest, owner-use or confirmed-booking
+blocks.
 
 The rider sees only derived bookable slots. The rider must not see the owner's
 private calendar, owner-use reasons, unused release windows, center internal
@@ -518,17 +520,19 @@ Product distinctions:
 This order starts only after the blocking decisions in section 19 are
 closed. It does not name a migration file and does not start the train.
 
-1. Manual identity verification for the caller's own PERSON, private
-   evidence, review, rejection, resubmission, expiry, and revocation.
-2. Manual corroboration of an existing ownership row and an existing
-   management assignment, including conflict handling that does not write
-   the effective tables.
+1. External identity-provider adapter for the caller's own PERSON, only after
+   the pending vendor, lawful-basis, DPIA, retention, deletion and exception
+   items in `KYC-PROVIDER` are closed. Manual review is the exception path.
+2. Spain-first equine identity, ownership and management evidence review,
+   including conflict handling that does not write the effective tables.
+   Automatic acceptance of particular documents waits for the pending legal
+   catalog.
 3. Internal gates for publication, service enablement, and real booking,
    still without opening public discovery or taking payment.
-4. Real discovery and real booking only after those gates exist.
-5. Fiscal identity, provider integration, and payments only after
-   `KYC-PROVIDER`, `LEGAL-EVIDENCE-CATALOG`, `RETENTION-AND-EXPIRY`, and
-   `FISCAL-GATE` are decided.
+4. Real discovery and real booking only after those gates exist. Remunerated
+   bookings also wait for `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.
+5. Fiscal identity and payments only after `FISCAL-GATE`. This step does not
+   choose a KYC vendor.
 
 Slices 1 and 2 should be separate pull requests. Each one preserves
 private equine creation and private photos.
@@ -572,14 +576,18 @@ private equine creation and private photos.
 
 ### LEGAL-EVIDENCE-CATALOG
 
-- Product decision closed for the Spain-first MVP design: use the minimum
-  evidence combinations in section 8, keep ownership and management separate,
-  and send mismatches, competing claims or unverifiable foreign evidence to
-  manual review.
-- The catalog corroborates an existing relationship; it never transfers or
-  overwrites ownership.
-- Country-specific automation beyond the documented EU intake remains pending
-  legal validation before activation.
+- Closed product direction: in Spain, equine identity is passport/DIE, UELN,
+  microchip and issuing body. Ownership adds one principal ownership artifact.
+  Management adds one current authorization or contract. Center corroboration
+  may attest custody, presence or a physical identity check, and does not
+  prove or transfer ownership. France, Germany, Italy, Belgium, the
+  Netherlands and Austria may later use the same EU intake plus country-aware
+  review. Possession of a passport alone is not ownership.
+- Still pending: which documents are legally sufficient as that principal
+  artifact, any additional legal rules, and any automatic sufficiency check.
+- The catalog corroborates an existing relationship. It does not transfer or
+  overwrite ownership. Country-specific activation waits for that legal
+  validation.
 
 ### RETENTION-AND-EXPIRY
 

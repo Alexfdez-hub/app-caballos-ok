@@ -338,7 +338,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`,
 `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`, and
 `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`, and
-`docs/PRODUCT_DECISION_LOG.md`. Authentication,
+`docs/PRODUCT_DECISION_LOG.md`. The decision log is append-only. It records
+closed product direction separately from open legal, privacy and insurance
+reviews, and it does not authorize implementation. Authentication,
 civil-identity verification, declared ownership, verified ownership and
 verified management authority are distinct. A privately declared equine
 may be completed and photographed, but publication, service enablement,
