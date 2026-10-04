@@ -907,7 +907,13 @@ begin
             'authorize_my_equine_photo_finalize',
             'list_my_equine_photos',
             'authorize_my_equine_photo_read',
-            'authorize_my_equine_photo_retire'
+            'authorize_my_equine_photo_retire',
+            'submit_my_equine_ownership_claim',
+            'submit_my_equine_management_claim',
+            'list_my_equine_ownership_claims',
+            'list_my_equine_management_claims',
+            'review_equine_ownership_claim',
+            'review_equine_management_claim'
            )
          )
        )
