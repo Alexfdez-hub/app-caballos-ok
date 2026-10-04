@@ -321,26 +321,27 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-03, after PR #49):** repository `main`
-is `fb599bba25f994bb0bd54ce6e872324523f56e92`. Issue #47 is closed.
+**Live status (verified 2026-10-04, after PR #50):** repository `main`
+is `365225c419e44f1ed8a1776f2a7a9838aeb35273`. Issue #47 is closed.
 Migrations `001`–`032` and `035_identity_market_capture` are on `main`.
-Remote project `efkauegdlmfkonzwyyiv` is aligned through exact version
-`035`. Android smoke passed for authentication, Spain selection and
-persistence, profile edit, navigation, and fictional equine creation.
-Migration `036` does not exist and is not authorized. Identity completion
-still requires an explicit selectable country. Null
-`persons.country_code` stays incomplete and is not backfilled with Spain.
+Remote project `efkauegdlmfkonzwyyiv` remains at exact version `035`.
+PR #50 is merged. Stage 0 inventory is
+`docs/VERIFICATION_FOUNDATION_STAGE0.md`. Migration `036` is the next
+schema slice and is not in this stage. Migration `037` is not authorized.
+Identity completion still requires an explicit selectable country.
 
 The Level 1–3 handoff documents named above are maintained outside this
 repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/MIGRATION_STATUS.md`, the phase reports,
 `docs/EQUINE_CREATE_AND_MEDIA_PROPOSAL.md`,
 `docs/IDENTITY_AND_EQUINE_VERIFICATION_PLAN.md`,
-`docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`, and
-`docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`, and
-`docs/PRODUCT_DECISION_LOG.md`. The decision log is append-only. It records
+`docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`,
+`docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`,
+`docs/PRODUCT_DECISION_LOG.md`, and
+`docs/VERIFICATION_FOUNDATION_STAGE0.md`. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
-reviews, and it does not authorize implementation. Authentication,
+reviews. A later entry can authorize one named slice. It does not authorize
+work beyond that slice. Authentication,
 civil-identity verification, declared ownership, verified ownership and
 verified management authority are distinct. A privately declared equine
 may be completed and photographed, but publication, service enablement,

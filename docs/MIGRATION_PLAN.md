@@ -373,12 +373,10 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-03, after PR #49):** migration `035` is
-merged, deployed, and verified. The next document is the manual MVP0
-verification proposal in `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`. It
-is not an implementation and it does not allocate migration `036`.
-Existing ownership and management migrations remain valid. A private
-self-created equine is declared, not verified. Do not enable public
-listing, services, real bookings, or payments until the open
-`DECISION_REQUIRED` items for that slice are closed and a later train is
-explicitly authorized.
+**Siguiente fase (live 2026-10-04, after PR #50):** Stage 0 inventory is
+`docs/VERIFICATION_FOUNDATION_STAGE0.md`. The next Draft PR may add
+migration `036` as schema only. It must not select a KYC vendor, store
+biometrics, change the calendar, or start migration `037`. Existing
+ownership and management rows remain the effective relationships. A
+private self-created equine stays declared. Do not enable public listing,
+services, real bookings, or payments.
