@@ -82,3 +82,10 @@ exception handling, admissible documents, reviewer-grant authority, fiscal
 scope, and `LEGAL_AND_INSURANCE_REVIEW_REQUIRED` stay open. Calendar rules
 stay as clarified above. Migration `037`, review RPCs, Edge Functions, public
 access, and payments are not authorized by this entry.
+
+## 2026-10-04 — Verification review RPC slice
+
+Authorizes only migration `037`: submit, read, and review RPCs for identity
+cases and equine claims. ACCOUNT and PERSON resolve from `auth.uid()`.
+Review grants are read, not created. Acceptance does not write effective
+ownership or management. The pending items in the entry above stay open.
