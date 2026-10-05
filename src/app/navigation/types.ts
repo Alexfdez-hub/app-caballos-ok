@@ -33,6 +33,7 @@ export type PassportStackParamList = {
 
 export type ProfileStackParamList = {
   Profile: undefined;
+  Verification: undefined;
   EditIdentity: undefined;
   GuardianRelationships: undefined;
   MyCenters: undefined;
@@ -78,6 +79,11 @@ export type EditRiderProfileScreenProps = NativeStackScreenProps<
 export type ProfileScreenProps = CompositeScreenProps<
   NativeStackScreenProps<ProfileStackParamList, 'Profile'>,
   BottomTabScreenProps<AuthenticatedTabParamList>
+>;
+
+export type VerificationScreenProps = NativeStackScreenProps<
+  ProfileStackParamList,
+  'Verification'
 >;
 
 export type EditIdentityScreenProps = NativeStackScreenProps<

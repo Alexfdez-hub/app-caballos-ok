@@ -14,6 +14,7 @@ import MyCentersScreen from '../../screens/MyCentersScreen';
 import CreateEquineScreen from '../../screens/CreateEquineScreen';
 import EquineDetailScreen from '../../screens/EquineDetailScreen';
 import MyEquinesScreen from '../../screens/MyEquinesScreen';
+import VerificationScreen from '../../screens/VerificationScreen';
 import MyManagedEquinesScreen from '../../screens/MyManagedEquinesScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
 import { colors } from '../ui/theme';
@@ -102,6 +103,16 @@ function ProfileStack() {
         name="Profile"
         component={ProfileScreen}
         options={{ headerShown: false }}
+      />
+      <ProfileStackNavigator.Screen
+        name="Verification"
+        component={VerificationScreen}
+        options={{
+          title: 'Verificación',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
       />
       <ProfileStackNavigator.Screen
         name="EditIdentity"

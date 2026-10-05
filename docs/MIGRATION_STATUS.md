@@ -1,11 +1,11 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-04, Stage 3 branch):** repository `main` is
-`a862fd52222ce5a436c72746372b47c13afe3526`. Migrations `036` and `037` are
-on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at exact
-version `037`. This branch adds unreleased `038_verification_predicates.sql`:
-read-only trust predicates. It is not deployed and does not open publication,
-services, bookings or payments.
+**Live note (2026-10-05, Stage 4A branch):** repository `main` is
+`435118b4e9ab5be3b4c511735f53f2b37ba5c35f`. Migrations `036`, `037`, and
+`038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at
+exact version `038`. This branch adds the Verificación screen only. It does
+not add migration `039` and does not open publication, services, bookings,
+or payments.
 Existing null countries are not assigned `ES`. The Phase 14B record below
 is historical.
 
@@ -63,9 +63,9 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. Migrations `036` and `037` are on `main`. Remote is at exact version
-   `037`. This branch adds unreleased `038_verification_predicates.sql`.
-   No grant-management RPC, KYC vendor, calendar change, or migration `039`.
+2. Migrations `036`, `037`, and `038` are on `main`. Remote is at exact
+   version `038`. This branch adds the Stage 4A Verificación screen. No
+   migration `039`, grant-management RPC, KYC vendor, or calendar change.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.

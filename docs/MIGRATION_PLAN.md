@@ -373,10 +373,11 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-04, Stage 3 branch):** `main` is
-`a862fd52222ce5a436c72746372b47c13afe3526` and includes migrations `036`
-and `037`. Unreleased `038_verification_predicates.sql` adds read-only
-trust predicates. It is not deployed and does not open publication,
+**Siguiente fase (live 2026-10-05, Stage 4A branch):** `main` is
+`435118b4e9ab5be3b4c511735f53f2b37ba5c35f` and includes migrations `036`,
+`037`, and `038`. Remote is at exact version `038`. This branch adds the
+Verificación screen for Spain identity status and a manual identity
+request. It does not add migration `039` and does not open publication,
 services, bookings or payments. Existing ownership and management rows
 remain the effective relationships. A private self-created equine stays
 declared. Do not enable public listing, services, real bookings, or
