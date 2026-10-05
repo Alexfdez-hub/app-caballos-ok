@@ -30,7 +30,7 @@ The foundation follows Architecture 2.1 and
 | Stage 0 | This document | Inventory and the boundary of migration `036` |
 | Stage 1, migration `036` | Next Draft PR, after this stage is green | Cases, claims, append-only decisions, referenced evidence, review-grant rows, expiry columns, rejection and revocation outcomes, RLS deny-by-default |
 | Stage 2 | This branch, unreleased | Submit, read, and review RPCs in migration `037`. Submitter and reviewer stay separate |
-| Stage 3 | Not started | Backend predicates for verified owner, authorized manager, and center corroboration |
+| Stage 3 | This branch, unreleased | Read-only identity, ownership and management predicates in migration `038`. Center corroboration is deferred. Not wired to publication, services or bookings |
 | Stage 4 | Not started | Minimal state and evidence UI. No simulated KYC |
 | Stage 5 | Not started | Broader SQL, concurrency, TypeScript, and runbook coverage |
 | Migration `037` | This branch, unreleased | Review RPCs only. No grant management, vendor, or effective-relationship writes |

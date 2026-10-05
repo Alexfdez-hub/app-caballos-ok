@@ -89,3 +89,12 @@ Authorizes only migration `037`: submit, read, and review RPCs for identity
 cases and equine claims. ACCOUNT and PERSON resolve from `auth.uid()`.
 Review grants are read, not created. Acceptance does not write effective
 ownership or management. The pending items in the entry above stay open.
+
+## 2026-10-04 — Verification predicate slice
+
+Authorizes only migration `038`: read-only predicates for current identity,
+ownership and management. Center corroboration stays deferred: `036` does
+not identify the attesting center or an authorized attester, so an evidence
+label is not a trust fact. The predicates do not write effective rows and
+are not called by publication, services, bookings or payments.
+`GATE-PREDICATE` and the other open items stay open.

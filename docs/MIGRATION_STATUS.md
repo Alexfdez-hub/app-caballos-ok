@@ -1,12 +1,11 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-04, Stage 2 branch):** repository `main` is
-`511fde55855e9afaecfbf9a21a197f9b9dd576f4`. Issue #47 is closed.
-Migrations `001`–`032`, `035` and `036_verification_foundation` are on
-`main`. Remote project `efkauegdlmfkonzwyyiv` remains at exact version
-`035`. This branch adds unreleased `037_verification_review.sql`: submit,
-read, and review RPCs only. It is not deployed. It does not manage review
-grants, call a KYC vendor, or write effective ownership or management rows.
+**Live note (2026-10-04, Stage 3 branch):** repository `main` is
+`a862fd52222ce5a436c72746372b47c13afe3526`. Migrations `036` and `037` are
+on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at exact
+version `037`. This branch adds unreleased `038_verification_predicates.sql`:
+read-only trust predicates. It is not deployed and does not open publication,
+services, bookings or payments.
 Existing null countries are not assigned `ES`. The Phase 14B record below
 is historical.
 
@@ -64,10 +63,9 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. Migration `036_verification_foundation.sql` is on `main` and is not
-   deployed. This branch adds unreleased `037_verification_review.sql`:
-   submit, read, and review RPCs. No grant-management RPC, KYC vendor, or
-   calendar change.
+2. Migrations `036` and `037` are on `main`. Remote is at exact version
+   `037`. This branch adds unreleased `038_verification_predicates.sql`.
+   No grant-management RPC, KYC vendor, calendar change, or migration `039`.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.
