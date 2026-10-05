@@ -4,7 +4,8 @@
 -- and expires_at is null or still ahead of the queried instant. These
 -- functions do not write, do not choose a retention interval, do not grant
 -- review authority, and are not called by publication, services, bookings
--- or payments.
+-- or payments. Center corroboration is not derived here: migration 036
+-- does not record the attesting center or the attester's authority.
 
 create function public.verification_identity_is_verified(
   p_person_id uuid,
@@ -151,87 +152,6 @@ comment on function public.verification_management_is_verified(uuid, timestamptz
 revoke all on function public.verification_management_is_verified(uuid, timestamptz)
   from public, anon, authenticated;
 
-create function public.verification_center_corroboration_is_current(
-  p_parent_type text,
-  p_claim_id uuid,
-  p_as_of timestamptz
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = pg_catalog, public
-as $$
-  select exists (
-    select 1
-      from public.verification_evidence as evidence
-      left join public.equine_ownership_claims as ownership_claim
-        on p_parent_type = 'OWNERSHIP_CLAIM'
-       and ownership_claim.id = p_claim_id
-       and evidence.ownership_claim_id = ownership_claim.id
-      left join public.equine_management_authority_claims as management_claim
-        on p_parent_type = 'MANAGEMENT_CLAIM'
-       and management_claim.id = p_claim_id
-       and evidence.management_claim_id = management_claim.id
-     where evidence.category = 'CENTER_CORROBORATION'
-       and evidence.parent_type = p_parent_type
-       and (
-         (
-           p_parent_type = 'OWNERSHIP_CLAIM'
-           and ownership_claim.id is not null
-           and public.verification_ownership_is_verified(
-             ownership_claim.effective_ownership_id,
-             p_as_of
-           )
-           and exists (
-             select 1
-               from (
-                 select decision.outcome, decision.expires_at
-                   from public.equine_relationship_decisions as decision
-                  where decision.ownership_claim_id = ownership_claim.id
-                  order by decision.decided_at desc, decision.id desc
-                  limit 1
-               ) as latest
-              where latest.outcome = 'ACCEPTED'
-                and (
-                  latest.expires_at is null
-                  or latest.expires_at > coalesce(p_as_of, pg_catalog.clock_timestamp())
-                )
-           )
-         )
-         or (
-           p_parent_type = 'MANAGEMENT_CLAIM'
-           and management_claim.id is not null
-           and public.verification_management_is_verified(
-             management_claim.effective_assignment_id,
-             p_as_of
-           )
-           and exists (
-             select 1
-               from (
-                 select decision.outcome, decision.expires_at
-                   from public.equine_relationship_decisions as decision
-                  where decision.management_claim_id = management_claim.id
-                  order by decision.decided_at desc, decision.id desc
-                  limit 1
-               ) as latest
-              where latest.outcome = 'ACCEPTED'
-                and (
-                  latest.expires_at is null
-                  or latest.expires_at > coalesce(p_as_of, pg_catalog.clock_timestamp())
-                )
-           )
-         )
-       )
-  );
-$$;
-
-comment on function public.verification_center_corroboration_is_current(text, uuid, timestamptz) is
-  'True when an existing CENTER_CORROBORATION evidence row sits on a claim whose own latest decision is a current acceptance and whose effective row is still verified. It is not identity, ownership, management or review authority.';
-
-revoke all on function public.verification_center_corroboration_is_current(text, uuid, timestamptz)
-  from public, anon, authenticated;
-
 create function public.list_my_verification_status()
 returns table (
   subject_kind text,
@@ -246,12 +166,11 @@ security definer
 set search_path = pg_catalog, public
 as $$
 declare
-  caller_account uuid;
   caller_person uuid;
   queried_at timestamptz := pg_catalog.clock_timestamp();
 begin
-  select resolved.account_id, resolved.person_id
-    into caller_account, caller_person
+  select resolved.person_id
+    into caller_person
     from public.verification_resolve_caller() as resolved;
 
   return query
@@ -301,57 +220,11 @@ begin
     end
     from public.equine_management_assignments as assignment
    where assignment.manager_person_id = caller_person;
-
-  return query
-  select
-    'CENTER_CORROBORATION'::text,
-    ownership_claim.market_country_code,
-    ownership_claim.equine_id,
-    ownership_claim.id,
-    case
-      when public.verification_center_corroboration_is_current(
-        'OWNERSHIP_CLAIM',
-        ownership_claim.id,
-        queried_at
-      ) then 'ATTESTED'
-      else 'NOT_ATTESTED'
-    end
-    from public.equine_ownership_claims as ownership_claim
-   where ownership_claim.submitted_by_account_id = caller_account
-     and exists (
-       select 1
-         from public.verification_evidence as evidence
-        where evidence.ownership_claim_id = ownership_claim.id
-          and evidence.category = 'CENTER_CORROBORATION'
-     );
-
-  return query
-  select
-    'CENTER_CORROBORATION'::text,
-    management_claim.market_country_code,
-    management_claim.equine_id,
-    management_claim.id,
-    case
-      when public.verification_center_corroboration_is_current(
-        'MANAGEMENT_CLAIM',
-        management_claim.id,
-        queried_at
-      ) then 'ATTESTED'
-      else 'NOT_ATTESTED'
-    end
-    from public.equine_management_authority_claims as management_claim
-   where management_claim.submitted_by_account_id = caller_account
-     and exists (
-       select 1
-         from public.verification_evidence as evidence
-        where evidence.management_claim_id = management_claim.id
-          and evidence.category = 'CENTER_CORROBORATION'
-     );
 end;
 $$;
 
 comment on function public.list_my_verification_status() is
-  'Caller-only trust codes. ACCOUNT and PERSON come from auth.uid(). Omits reviewer identity, evidence paths, notes and other people. Does not open publication, services, bookings or payments.';
+  'Caller-only identity, ownership and management codes. PERSON comes from auth.uid(). Omits reviewer identity, evidence paths, notes and other people. A CENTER_CORROBORATION evidence label is not a trusted status. Does not open publication, services, bookings or payments.';
 
 revoke all on function public.list_my_verification_status() from public, anon;
 grant execute on function public.list_my_verification_status() to authenticated;

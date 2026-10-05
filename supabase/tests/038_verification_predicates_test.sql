@@ -124,8 +124,7 @@ begin
   foreach function_name in array array[
     'verification_identity_is_verified(uuid,text,timestamp with time zone)',
     'verification_ownership_is_verified(uuid,timestamp with time zone)',
-    'verification_management_is_verified(uuid,timestamp with time zone)',
-    'verification_center_corroboration_is_current(text,uuid,timestamp with time zone)'
+    'verification_management_is_verified(uuid,timestamp with time zone)'
   ]
   loop
     if has_function_privilege('anon', format('public.%s', function_name), 'EXECUTE')
@@ -349,20 +348,10 @@ begin
     subject_account
   );
 
-  if not public.verification_center_corroboration_is_current(
-    'OWNERSHIP_CLAIM',
-    '03810000-0000-4000-8000-0000000000d1',
-    timestamptz '2024-10-01'
-  ) then
-    raise exception 'Current center corroboration was not derived from the accepted claim';
-  end if;
-
-  if public.verification_center_corroboration_is_current(
-    'IDENTITY_CASE',
-    '03810000-0000-4000-8000-0000000000c1',
-    timestamptz '2024-10-01'
-  ) then
-    raise exception 'Center corroboration was treated as identity';
+  if to_regprocedure(
+    'public.verification_center_corroboration_is_current(text,uuid,timestamptz)'
+  ) is not null then
+    raise exception 'Center corroboration was exposed as a trust predicate';
   end if;
 
   insert into public.equine_relationship_decisions (
@@ -454,11 +443,11 @@ begin
         where status_row.subject_kind = 'MANAGEMENT'
           and status_row.status_code = 'VERIFIED'
      )
-     or not exists (
+     or exists (
        select 1
          from public.list_my_verification_status() as status_row
         where status_row.subject_kind = 'CENTER_CORROBORATION'
-          and status_row.status_code = 'ATTESTED'
+           or status_row.status_code in ('ATTESTED', 'NOT_ATTESTED')
      )
      or exists (
        select 1

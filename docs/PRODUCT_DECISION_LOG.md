@@ -93,6 +93,8 @@ ownership or management. The pending items in the entry above stay open.
 ## 2026-10-04 — Verification predicate slice
 
 Authorizes only migration `038`: read-only predicates for current identity,
-ownership, management and existing center-corroboration evidence. They do
-not write effective rows and are not called by publication, services,
-bookings or payments. `GATE-PREDICATE` and the other open items stay open.
+ownership and management. Center corroboration stays deferred: `036` does
+not identify the attesting center or an authorized attester, so an evidence
+label is not a trust fact. The predicates do not write effective rows and
+are not called by publication, services, bookings or payments.
+`GATE-PREDICATE` and the other open items stay open.

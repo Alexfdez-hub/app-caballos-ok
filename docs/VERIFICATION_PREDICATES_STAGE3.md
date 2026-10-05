@@ -10,11 +10,11 @@ Identity is keyed by subject PERSON plus `market_country_code`. Ownership is key
 
 ## Center corroboration
 
-`CENTER_CORROBORATION` is an evidence category on an ownership or management claim. It is not a new claim type, not KYC identity, and not review authority. It is current only when that evidence exists, the claim's own latest decision is a current acceptance, and the linked effective row is still verified.
+Deferred. Migration `036` records only `submitted_by_account_id` on evidence. It does not identify the attesting center, an authorized representative, or an authority snapshot. A `CENTER_CORROBORATION` label is therefore not a trust fact in `038`. A later slice needs its own product decision before it can add that schema. This migration does not invent it.
 
 ## Who can read
 
-Internal predicates accept a server-supplied subject id because a future gate may evaluate someone other than the caller. They are not executable by `PUBLIC`, `anon` or `authenticated`. `list_my_verification_status()` resolves ACCOUNT and PERSON from `auth.uid()` and returns only that caller's codes: `VERIFIED`, `NOT_VERIFIED`, `ATTESTED`, `NOT_ATTESTED`. It omits reviewer identity, notes, evidence paths and other people.
+Internal predicates accept a server-supplied subject id because a future gate may evaluate someone other than the caller. They are not executable by `PUBLIC`, `anon` or `authenticated`. `list_my_verification_status()` resolves PERSON from `auth.uid()` and returns only that caller's codes: `VERIFIED` or `NOT_VERIFIED`, for identity, ownership and management. It omits reviewer identity, notes, evidence paths and other people.
 
 These predicates are not called by publication, services, bookings, payments or the calendar. `GATE-PREDICATE` stays open.
 
