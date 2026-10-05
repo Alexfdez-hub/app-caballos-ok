@@ -143,12 +143,14 @@ export default function VerificationScreen(_props: VerificationScreenProps) {
 
           <Pressable
             accessibilityRole="button"
+            disabled={isSubmitting}
             onPress={() => {
               void refresh();
             }}
             style={({ pressed }) => [
               styles.secondaryButton,
               pressed && styles.buttonPressed,
+              isSubmitting && styles.buttonDisabled,
             ]}
           >
             <Text style={styles.secondaryButtonText}>Actualizar</Text>

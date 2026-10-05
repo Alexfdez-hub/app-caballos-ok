@@ -17,6 +17,15 @@ import {
   parseIdentityCaseRows,
   parseVerificationStatusRows,
 } from './verificationRow.ts';
+import {
+  beginSpainIdentitySubmit,
+  beginVerificationRefresh,
+  createVerificationSession,
+  markVerificationBlurred,
+  markVerificationFocused,
+  settleSpainIdentitySubmit,
+  shouldApplyVerificationResult,
+} from './verificationSession.ts';
 import type { VerificationSnapshot } from './types.ts';
 
 const EQUINE_A = '11111111-1111-4111-8111-111111111111';
@@ -259,6 +268,41 @@ describe('equine relation presentation', () => {
     assert.equal(management[0]?.displayName.includes(EQUINE_B), false);
     assert.equal(equineDisplayName(EQUINE_B, new Map()), 'Equino');
   });
+
+  it('keeps an unknown relationship visible and leaves Spain identity alone', () => {
+    const current = snapshot({
+      statusRows: [
+        {
+          subjectKind: 'IDENTITY',
+          marketCountryCode: 'ES',
+          equineId: null,
+          effectiveId: null,
+          statusCode: 'NOT_VERIFIED',
+        },
+        {
+          subjectKind: 'OWNERSHIP',
+          marketCountryCode: null,
+          equineId: EQUINE_A,
+          effectiveId: EFFECTIVE_A,
+          statusCode: 'UNKNOWN',
+        },
+        {
+          subjectKind: 'MANAGEMENT',
+          marketCountryCode: null,
+          equineId: EQUINE_B,
+          effectiveId: EFFECTIVE_B,
+          statusCode: 'UNKNOWN',
+        },
+      ],
+    });
+
+    assert.equal(presentSpainIdentity(current).status, 'NOT_VERIFIED');
+    assert.equal(presentOwnerships(current)[0]?.statusLabel, 'No disponible');
+    assert.equal(presentManagement(current)[0]?.statusLabel, 'No disponible');
+    assert.equal(presentOwnerships(current)[0]?.statusLabel === 'Verificada', false);
+    assert.notEqual(presentOwnerships(current).length, 0);
+    assert.notEqual(presentManagement(current).length, 0);
+  });
 });
 
 describe('identity request flow', () => {
@@ -301,6 +345,80 @@ describe('identity request flow', () => {
     assert.equal(message.includes(CASE_B), false);
     assert.equal(message.toLowerCase().includes('duplicate'), false);
     assert.equal(message.toLowerCase().includes('identity_verification'), false);
+  });
+});
+
+describe('verification request freshness', () => {
+  it('releases a successful submit after blur and allows another request on return', () => {
+    let current = markVerificationFocused(createVerificationSession());
+    const started = beginSpainIdentitySubmit(current);
+    assert.ok(started);
+    current = markVerificationBlurred(started);
+    const settled = settleSpainIdentitySubmit(current, {
+      ok: true,
+      snapshot: snapshot(),
+      notice: IDENTITY_REQUEST_NOTICE,
+    });
+    assert.equal(settled.apply, false);
+    assert.equal(settled.session.submit.inFlight, false);
+    assert.equal(settled.session.submit.notice, IDENTITY_REQUEST_NOTICE);
+    const returned = markVerificationFocused(settled.session);
+    assert.equal(returned.submit.inFlight, false);
+    assert.ok(beginSpainIdentitySubmit(returned));
+  });
+
+  it('releases a failed submit after blur without keeping the lock', () => {
+    let current = markVerificationFocused(createVerificationSession());
+    const started = beginSpainIdentitySubmit(current);
+    assert.ok(started);
+    current = markVerificationBlurred(started);
+    const settled = settleSpainIdentitySubmit(current, {
+      ok: false,
+      errorMessage: 'No se pudo completar la verificación. Inténtalo de nuevo.',
+    });
+    assert.equal(settled.apply, false);
+    assert.equal(settled.session.submit.inFlight, false);
+    assert.equal(settled.session.pendingError?.includes('select '), false);
+    const returned = markVerificationFocused(settled.session);
+    assert.ok(beginSpainIdentitySubmit(returned));
+  });
+
+  it('drops an older refresh when a submit starts and ignores refresh while submitting', () => {
+    let current = markVerificationFocused(createVerificationSession());
+    const refresh = beginVerificationRefresh(current);
+    assert.ok(refresh);
+    current = refresh.session;
+    const started = beginSpainIdentitySubmit(current);
+    assert.ok(started);
+    current = started;
+    assert.equal(
+      shouldApplyVerificationResult(
+        refresh.requestSeq,
+        current.requestSeq,
+        current.screenActive,
+      ),
+      false,
+    );
+    assert.equal(beginVerificationRefresh(current), null);
+    const next = snapshot({
+      identityCases: [
+        {
+          caseId: CASE_A,
+          state: 'SUBMITTED',
+          marketCountryCode: 'ES',
+          outcome: null,
+          decidedAt: null,
+        },
+      ],
+    });
+    const settled = settleSpainIdentitySubmit(current, {
+      ok: true,
+      snapshot: next,
+      notice: IDENTITY_REQUEST_NOTICE,
+    });
+    assert.equal(settled.session.submit.inFlight, false);
+    assert.equal(settled.session.pendingSnapshot, next);
+    assert.ok(beginVerificationRefresh(settled.session));
   });
 });
 

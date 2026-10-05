@@ -14,7 +14,7 @@ Perfil opens **Verificación**. The screen reads the signed-in person through:
 
 Identity for Spain is `VERIFIED` only when that predicate returns `VERIFIED`. An accepted case by itself stays `No verificada`. Open states `SUBMITTED`, `IN_REVIEW`, and `RESUBMITTED` show `Solicitud pendiente`. A later finished rejection, with no current verification, shows `No aceptada`. An unknown code or a malformed payload fails closed. Labels stay in the presentation layer.
 
-Ownership and management rows are read-only. A name comes from the existing ownership or management list. Otherwise the row says `Equino` and does not show the identifier. There is no claim button, no reviewer UI, and no center corroboration.
+Ownership and management rows are read-only. A name comes from the existing ownership or management list. Otherwise the row says `Equino` and does not show the identifier. An unknown trust code stays visible as `No disponible` and does not change the Spain identity card. There is no claim button, no reviewer UI, and no center corroboration. Leaving the screen during a request releases the submit lock. Manual refresh waits until that request settles.
 
 Creating a request does not verify identity, does not start KYC, does not ask for documents, and does not open publication, bookings, or payments.
 

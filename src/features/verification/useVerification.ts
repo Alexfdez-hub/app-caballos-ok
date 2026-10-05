@@ -1,18 +1,23 @@
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { shouldApplyCenterMembershipRefresh } from '../centers/membershipRefresh';
 import { useAuth } from '../auth/useAuth';
 import {
-  finishIdentitySubmit,
   identitySubmitSucceeded,
   presentManagement,
   presentOwnerships,
   presentSpainIdentity,
   reloadAfterSpainIdentityRequest,
-  startIdentitySubmit,
-  type SubmitState,
 } from './presentation';
+import {
+  beginSpainIdentitySubmit,
+  beginVerificationRefresh,
+  createVerificationSession,
+  markVerificationBlurred,
+  markVerificationFocused,
+  settleSpainIdentitySubmit,
+  shouldApplyVerificationResult,
+} from './verificationSession';
 import { userFacingVerificationMessage } from './verificationErrors';
 import {
   loadMyVerification,
@@ -36,14 +41,8 @@ export function useVerification() {
   const [snapshot, setSnapshot] = useState<VerificationSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [submitState, setSubmitState] = useState<SubmitState>({
-    inFlight: false,
-    notice: null,
-  });
-  const requestSeqRef = useRef(0);
-  const isScreenActiveRef = useRef(false);
-  const submitStateRef = useRef(submitState);
-  submitStateRef.current = submitState;
+  const [submitState, setSubmitState] = useState(createVerificationSession().submit);
+  const sessionRef = useRef(createVerificationSession());
 
   const refresh = useCallback(async () => {
     if (!session) {
@@ -53,41 +52,57 @@ export function useVerification() {
       return;
     }
 
-    const requestSeq = requestSeqRef.current + 1;
-    requestSeqRef.current = requestSeq;
+    const started = beginVerificationRefresh(sessionRef.current);
+    if (!started) {
+      return;
+    }
+
+    sessionRef.current = started.session;
+    const requestSeq = started.requestSeq;
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
       const nextSnapshot = await loadMyVerification();
       if (
-        !shouldApplyCenterMembershipRefresh(
+        !shouldApplyVerificationResult(
           requestSeq,
-          requestSeqRef.current,
-          isScreenActiveRef.current,
+          sessionRef.current.requestSeq,
+          sessionRef.current.screenActive,
         )
       ) {
         return;
       }
+      sessionRef.current = {
+        ...sessionRef.current,
+        pendingSnapshot: nextSnapshot,
+        pendingError: null,
+      };
       setSnapshot(nextSnapshot);
     } catch (error) {
       if (
-        !shouldApplyCenterMembershipRefresh(
+        !shouldApplyVerificationResult(
           requestSeq,
-          requestSeqRef.current,
-          isScreenActiveRef.current,
+          sessionRef.current.requestSeq,
+          sessionRef.current.screenActive,
         )
       ) {
         return;
       }
+      const message = userFacingVerificationMessage(error);
+      sessionRef.current = {
+        ...sessionRef.current,
+        pendingSnapshot: null,
+        pendingError: message,
+      };
       setSnapshot(null);
-      setErrorMessage(userFacingVerificationMessage(error));
+      setErrorMessage(message);
     } finally {
       if (
-        shouldApplyCenterMembershipRefresh(
+        shouldApplyVerificationResult(
           requestSeq,
-          requestSeqRef.current,
-          isScreenActiveRef.current,
+          sessionRef.current.requestSeq,
+          sessionRef.current.screenActive,
         )
       ) {
         setIsLoading(false);
@@ -96,13 +111,15 @@ export function useVerification() {
   }, [session]);
 
   const requestSpainIdentity = useCallback(async () => {
-    const started = startIdentitySubmit(submitStateRef.current);
+    const started = beginSpainIdentitySubmit(sessionRef.current);
     if (!started || !session) {
       return;
     }
 
-    submitStateRef.current = started;
-    setSubmitState(started);
+    sessionRef.current = started;
+    if (started.screenActive) {
+      setSubmitState(started.submit);
+    }
     setErrorMessage(null);
 
     try {
@@ -110,30 +127,42 @@ export function useVerification() {
         submit: submitSpainIdentityCase,
         load: loadMyVerification,
       });
-      if (!isScreenActiveRef.current) {
-        return;
+      const settled = settleSpainIdentitySubmit(sessionRef.current, {
+        ok: true,
+        snapshot: nextSnapshot,
+        notice: identitySubmitSucceeded().notice ?? '',
+      });
+      sessionRef.current = settled.session;
+      if (settled.apply) {
+        setSnapshot(nextSnapshot);
+        setSubmitState(settled.session.submit);
+        setErrorMessage(null);
       }
-      setSnapshot(nextSnapshot);
-      const succeeded = identitySubmitSucceeded();
-      submitStateRef.current = succeeded;
-      setSubmitState(succeeded);
     } catch (error) {
-      if (!isScreenActiveRef.current) {
-        return;
+      const message = userFacingVerificationMessage(error);
+      const settled = settleSpainIdentitySubmit(sessionRef.current, {
+        ok: false,
+        errorMessage: message,
+      });
+      sessionRef.current = settled.session;
+      if (settled.apply) {
+        setSubmitState(settled.session.submit);
+        setErrorMessage(message);
       }
-      const failed = finishIdentitySubmit({ inFlight: false, notice: null });
-      submitStateRef.current = failed;
-      setSubmitState(failed);
-      setErrorMessage(userFacingVerificationMessage(error));
     }
   }, [session]);
 
   useFocusEffect(
     useCallback(() => {
-      isScreenActiveRef.current = true;
+      sessionRef.current = markVerificationFocused(sessionRef.current);
+      setSubmitState(sessionRef.current.submit);
+      if (sessionRef.current.pendingSnapshot) {
+        setSnapshot(sessionRef.current.pendingSnapshot);
+      }
+      setErrorMessage(sessionRef.current.pendingError);
       void refresh();
       return () => {
-        isScreenActiveRef.current = false;
+        sessionRef.current = markVerificationBlurred(sessionRef.current);
       };
     }, [refresh]),
   );

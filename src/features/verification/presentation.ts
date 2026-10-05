@@ -43,9 +43,17 @@ export function spainIdentityLabel(
 }
 
 export function relationStatusLabel(
-  statusCode: 'VERIFIED' | 'NOT_VERIFIED',
+  statusCode: 'VERIFIED' | 'NOT_VERIFIED' | 'UNKNOWN',
 ): string {
-  return statusCode === 'VERIFIED' ? 'Verificada' : 'No verificada';
+  if (statusCode === 'VERIFIED') {
+    return 'Verificada';
+  }
+
+  if (statusCode === 'NOT_VERIFIED') {
+    return 'No verificada';
+  }
+
+  return 'No disponible';
 }
 
 const OPEN_STATES = new Set<string>(OPEN_IDENTITY_CASE_STATES);
@@ -109,10 +117,7 @@ export function presentSpainIdentity(
 ): SpainIdentityView {
   const identityRows = spainIdentityRows(snapshot.statusRows);
 
-  if (
-    snapshot.statusRows.some((row) => row.statusCode === 'UNKNOWN') ||
-    identityRows.some((row) => row.statusCode === 'UNKNOWN')
-  ) {
+  if (identityRows.some((row) => row.statusCode === 'UNKNOWN')) {
     return {
       marketLabel: 'España',
       status: 'UNAVAILABLE',
@@ -159,15 +164,7 @@ function relationViews(
   kind: 'OWNERSHIP' | 'MANAGEMENT',
 ): EquineRelationView[] {
   return rows
-    .filter(
-      (
-        row,
-      ): row is VerificationStatusRow & {
-        statusCode: 'VERIFIED' | 'NOT_VERIFIED';
-      } =>
-        row.subjectKind === kind &&
-        (row.statusCode === 'VERIFIED' || row.statusCode === 'NOT_VERIFIED'),
-    )
+    .filter((row) => row.subjectKind === kind)
     .map((row) => ({
       effectiveId: row.effectiveId ?? row.equineId ?? kind,
       displayName: equineDisplayName(row.equineId ?? '', names),
@@ -197,7 +194,7 @@ export function presentManagement(
 }
 
 export function relationLabelForCode(
-  statusCode: 'VERIFIED' | 'NOT_VERIFIED',
+  statusCode: 'VERIFIED' | 'NOT_VERIFIED' | 'UNKNOWN',
 ): string {
   return relationStatusLabel(statusCode);
 }
