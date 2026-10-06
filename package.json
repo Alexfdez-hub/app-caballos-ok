@@ -37,7 +37,7 @@
     "test:calendar": "node scripts/run-calendar-sql-tests.cjs",
     "test:bookings": "node scripts/run-bookings-sql-tests.cjs",
     "test:booking-functions": "node scripts/run-booking-functions-sql-tests.cjs && node scripts/run-booking-functions-concurrency-test.cjs",
-    "test:auth": "node --experimental-strip-types --test src/features/auth/*.test.ts src/features/identity/*.test.ts src/features/guardians/*.test.ts src/features/riders/*.test.ts src/features/centers/*.test.ts src/features/equines/*.test.ts src/features/activity/*.test.ts",
+    "test:auth": "node --experimental-strip-types --test src/features/auth/*.test.ts src/features/identity/*.test.ts src/features/guardians/*.test.ts src/features/riders/*.test.ts src/features/centers/*.test.ts src/features/equines/*.test.ts src/features/activity/*.test.ts src/features/verification/*.test.ts",
     "test:equines": "node scripts/run-equines-sql-tests.cjs",
     "test:ownership": "node scripts/run-ownership-sql-tests.cjs",
     "test:center-relations": "node scripts/run-center-relations-sql-tests.cjs",

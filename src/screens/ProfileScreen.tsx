@@ -77,6 +77,15 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         </Pressable>
       </SectionCard>
 
+      <SectionCard title="Verificación">
+        <MenuRow
+          description="Consulta tu estado real y, si hace falta, inicia la revisión manual de identidad en España."
+          isLast
+          label="Verificación"
+          onPress={() => navigation.navigate('Verification')}
+        />
+      </SectionCard>
+
       <SectionCard title="Mi actividad ecuestre">
         <MenuRow
           description="Consulta participaciones reales de tu identidad. El alta y el directorio público no están en la app."

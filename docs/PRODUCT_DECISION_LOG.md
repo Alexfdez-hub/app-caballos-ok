@@ -98,3 +98,12 @@ not identify the attesting center or an authorized attester, so an evidence
 label is not a trust fact. The predicates do not write effective rows and
 are not called by publication, services, bookings or payments.
 `GATE-PREDICATE` and the other open items stay open.
+
+## 2026-10-05 — Verification status screen, Stage 4A
+
+Authorizes only the Verificación screen: read `list_my_verification_status()`
+and `list_my_identity_cases()`, and submit `submit_my_identity_case('ES')`.
+A case state is not identity verification. The screen stores no documents
+and does not call a KYC vendor. Ownership and management claims, evidence,
+reviewer UI, and Stage 4B stay unauthorized. `GATE-PREDICATE` and the other
+open items stay open.
