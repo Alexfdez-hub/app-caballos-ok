@@ -116,3 +116,15 @@ that an active `verification_review_grants` row is the only review
 authority, that no grant is seeded, and that no RPC lists cases a caller
 may review. `REVIEWER-GRANT-AUTHORITY` stays open. `GATE-PREDICATE` and
 the other open items stay open.
+
+## 2026-10-08 — Stage 4B Codex review, documentation only
+
+Does not authorize a reviewer screen, a grant row, an Edge Function, or
+migration `039`. The inventory now separates a pseudonymous queue, an
+authorized opening, private evidence access, and the decision. The
+recommended Spain-pilot direction is a `MARKET` grant for `ES`, held by a
+PERSON already designated, and changed only by a future server-side
+administrative operation. Center affiliation is not that authority. The
+bootstrap of that operator, and the operator's concrete identity, remain
+a separate security review. The KYC provider, the legal evidence catalog,
+retention, and conflict resolution stay open.
