@@ -1,10 +1,10 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-08, Stage 4B inspection):** repository `main` is
-`901a320cdef648c5fdebb28945c2001a8b2041c1`. Migrations `036`, `037`, and
+**Live note (2026-10-08, Stage 4B.1 design):** repository `main` is
+`1b42764446ea7cdae223172ceed6a3aa7151e233`. Migrations `036`, `037`, and
 `038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at
-exact version `038`. Stage 4A is merged. This branch publishes the Stage 4B
-inventory only. It does not add migration `039` and does not open
+exact version `038`. Stage 4B is merged. This branch publishes the reviewer
+bootstrap design only. It does not add migration `039` and does not open
 publication, services, bookings, or payments.
 Existing null countries are not assigned `ES`. The Phase 14B record below
 is historical.
@@ -64,9 +64,10 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
 2. Migrations `036`, `037`, and `038` are on `main`. Remote is at exact
-   version `038`. Stage 4A is merged. Stage 4B stops at
-   `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`. No migration `039`,
-   grant-management RPC, KYC vendor, or calendar change.
+   version `038`. Stage 4B is merged. Stage 4B.1 publishes
+   `docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md` and does not create
+   a grant. No migration `039`, grant-management RPC, KYC vendor, or
+   calendar change.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.

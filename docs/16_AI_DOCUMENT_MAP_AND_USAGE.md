@@ -321,13 +321,14 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-08, Stage 4B inspection):** repository
-`main` is `901a320cdef648c5fdebb28945c2001a8b2041c1`. Migrations `036`,
+**Live status (verified 2026-10-08, Stage 4B.1 design):** repository
+`main` is `1b42764446ea7cdae223172ceed6a3aa7151e233`. Migrations `036`,
 `037`, and `038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is
-normalized at exact version `038`. Stage 4A is merged. Stage 4B stops
-after the inventory in `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`: no
-reviewer screen and no migration `039`. It is not deployed and does not
-open publication, services, bookings or payments.
+normalized at exact version `038`. Stage 4B is merged. This branch
+publishes the bootstrap design in
+`docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`. It does not create a
+grant, a reviewer screen, or migration `039`. It is not deployed and does
+not open publication, services, bookings or payments.
 Identity completion still requires an explicit selectable country.
 
 The Level 1–3 handoff documents named above are maintained outside this
@@ -340,8 +341,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/PRODUCT_DECISION_LOG.md`,
 `docs/VERIFICATION_FOUNDATION_STAGE0.md`,
 `docs/VERIFICATION_PREDICATES_STAGE3.md`,
-`docs/VERIFICATION_STATUS_UI_STAGE4A.md`, and
-`docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`. The decision log is append-only. It records
+`docs/VERIFICATION_STATUS_UI_STAGE4A.md`,
+`docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`, and
+`docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
 reviews. A later entry can authorize one named slice. It does not authorize
 work beyond that slice. Authentication,
