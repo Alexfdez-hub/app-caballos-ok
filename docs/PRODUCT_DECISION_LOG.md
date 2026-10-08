@@ -141,3 +141,14 @@ client-supplied actor, because `audit_events` requires `auth.uid()`.
 Ordinary grant administration stays a later authenticated server
 operation, separate from the reviewer. Real users still wait for the KYC
 provider, an operating procedure, and legal and privacy review.
+
+## 2026-10-08 — Verification grant lifecycle, Stage 4B.2
+
+Authorizes only migration `039` on this branch: the grant projection
+may be `ACTIVE`, `SUSPENDED`, or `ENDED`, and an append-only event
+records a technical PostgreSQL principal without inventing a PERSON.
+The bootstrap function is not an Expo or `service_role` API, and it has
+not been executed. No real grant exists. Remote version stays `038`.
+Queue, evidence, reviewer UI, ordinary authenticated administration,
+and real users stay unauthorized. See
+`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`.
