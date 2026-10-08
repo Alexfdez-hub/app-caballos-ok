@@ -107,3 +107,12 @@ A case state is not identity verification. The screen stores no documents
 and does not call a KYC vendor. Ownership and management claims, evidence,
 reviewer UI, and Stage 4B stay unauthorized. `GATE-PREDICATE` and the other
 open items stay open.
+
+## 2026-10-08 — Verification reviewer UI, Stage 4B inspection
+
+Does not authorize a reviewer screen, grant management, or migration `039`.
+The Stage 0 inventory in `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md` finds
+that an active `verification_review_grants` row is the only review
+authority, that no grant is seeded, and that no RPC lists cases a caller
+may review. `REVIEWER-GRANT-AUTHORITY` stays open. `GATE-PREDICATE` and
+the other open items stay open.
