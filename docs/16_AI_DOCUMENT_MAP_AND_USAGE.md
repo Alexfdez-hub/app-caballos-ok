@@ -321,11 +321,12 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-05, Stage 4A branch):** repository `main`
-is `435118b4e9ab5be3b4c511735f53f2b37ba5c35f`. Migrations `036`, `037`, and
-`038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at
-exact version `038`. This branch adds the Verificación screen. See
-`docs/VERIFICATION_STATUS_UI_STAGE4A.md`. It is not deployed and does not
+**Live status (verified 2026-10-08, Stage 4B inspection):** repository
+`main` is `901a320cdef648c5fdebb28945c2001a8b2041c1`. Migrations `036`,
+`037`, and `038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is
+normalized at exact version `038`. Stage 4A is merged. Stage 4B stops
+after the inventory in `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`: no
+reviewer screen and no migration `039`. It is not deployed and does not
 open publication, services, bookings or payments.
 Identity completion still requires an explicit selectable country.
 
@@ -338,8 +339,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`,
 `docs/PRODUCT_DECISION_LOG.md`,
 `docs/VERIFICATION_FOUNDATION_STAGE0.md`,
-`docs/VERIFICATION_PREDICATES_STAGE3.md`, and
-`docs/VERIFICATION_STATUS_UI_STAGE4A.md`. The decision log is append-only. It records
+`docs/VERIFICATION_PREDICATES_STAGE3.md`,
+`docs/VERIFICATION_STATUS_UI_STAGE4A.md`, and
+`docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
 reviews. A later entry can authorize one named slice. It does not authorize
 work beyond that slice. Authentication,
