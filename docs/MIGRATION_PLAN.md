@@ -373,12 +373,12 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-08, Stage 4B inspection):** `main` is
-`901a320cdef648c5fdebb28945c2001a8b2041c1` and includes migrations `036`,
-`037`, and `038`. Remote is at exact version `038`. Stage 4A is merged.
-This branch publishes `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md` and does
-not add a reviewer screen. It does not add migration `039` and does not
-open publication, services, bookings or payments. Existing ownership and management rows
+**Siguiente fase (live 2026-10-08, Stage 4B.1 design):** `main` is
+`1b42764446ea7cdae223172ceed6a3aa7151e233` and includes migrations `036`,
+`037`, and `038`. Remote is at exact version `038`. Stage 4B is merged.
+This branch publishes `docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`
+and does not create a reviewer grant. It does not add migration `039`
+and does not open publication, services, bookings or payments. Existing ownership and management rows
 remain the effective relationships. A private self-created equine stays
 declared. Do not enable public listing, services, real bookings, or
 payments.

@@ -128,3 +128,16 @@ administrative operation. Center affiliation is not that authority. The
 bootstrap of that operator, and the operator's concrete identity, remain
 a separate security review. The KYC provider, the legal evidence catalog,
 retention, and conflict resolution stay open.
+
+## 2026-10-08 — Reviewer bootstrap design, Stage 4B.1
+
+Does not authorize a grant row, a script, an Edge Function, or migration
+`039`. See `docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`. The
+technical pilot, when a later train may create a grant, uses fictional
+data and one dedicated reviewer account, with scope `MARKET` / `ES` only.
+The exceptional bootstrap is a database-owner action outside Expo. It is
+blocked until a reviewed change can audit that action without a
+client-supplied actor, because `audit_events` requires `auth.uid()`.
+Ordinary grant administration stays a later authenticated server
+operation, separate from the reviewer. Real users still wait for the KYC
+provider, an operating procedure, and legal and privacy review.
