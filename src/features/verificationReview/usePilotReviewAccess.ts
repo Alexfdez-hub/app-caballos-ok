@@ -5,18 +5,24 @@ import { useAuth } from '../auth/useAuth';
 import { pilotReviewIsVisible } from './presentation';
 import { loadReviewCapabilities } from './reviewService';
 import {
+  beginReviewLoad,
+  createReviewPilotSession,
+  markReviewBlurred,
+  markReviewFocused,
   reviewUserKey,
+  shouldApplyReviewResult,
   shouldResetReview,
+  switchReviewUser,
 } from './reviewSession';
 
 export function usePilotReviewAccess(): boolean {
   const { session } = useAuth();
   const userKey = reviewUserKey(session?.user.id);
-  const keyRef = useRef(userKey);
+  const gateRef = useRef(createReviewPilotSession(userKey));
   const [visible, setVisible] = useState(false);
 
-  if (shouldResetReview(keyRef.current, userKey)) {
-    keyRef.current = userKey;
+  if (shouldResetReview(gateRef.current.userKey, userKey)) {
+    gateRef.current = switchReviewUser(gateRef.current, userKey);
     if (visible) {
       setVisible(false);
     }
@@ -24,27 +30,35 @@ export function usePilotReviewAccess(): boolean {
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-
       if (!userKey) {
+        gateRef.current = switchReviewUser(gateRef.current, null);
         setVisible(false);
         return undefined;
       }
 
+      gateRef.current = markReviewFocused(gateRef.current);
+      const started = beginReviewLoad(gateRef.current, userKey);
+      gateRef.current = started.session;
+      const request = started.request;
+
       void loadReviewCapabilities()
         .then((capabilities) => {
-          if (active) {
-            setVisible(pilotReviewIsVisible(capabilities));
+          if (!shouldApplyReviewResult(request, gateRef.current)) {
+            return;
           }
+
+          setVisible(pilotReviewIsVisible(capabilities));
         })
         .catch(() => {
-          if (active) {
-            setVisible(false);
+          if (!shouldApplyReviewResult(request, gateRef.current)) {
+            return;
           }
+
+          setVisible(false);
         });
 
       return () => {
-        active = false;
+        gateRef.current = markReviewBlurred(gateRef.current);
       };
     }, [userKey]),
   );

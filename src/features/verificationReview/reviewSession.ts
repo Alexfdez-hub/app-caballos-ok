@@ -1,3 +1,8 @@
+export type ReviewRequest = {
+  requestSeq: number;
+  userKey: string | null;
+};
+
 export type ReviewPilotSession = {
   requestSeq: number;
   screenActive: boolean;
@@ -27,12 +32,26 @@ export function shouldResetReview(
   return previousKey !== nextKey;
 }
 
+export function switchReviewUser(
+  session: ReviewPilotSession,
+  userKey: string | null,
+): ReviewPilotSession {
+  return {
+    ...session,
+    userKey,
+    loading: false,
+  };
+}
+
 export function shouldApplyReviewResult(
-  requestSeq: number,
-  latestSeq: number,
-  screenActive: boolean,
+  request: ReviewRequest,
+  session: ReviewPilotSession,
 ): boolean {
-  return screenActive && requestSeq === latestSeq;
+  return (
+    session.screenActive &&
+    request.requestSeq === session.requestSeq &&
+    request.userKey === session.userKey
+  );
 }
 
 export function markReviewFocused(
@@ -50,11 +69,12 @@ export function markReviewBlurred(
 export function beginReviewLoad(
   session: ReviewPilotSession,
   userKey: string | null,
-): { session: ReviewPilotSession; requestSeq: number } {
+): { session: ReviewPilotSession; request: ReviewRequest } {
   const requestSeq = session.requestSeq + 1;
+  const request = { requestSeq, userKey };
 
   return {
-    requestSeq,
+    request,
     session: {
       ...session,
       requestSeq,

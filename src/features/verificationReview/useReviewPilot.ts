@@ -17,6 +17,7 @@ import {
   reviewUserKey,
   shouldApplyReviewResult,
   shouldResetReview,
+  switchReviewUser,
 } from './reviewSession';
 import type { ReviewDetailView, ReviewQueueItem, ReviewScreenView } from './types';
 
@@ -47,7 +48,7 @@ export function useReviewPilot(): ReviewScreenView & {
   }, []);
 
   if (shouldResetReview(sessionRef.current.userKey, userKey)) {
-    sessionRef.current = createReviewPilotSession(userKey);
+    sessionRef.current = switchReviewUser(sessionRef.current, userKey);
     clearPrivateData();
   }
 
@@ -59,7 +60,7 @@ export function useReviewPilot(): ReviewScreenView & {
 
     const started = beginReviewLoad(sessionRef.current, userKey);
     sessionRef.current = started.session;
-    const requestSeq = started.requestSeq;
+    const request = started.request;
     setIsLoading(true);
     setErrorMessage(null);
     setDenied(false);
@@ -68,13 +69,7 @@ export function useReviewPilot(): ReviewScreenView & {
       try {
         const capabilities = await loadReviewCapabilities();
 
-        if (
-          !shouldApplyReviewResult(
-            requestSeq,
-            sessionRef.current.requestSeq,
-            sessionRef.current.screenActive,
-          )
-        ) {
+        if (!shouldApplyReviewResult(request, sessionRef.current)) {
           return;
         }
 
@@ -87,13 +82,7 @@ export function useReviewPilot(): ReviewScreenView & {
 
         const queue = await loadReviewQueue();
 
-        if (
-          !shouldApplyReviewResult(
-            requestSeq,
-            sessionRef.current.requestSeq,
-            sessionRef.current.screenActive,
-          )
-        ) {
+        if (!shouldApplyReviewResult(request, sessionRef.current)) {
           return;
         }
 
@@ -102,13 +91,7 @@ export function useReviewPilot(): ReviewScreenView & {
         setItems(queue);
         setDetail(EMPTY_DETAIL);
       } catch (error) {
-        if (
-          !shouldApplyReviewResult(
-            requestSeq,
-            sessionRef.current.requestSeq,
-            sessionRef.current.screenActive,
-          )
-        ) {
+        if (!shouldApplyReviewResult(request, sessionRef.current)) {
           return;
         }
 
@@ -122,13 +105,7 @@ export function useReviewPilot(): ReviewScreenView & {
 
         setErrorMessage(userFacingReviewMessage(error));
       } finally {
-        if (
-          shouldApplyReviewResult(
-            requestSeq,
-            sessionRef.current.requestSeq,
-            sessionRef.current.screenActive,
-          )
-        ) {
+        if (shouldApplyReviewResult(request, sessionRef.current)) {
           sessionRef.current = { ...sessionRef.current, loading: false };
           setIsLoading(false);
         }
@@ -145,33 +122,21 @@ export function useReviewPilot(): ReviewScreenView & {
 
       const started = beginReviewLoad(sessionRef.current, userKey);
       sessionRef.current = started.session;
-      const requestSeq = started.requestSeq;
+      const request = started.request;
       setIsLoading(true);
 
       void (async () => {
         try {
           const opened = await loadReviewCase(caseType, caseId);
 
-          if (
-            !shouldApplyReviewResult(
-              requestSeq,
-              sessionRef.current.requestSeq,
-              sessionRef.current.screenActive,
-            )
-          ) {
+          if (!shouldApplyReviewResult(request, sessionRef.current)) {
             return;
           }
 
           setDetail({ kind: 'ready', detail: opened });
           setDenied(false);
         } catch (error) {
-          if (
-            !shouldApplyReviewResult(
-              requestSeq,
-              sessionRef.current.requestSeq,
-              sessionRef.current.screenActive,
-            )
-          ) {
+          if (!shouldApplyReviewResult(request, sessionRef.current)) {
             return;
           }
 
@@ -185,13 +150,7 @@ export function useReviewPilot(): ReviewScreenView & {
           try {
             const capabilities = await loadReviewCapabilities();
 
-            if (
-              !shouldApplyReviewResult(
-                requestSeq,
-                sessionRef.current.requestSeq,
-                sessionRef.current.screenActive,
-              )
-            ) {
+            if (!shouldApplyReviewResult(request, sessionRef.current)) {
               return;
             }
 
@@ -201,13 +160,7 @@ export function useReviewPilot(): ReviewScreenView & {
               setDetail(EMPTY_DETAIL);
             }
           } catch (capabilityError) {
-            if (
-              !shouldApplyReviewResult(
-                requestSeq,
-                sessionRef.current.requestSeq,
-                sessionRef.current.screenActive,
-              )
-            ) {
+            if (!shouldApplyReviewResult(request, sessionRef.current)) {
               return;
             }
 
@@ -218,13 +171,7 @@ export function useReviewPilot(): ReviewScreenView & {
             }
           }
         } finally {
-          if (
-            shouldApplyReviewResult(
-              requestSeq,
-              sessionRef.current.requestSeq,
-              sessionRef.current.screenActive,
-            )
-          ) {
+          if (shouldApplyReviewResult(request, sessionRef.current)) {
             sessionRef.current = { ...sessionRef.current, loading: false };
             setIsLoading(false);
           }

@@ -31,4 +31,6 @@ A current grant is locked with the same advisory lock `392` used by suspend and 
 
 The screen has no accept or reject action and does not call `review_*`. It does not write evidence, mint a signed URL, or show a storage path, a provider reference, a note, or a document. The decision remains blocked even when the evidence indicator is true.
 
+A mounted screen keeps one request counter for its whole life. Changing accounts does not restart that counter. A response is applied only when the screen is still active, the counter is still the latest one, and the signed-in user is the same user that started the request. The profile entry uses the same rule, so a late capability response cannot reveal the previous reviewer's access.
+
 Ordinary grant administration, evidence access, and migration `041` stay unauthorized.

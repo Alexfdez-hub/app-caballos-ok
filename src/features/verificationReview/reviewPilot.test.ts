@@ -30,9 +30,12 @@ import {
   beginReviewLoad,
   createReviewPilotSession,
   markReviewBlurred,
+  markReviewFocused,
   reviewUserKey,
   shouldApplyReviewResult,
   shouldResetReview,
+  switchReviewUser,
+  type ReviewPilotSession,
 } from './reviewSession.ts';
 import { SPAIN_REVIEW_MARKET, SPAIN_REVIEW_SCOPE } from './types.ts';
 
@@ -227,16 +230,109 @@ describe('review screen states', () => {
     assert.equal(shouldResetReview('user-a', 'user-b'), true);
     assert.equal(reviewUserKey(undefined), null);
 
-    const started = beginReviewLoad(createReviewPilotSession('user-a'), 'user-a');
+    const started = beginReviewLoad(
+      markReviewFocused(createReviewPilotSession('user-a')),
+      'user-a',
+    );
     const blurred = markReviewBlurred(started.session);
 
     assert.equal(blurred.loading, false);
-    assert.equal(
-      shouldApplyReviewResult(started.requestSeq, blurred.requestSeq, blurred.screenActive),
-      false,
-    );
+    assert.equal(shouldApplyReviewResult(started.request, blurred), false);
     assert.equal(reviewActionsBlocked(true, false), false);
     assert.equal(reviewActionsBlocked(false, true), false);
+  });
+});
+
+describe('review account changes', () => {
+  it('drops account A after B finishes, even when A resolves last', () => {
+    const race = startAccountA();
+    const switched = clearForUser(race.pilot, race.access, 'user-b');
+    const next = startAccountB(switched.pilot, switched.access);
+    const afterB = acceptAccountB(next);
+    const afterA = acceptAccountA(afterB, race);
+
+    assert.deepEqual(afterA.view, { items: ['case-b'], detail: null, visible: true });
+  });
+
+  it('drops account A when it resolves before B starts', () => {
+    const race = startAccountA();
+    const switched = clearForUser(race.pilot, race.access, 'user-b');
+    const earlyA = acceptAccountA(switched, race);
+    const next = startAccountB(earlyA.pilot, earlyA.access);
+    const afterB = acceptAccountB(next);
+
+    assert.deepEqual(earlyA.view, { items: [], detail: null, visible: false });
+    assert.deepEqual(afterB.view, { items: ['case-b'], detail: null, visible: true });
+  });
+
+  it('drops a pending detail from A after the account changes', () => {
+    const race = startAccountA();
+    const detail = beginReviewLoad(race.pilot, 'user-a');
+    const switched = clearForUser(detail.session, race.access, 'user-b');
+    const next = startAccountB(switched.pilot, switched.access);
+    const afterB = acceptAccountB(next);
+    const leaked =
+      shouldApplyReviewResult(detail.request, afterB.pilot)
+        ? 'detail-a'
+        : afterB.view.detail;
+
+    assert.equal(leaked, null);
+    assert.deepEqual(afterB.view.items, ['case-b']);
+  });
+
+  it('drops A across logout before B signs in', () => {
+    const race = startAccountA();
+    const signedOut = clearForUser(race.pilot, race.access, null);
+    const duringLogout = acceptAccountA(signedOut, race);
+    const signedIn = clearForUser(duringLogout.pilot, duringLogout.access, 'user-b');
+    const next = startAccountB(
+      markReviewFocused(signedIn.pilot),
+      markReviewFocused(signedIn.access),
+    );
+    const afterB = acceptAccountB(next);
+    const afterA = acceptAccountA(afterB, race);
+
+    assert.deepEqual(duringLogout.view, { items: [], detail: null, visible: false });
+    assert.deepEqual(afterA.view, { items: ['case-b'], detail: null, visible: true });
+  });
+
+  it('rejects a refresh and an open that were started by the previous account', () => {
+    const race = startAccountA();
+    const refreshA = beginReviewLoad(race.pilot, 'user-a');
+    const openA = beginReviewLoad(refreshA.session, 'user-a');
+    const switched = clearForUser(openA.session, race.access, 'user-b');
+    const refreshB = beginReviewLoad(markReviewFocused(switched.pilot), 'user-b');
+
+    assert.equal(shouldApplyReviewResult(refreshA.request, refreshB.session), false);
+    assert.equal(shouldApplyReviewResult(openA.request, refreshB.session), false);
+    assert.equal(shouldApplyReviewResult(refreshB.request, refreshB.session), true);
+  });
+
+  it('rejects the old sequence collision because the user no longer matches', () => {
+    let session = markReviewFocused(createReviewPilotSession('user-a'));
+    const accountA = beginReviewLoad(session, 'user-a');
+    session = accountA.session;
+
+    const reset = markReviewFocused(createReviewPilotSession('user-b'));
+    const collided = beginReviewLoad(reset, 'user-b');
+
+    assert.equal(accountA.request.requestSeq, collided.request.requestSeq);
+    assert.equal(
+      legacySequenceOnlyApply(
+        accountA.request.requestSeq,
+        collided.session.requestSeq,
+        collided.session.screenActive,
+      ),
+      true,
+    );
+    assert.equal(shouldApplyReviewResult(accountA.request, collided.session), false);
+
+    session = switchReviewUser(session, 'user-b');
+    assert.equal(session.requestSeq, accountA.request.requestSeq);
+    const accountB = beginReviewLoad(session, 'user-b');
+    assert.equal(accountB.request.requestSeq, accountA.request.requestSeq + 1);
+    assert.equal(shouldApplyReviewResult(accountA.request, accountB.session), false);
+    assert.equal(shouldApplyReviewResult(accountB.request, accountB.session), true);
   });
 });
 
@@ -260,6 +356,106 @@ describe('review client surface', () => {
     assert.equal(combined.includes("rpc('get_my_review_case'"), true);
   });
 });
+
+function legacySequenceOnlyApply(
+  requestSeq: number,
+  latestSeq: number,
+  screenActive: boolean,
+): boolean {
+  return screenActive && requestSeq === latestSeq;
+}
+
+type ReviewRaceView = {
+  items: string[];
+  detail: string | null;
+  visible: boolean;
+};
+
+type ReviewRace = {
+  pilot: ReviewPilotSession;
+  access: ReviewPilotSession;
+  queue: ReviewRequest;
+  menu: ReviewRequest;
+  view: ReviewRaceView;
+};
+
+function startAccountA(): ReviewRace {
+  const pilotStart = beginReviewLoad(
+    markReviewFocused(createReviewPilotSession('user-a')),
+    'user-a',
+  );
+  const accessStart = beginReviewLoad(
+    markReviewFocused(createReviewPilotSession('user-a')),
+    'user-a',
+  );
+
+  return {
+    pilot: pilotStart.session,
+    access: accessStart.session,
+    queue: pilotStart.request,
+    menu: accessStart.request,
+    view: { items: ['case-a'], detail: 'detail-a', visible: true },
+  };
+}
+
+function clearForUser(
+  pilot: ReviewPilotSession,
+  access: ReviewPilotSession,
+  userKey: string | null,
+): ReviewRace {
+  return {
+    pilot: switchReviewUser(pilot, userKey),
+    access: switchReviewUser(access, userKey),
+    queue: { requestSeq: -1, userKey },
+    menu: { requestSeq: -1, userKey },
+    view: { items: [], detail: null, visible: false },
+  };
+}
+
+function startAccountB(
+  pilot: ReviewPilotSession,
+  access: ReviewPilotSession,
+): ReviewRace {
+  const queue = beginReviewLoad(pilot, 'user-b');
+  const menu = beginReviewLoad(access, 'user-b');
+
+  return {
+    pilot: queue.session,
+    access: menu.session,
+    queue: queue.request,
+    menu: menu.request,
+    view: { items: [], detail: null, visible: false },
+  };
+}
+
+function acceptAccountB(race: ReviewRace): ReviewRace {
+  const view = { ...race.view };
+
+  if (shouldApplyReviewResult(race.queue, race.pilot)) {
+    view.items = ['case-b'];
+    view.detail = null;
+  }
+
+  if (shouldApplyReviewResult(race.menu, race.access)) {
+    view.visible = true;
+  }
+
+  return { ...race, view };
+}
+
+function acceptAccountA(race: ReviewRace, accountA: ReviewRace): ReviewRace {
+  const view = { ...race.view };
+
+  if (shouldApplyReviewResult(accountA.queue, race.pilot)) {
+    view.items = ['case-a'];
+  }
+
+  if (shouldApplyReviewResult(accountA.menu, race.access)) {
+    view.visible = true;
+  }
+
+  return { ...race, view };
+}
 
 function queueItem(
   caseId: string,
