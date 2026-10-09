@@ -321,13 +321,15 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-08, Stage 4B.2 branch):** repository
-`main` is `78e9a699559f6be4409a25c39c109cc12d8167f4`. Migrations `036`,
-`037`, and `038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is
-normalized at exact version `038`. This branch adds migration `039` and
-`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`. `039` is not deployed.
-The bootstrap has not been executed and no real grant exists. It does
-not open a reviewer screen, publication, services, bookings, or payments.
+**Live status (verified 2026-10-09, Stage 4B.3 branch):** repository
+`main` is `eeb6d9c121a3aec2406bec215b3c297d95dfe4e5`. Migrations `036`
+through `039` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is
+normalized at exact version `039`, with 0 grants and 0 grant events. The
+bootstrap has not been executed and no reviewer account exists. This
+branch adds unreleased migration `040` and
+`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`. `040` is not deployed.
+It does not decide a case, open private evidence, or open publication,
+services, bookings, or payments.
 Identity completion still requires an explicit selectable country.
 
 The Level 1–3 handoff documents named above are maintained outside this
@@ -342,8 +344,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/VERIFICATION_PREDICATES_STAGE3.md`,
 `docs/VERIFICATION_STATUS_UI_STAGE4A.md`,
 `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`,
-`docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`, and
-`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`. The decision log is append-only. It records
+`docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`,
+`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`, and
+`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
 reviews. A later entry can authorize one named slice. It does not authorize
 work beyond that slice. Authentication,

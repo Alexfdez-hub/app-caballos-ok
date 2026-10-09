@@ -10,6 +10,7 @@ import { SectionCard } from '../app/ui/SectionCard';
 import { signOut } from '../features/auth/authService';
 import { useAuth } from '../features/auth/useAuth';
 import { useIdentity } from '../features/identity/useIdentity';
+import { usePilotReviewAccess } from '../features/verificationReview/usePilotReviewAccess';
 
 function formatDateOfBirth(value: string | null | undefined): string {
   if (!value) {
@@ -28,6 +29,7 @@ function formatDateOfBirth(value: string | null | undefined): string {
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { session } = useAuth();
   const { identity } = useIdentity();
+  const canOpenPilotReview = usePilotReviewAccess();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const fullName = [identity?.firstName, identity?.lastName]
@@ -80,10 +82,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       <SectionCard title="Verificación">
         <MenuRow
           description="Consulta tu estado real y, si hace falta, inicia la revisión manual de identidad en España."
-          isLast
+          isLast={!canOpenPilotReview}
           label="Verificación"
           onPress={() => navigation.navigate('Verification')}
         />
+        {canOpenPilotReview ? (
+          <MenuRow
+            description="Bandeja de lectura para una autorización vigente en España. No decide ni abre documentos."
+            isLast
+            label="Revisión piloto"
+            onPress={() => navigation.navigate('ReviewPilot')}
+          />
+        ) : null}
       </SectionCard>
 
       <SectionCard title="Mi actividad ecuestre">
