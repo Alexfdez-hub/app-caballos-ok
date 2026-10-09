@@ -141,3 +141,25 @@ client-supplied actor, because `audit_events` requires `auth.uid()`.
 Ordinary grant administration stays a later authenticated server
 operation, separate from the reviewer. Real users still wait for the KYC
 provider, an operating procedure, and legal and privacy review.
+
+## 2026-10-08 — Verification grant lifecycle, Stage 4B.2
+
+Authorizes only migration `039` on this branch: the grant projection
+may be `ACTIVE`, `SUSPENDED`, or `ENDED`, and an append-only event
+records a technical PostgreSQL principal without inventing a PERSON.
+The bootstrap function is not an Expo or `service_role` API, and it has
+not been executed. No real grant exists. Remote version stays `038`.
+Queue, evidence, reviewer UI, ordinary authenticated administration,
+and real users stay unauthorized. See
+`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`.
+
+## 2026-10-09 — Grant lifecycle review, still migration 039
+
+The Codex review of Draft PR #58 stays inside unreleased migration `039`.
+The only technical operator is `current_user` `postgres`. `supabase_admin`
+is not an operator; its remaining superuser bypass is a provider trust
+boundary. A suspended `MARKET` / `ES` grant can be closed, and that
+`CLOSED` event records `SUSPENDED` as the previous status. `SUSPENDED`
+does not return to `ACTIVE`, and `ENDED` does not change. A future
+`PRODUCT` actor must reference one `user_accounts` row through
+`(id, person_id)`. No remote bootstrap, real grant, or migration `040`.
