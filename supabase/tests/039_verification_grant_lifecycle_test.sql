@@ -32,7 +32,10 @@ declare
   suspended_person uuid;
   hipica_person uuid;
   close_person uuid;
+  reviewer_account uuid;
+  hipica_account uuid;
   created_grant_id uuid;
+  replaced_grant_id uuid;
   second_grant_id uuid;
   platform_grant_id uuid;
   other_market_grant_id uuid;
@@ -43,7 +46,8 @@ begin
     'bootstrap_verification_review_grant(uuid)',
     'suspend_verification_review_grant(uuid)',
     'close_verification_review_grant(uuid)',
-    'enforce_verification_grant_event_immutability()'
+    'enforce_verification_grant_event_immutability()',
+    'enforce_verification_grant_status_transition()'
   ]
   loop
     if has_function_privilege('anon', format('public.%s', function_name), 'EXECUTE')
@@ -120,8 +124,125 @@ begin
     end if;
   end loop;
 
-  select account.person_id
-    into reviewer_person
+  if pg_catalog.pg_get_functiondef(
+       'public.verification_grant_technical_principal()'::regprocedure
+     ) ilike '%supabase_admin%' then
+    raise exception 'supabase_admin is still named as a grant operator';
+  end if;
+
+  if exists (
+    select 1
+      from pg_catalog.pg_proc as procedure
+      cross join lateral aclexplode(
+        coalesce(procedure.proacl, acldefault('f', procedure.proowner))
+      ) as privilege
+      join pg_catalog.pg_roles as role
+        on role.oid = privilege.grantee
+     where procedure.pronamespace = 'public'::regnamespace
+       and procedure.proname in (
+         'verification_grant_technical_principal',
+         'bootstrap_verification_review_grant',
+         'suspend_verification_review_grant',
+         'close_verification_review_grant',
+         'enforce_verification_grant_event_immutability',
+         'enforce_verification_grant_status_transition'
+       )
+       and privilege.privilege_type = 'EXECUTE'
+       and role.rolname in (
+         'anon',
+         'authenticated',
+         'service_role',
+         'supabase_admin'
+       )
+  ) then
+    raise exception 'A non-operator role has an explicit function grant';
+  end if;
+
+  if exists (
+    select 1
+      from pg_catalog.pg_class as relation
+      cross join lateral aclexplode(
+        coalesce(relation.relacl, acldefault('r', relation.relowner))
+      ) as privilege
+      left join pg_catalog.pg_roles as role
+        on role.oid = privilege.grantee
+     where relation.oid in (
+         'public.verification_review_grants'::regclass,
+         'public.verification_review_grant_events'::regclass
+       )
+       and (
+         privilege.grantee = 0
+         or role.rolname in (
+           'anon',
+           'authenticated',
+           'service_role',
+           'supabase_admin'
+         )
+       )
+  ) then
+    raise exception 'PUBLIC or a non-operator role has an explicit table grant';
+  end if;
+
+  if exists (
+    select 1
+      from pg_catalog.pg_class as relation
+     where relation.oid in (
+         'public.verification_review_grants'::regclass,
+         'public.verification_review_grant_events'::regclass
+       )
+       and not relation.relrowsecurity
+  ) or exists (
+    select 1
+      from pg_catalog.pg_policy as policy
+     where policy.polrelid in (
+       'public.verification_review_grants'::regclass,
+       'public.verification_review_grant_events'::regclass
+     )
+  ) then
+    raise exception 'Grant tables do not keep client access denied by RLS';
+  end if;
+
+  if not exists (
+    select 1
+      from pg_catalog.pg_constraint as constraint_row
+     where constraint_row.conname = 'verification_review_grant_events_actor_fk'
+       and constraint_row.confrelid = 'public.user_accounts'::regclass
+  ) or not exists (
+    select 1
+      from pg_catalog.pg_indexes as index_row
+     where index_row.indexname = 'verification_review_grant_events_actor_idx'
+  ) then
+    raise exception 'PRODUCT actor is not tied to user_accounts';
+  end if;
+
+  if exists (
+       select 1
+         from pg_catalog.pg_roles as role
+        where role.rolname = 'supabase_admin'
+          and not role.rolsuper
+     )
+     and (
+       has_function_privilege(
+         'supabase_admin',
+         'public.bootstrap_verification_review_grant(uuid)',
+         'EXECUTE'
+       )
+       or has_function_privilege(
+         'supabase_admin',
+         'public.suspend_verification_review_grant(uuid)',
+         'EXECUTE'
+       )
+       or has_function_privilege(
+         'supabase_admin',
+         'public.close_verification_review_grant(uuid)',
+         'EXECUTE'
+       )
+     ) then
+    raise exception 'supabase_admin has a granted execute path';
+  end if;
+
+  select account.id, account.person_id
+    into reviewer_account, reviewer_person
     from public.user_accounts as account
    where account.auth_user_id = '03910000-0000-4000-8000-000000000001';
 
@@ -135,8 +256,8 @@ begin
     from public.user_accounts as account
    where account.auth_user_id = '03910000-0000-4000-8000-000000000003';
 
-  select account.person_id
-    into hipica_person
+  select account.id, account.person_id
+    into hipica_account, hipica_person
     from public.user_accounts as account
    where account.auth_user_id = '03910000-0000-4000-8000-000000000004';
 
@@ -267,20 +388,60 @@ begin
   end;
 
   begin
-    perform public.close_verification_review_grant(created_grant_id);
-    raise exception 'Suspended grant was closed';
-  exception
-    when insufficient_privilege then
-      null;
-  end;
-
-  begin
     perform public.bootstrap_verification_review_grant(reviewer_person);
     raise exception 'Suspended grant was duplicated';
   exception
     when insufficient_privilege then
       null;
   end;
+
+  begin
+    update public.verification_review_grants
+       set status = 'ACTIVE'
+     where id = created_grant_id;
+    raise exception 'Suspended grant was reactivated';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  perform public.close_verification_review_grant(created_grant_id);
+
+  if public.verification_review_grant_matches(reviewer_person, 'IDENTITY', 'ES')
+     or not exists (
+       select 1
+         from public.verification_review_grant_events as event
+        where event.grant_id = created_grant_id
+          and event.event_type = 'CLOSED'
+          and event.previous_status = 'SUSPENDED'
+          and event.new_status = 'ENDED'
+     )
+     or exists (
+       select 1
+         from public.verification_review_grants as grant_row
+        where grant_row.id = created_grant_id
+          and grant_row.status is distinct from 'ENDED'
+     ) then
+    raise exception 'Suspended grant did not close with its previous status';
+  end if;
+
+  replaced_grant_id := public.bootstrap_verification_review_grant(reviewer_person);
+
+  if replaced_grant_id = created_grant_id
+     or exists (
+       select 1
+         from public.verification_review_grants as grant_row
+        where grant_row.id = created_grant_id
+          and grant_row.status is distinct from 'ENDED'
+     )
+     or not exists (
+       select 1
+         from public.verification_review_grants as grant_row
+        where grant_row.id = replaced_grant_id
+          and grant_row.status = 'ACTIVE'
+     ) then
+    raise exception 'A grant after close was not a separate row';
+  end if;
 
   second_grant_id := public.bootstrap_verification_review_grant(close_person);
   perform public.close_verification_review_grant(second_grant_id);
@@ -309,6 +470,17 @@ begin
   begin
     perform public.suspend_verification_review_grant(second_grant_id);
     raise exception 'Closed grant was suspended';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  begin
+    update public.verification_review_grants
+       set status = 'ACTIVE',
+           valid_until = null
+     where id = second_grant_id;
+    raise exception 'Ended grant changed status';
   exception
     when insufficient_privilege then
       null;
@@ -395,6 +567,94 @@ begin
   if public.verification_review_grant_matches(hipica_person, 'EQUINE', 'ES') then
     raise exception 'Center membership matched an equine review';
   end if;
+
+  begin
+    insert into public.verification_review_grant_events (
+      grant_id,
+      event_type,
+      reviewer_person_id,
+      scope_type,
+      market_country_code,
+      previous_status,
+      new_status,
+      actor_kind,
+      actor_account_id,
+      actor_person_id,
+      reason_code
+    ) values (
+      created_grant_id,
+      'CLOSED',
+      reviewer_person,
+      'MARKET',
+      'ES',
+      'SUSPENDED',
+      'ENDED',
+      'PRODUCT',
+      hipica_account,
+      reviewer_person,
+      'PILOT_CLOSE'
+    );
+    raise exception 'Mismatched product actor was stored';
+  exception
+    when foreign_key_violation then
+      null;
+  end;
+
+  begin
+    insert into public.verification_review_grant_events (
+      grant_id,
+      event_type,
+      reviewer_person_id,
+      scope_type,
+      market_country_code,
+      new_status,
+      actor_kind,
+      actor_account_id,
+      actor_person_id,
+      reason_code
+    ) values (
+      created_grant_id,
+      'GRANTED',
+      reviewer_person,
+      'MARKET',
+      'ES',
+      'ACTIVE',
+      'PRODUCT',
+      '03910000-0000-4000-8000-0000000000f1',
+      '03910000-0000-4000-8000-0000000000f2',
+      'PILOT_BOOTSTRAP'
+    );
+    raise exception 'Unrelated product actor was stored';
+  exception
+    when foreign_key_violation then
+      null;
+  end;
+
+  insert into public.verification_review_grant_events (
+    grant_id,
+    event_type,
+    reviewer_person_id,
+    scope_type,
+    market_country_code,
+    previous_status,
+    new_status,
+    actor_kind,
+    actor_account_id,
+    actor_person_id,
+    reason_code
+  ) values (
+    created_grant_id,
+    'CLOSED',
+    reviewer_person,
+    'MARKET',
+    'ES',
+    'ACTIVE',
+    'ENDED',
+    'PRODUCT',
+    reviewer_account,
+    reviewer_person,
+    'PILOT_CLOSE'
+  );
 end;
 $$;
 
@@ -522,7 +782,7 @@ begin
             '03910000-0000-4000-8000-000000000005'
           )
        )
-  ) <> 3 then
+  ) <> 4 then
     raise exception 'Client attempts created or removed grant events';
   end if;
 

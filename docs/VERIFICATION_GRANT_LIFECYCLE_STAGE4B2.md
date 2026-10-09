@@ -35,18 +35,18 @@ A partial unique index allows one `ACTIVE` or `SUSPENDED` row for the same perso
 
 The pilot functions accept only `MARKET` / `ES`. `PLATFORM_IDENTITY` and `PLATFORM_EQUINE` remain valid projection values for the existing review tests. The bootstrap function cannot create them: it has no scope argument and writes `MARKET` / `ES` itself.
 
-Closing a suspended grant is not implemented. Suspend and close both require `ACTIVE`, so two concurrent calls produce one event. A later explicit `SUSPENDED` → `ENDED` transition can be added after review. Reactivation is not implemented.
+Allowed changes are `ACTIVE` → `SUSPENDED`, `ACTIVE` → `ENDED`, and `SUSPENDED` → `ENDED`. A trigger refuses every other status change, including `SUSPENDED` → `ACTIVE` and any change out of `ENDED`. The `CLOSED` event stores the real previous status, `ACTIVE` or `SUSPENDED`. Two concurrent suspend and close calls can leave one `CLOSED` event from `ACTIVE`, or a `SUSPENDED` event followed by `CLOSED` from `SUSPENDED`. The row ends `ENDED` either way. Reactivation is not implemented.
 
 ## Events
 
-`verification_review_grant_events` is append-only. Update and delete raise `42501`. `anon`, `authenticated`, and `service_role` have no table privilege. RLS is on and there is no client policy.
+`verification_review_grant_events` is append-only. Update and delete raise `42501`. `PUBLIC`, `anon`, `authenticated`, `service_role`, and `supabase_admin` have no explicit table privilege. RLS is on and there is no client policy. A superuser still bypasses both privilege checks and RLS; that is the same provider trust boundary as the function grants.
 
 A row stores the event, grant, recipient person, scope, market, previous status, new status, a stable reason code, and `occurred_at`.
 
 The actor is exclusive:
 
 - `TECHNICAL`: `technical_principal` is the PostgreSQL `session_user`. Account and person are null. This does not claim that `postgres`, the Dashboard, the CLI, or `service_role` is a product PERSON.
-- `PRODUCT`: account and person are set, and the technical principal is null. Migration `039` does not write this shape. It is reserved for a later authenticated administrator.
+- `PRODUCT`: account and person are set, and the technical principal is null. Migration `039` does not write this shape. It is reserved for a later authenticated administrator. `(actor_account_id, actor_person_id)` references `user_accounts (id, person_id)` with `MATCH FULL`, using the unique key from migration `036`. A partial index covers rows that have an account. Unrelated account and person identifiers cannot be stored.
 
 Implemented events are `GRANTED`, `SUSPENDED`, and `CLOSED`. Reasons are fixed by the function: `PILOT_BOOTSTRAP`, `PILOT_SUSPEND`, `PILOT_CLOSE`.
 
@@ -54,16 +54,16 @@ Implemented events are `GRANTED`, `SUSPENDED`, and `CLOSED`. Reasons are fixed b
 
 ## Functions
 
-All four are `SECURITY INVOKER` with `search_path = pg_catalog, public`. Execute is revoked from `public`, `anon`, `authenticated`, and `service_role`. The body of `verification_grant_technical_principal()` allows only `current_user` `postgres` or `supabase_admin`, then returns `session_user`.
+The lifecycle functions and both enforcement triggers are `SECURITY INVOKER` with `search_path = pg_catalog, public`. Execute is revoked from `public`, `anon`, `authenticated`, `service_role`, and `supabase_admin`. Table privileges on the projection and the event table are revoked from those same roles. RLS is enabled and there is no client policy. The body of `verification_grant_technical_principal()` allows only `current_user` `postgres`, then returns `session_user`.
 
-A PostgreSQL superuser bypasses `GRANT`. The body check still refuses any other current user, including `service_role`. That role is not given an operational endpoint. Expo does not call these functions.
+`supabase_admin` is not a grant operator. In local Supabase it is a superuser, so PostgreSQL still reports an implicit execute privilege that a migration cannot revoke. The local `postgres` session cannot assume that role. The function body rejects it whenever it is `current_user`. That remaining bypass is a provider trust boundary, not application authorization. `service_role` is not given an operational endpoint. Expo does not call these functions.
 
 | Function | Argument | Effect |
 | --- | --- | --- |
 | `verification_grant_technical_principal()` | none | Resolves the technical principal or refuses. |
 | `bootstrap_verification_review_grant(uuid)` | reviewer person only | One `ACTIVE` `MARKET` / `ES` grant and one `GRANTED` event, or `42501`. |
 | `suspend_verification_review_grant(uuid)` | grant id only | `ACTIVE` → `SUSPENDED` and one event, or `42501`. |
-| `close_verification_review_grant(uuid)` | grant id only | `ACTIVE` → `ENDED` and one event, or `42501`. |
+| `close_verification_review_grant(uuid)` | grant id only | `ACTIVE` or `SUSPENDED` → `ENDED`, one `CLOSED` event with that previous status, or `42501`. |
 
 Bootstrap requires an `ACTIVE` person and an `ACTIVE` account for that person. It locks the person and market, and the unique index is the backstop. It does not grant any further administrative ability. It was not executed against the remote database.
 
@@ -71,7 +71,7 @@ Bootstrap requires an `ACTIVE` person and an `ACTIVE` account for that person. I
 
 - Reviewer queue, case detail, evidence, signed URLs, and the reviewer screen.
 - Authenticated grant administration, separate from the reviewer.
-- Reactivation, and close of a grant that is already `SUSPENDED`.
+- Reactivation of `SUSPENDED` or `ENDED`.
 - Denial events.
 - KYC, legal evidence, retention, and real users.
 - Migration `040`.

@@ -10,15 +10,23 @@
 -- Forging that claim would pretend the owner is a person. Grant events are
 -- a separate append-only history. A TECHNICAL actor stores the PostgreSQL
 -- principal. A PRODUCT actor is reserved for a later authenticated
--- administrator and is not written here.
+-- administrator and is not written here. Its account and person must
+-- match one user_accounts row through a composite foreign key.
+--
+-- Allowed status changes are ACTIVE to SUSPENDED, ACTIVE to ENDED, and
+-- SUSPENDED to ENDED. SUSPENDED does not return to ACTIVE. ENDED does
+-- not change. A later grant after ENDED is a new row.
 --
 -- Refused attempts are not stored. Raising an error rolls the transaction
 -- back, so an event inserted before the error would disappear. Denial audit
 -- waits for a later server path that can return a result without raising.
 --
 -- These functions are not an API. Expo, anon, authenticated, and
--- service_role cannot execute them. A superuser still bypasses GRANT;
--- the body accepts only current_user postgres or supabase_admin.
+-- service_role cannot execute them. The body accepts only current_user
+-- postgres. supabase_admin is a Supabase-internal superuser, not a grant
+-- operator. PostgreSQL will not let a migration revoke a superuser's
+-- implicit privileges; that is a provider trust boundary, and the body
+-- still rejects that role when it is the current user.
 
 alter table public.verification_review_grants
   drop constraint verification_review_grants_status_check;
@@ -112,7 +120,7 @@ create table public.verification_review_grant_events (
     check (
       event_type <> 'CLOSED'
       or (
-        previous_status = 'ACTIVE'
+        previous_status in ('ACTIVE', 'SUSPENDED')
         and new_status = 'ENDED'
       )
     ),
@@ -134,14 +142,22 @@ create table public.verification_review_grant_events (
       )
     ),
   constraint verification_review_grant_events_reason_check
-    check (reason_code ~ '^[A-Z0-9_]{1,80}$')
+    check (reason_code ~ '^[A-Z0-9_]{1,80}$'),
+  constraint verification_review_grant_events_actor_fk
+    foreign key (actor_account_id, actor_person_id)
+    references public.user_accounts (id, person_id)
+    match full
 );
 
 comment on table public.verification_review_grant_events is
-  'Append-only review-grant history. TECHNICAL stores a PostgreSQL principal, not a product PERSON. PRODUCT is reserved for a later authenticated administrator and is not written by migration 039. Refused attempts are not rows in this table.';
+  'Append-only review-grant history. TECHNICAL stores a PostgreSQL principal, not a product PERSON. PRODUCT is reserved for a later authenticated administrator, is not written by migration 039, and must reference user_accounts(id, person_id). Refused attempts are not rows in this table.';
 
 create index verification_review_grant_events_grant_idx
   on public.verification_review_grant_events (grant_id, occurred_at);
+
+create index verification_review_grant_events_actor_idx
+  on public.verification_review_grant_events (actor_account_id, actor_person_id)
+  where actor_account_id is not null;
 
 create function public.enforce_verification_grant_event_immutability()
 returns trigger
@@ -165,7 +181,44 @@ comment on function public.enforce_verification_grant_event_immutability() is
   'SECURITY INVOKER. Update and delete are refused. occurred_at is the server clock. Not granted to clients.';
 
 revoke all on function public.enforce_verification_grant_event_immutability()
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role, supabase_admin;
+
+create function public.enforce_verification_grant_status_transition()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+begin
+  if old.status is not distinct from new.status then
+    return new;
+  end if;
+
+  if (
+    old.status = 'ACTIVE'
+    and new.status in ('SUSPENDED', 'ENDED')
+  ) or (
+    old.status = 'SUSPENDED'
+    and new.status = 'ENDED'
+  ) then
+    return new;
+  end if;
+
+  raise exception using
+    errcode = '42501',
+    message = 'Verification grant operation is not available';
+end;
+$$;
+
+comment on function public.enforce_verification_grant_status_transition() is
+  'SECURITY INVOKER. Allows ACTIVE to SUSPENDED, ACTIVE to ENDED, and SUSPENDED to ENDED. ENDED is final. Not granted to clients or supabase_admin.';
+
+revoke all on function public.enforce_verification_grant_status_transition()
+  from public, anon, authenticated, service_role, supabase_admin;
+
+create trigger verification_review_grants_status_transition
+before update on public.verification_review_grants
+for each row execute function public.enforce_verification_grant_status_transition();
 
 create trigger verification_review_grant_events_immutable
 before insert or update or delete on public.verification_review_grant_events
@@ -179,7 +232,7 @@ security invoker
 set search_path = pg_catalog, public
 as $$
 begin
-  if current_user not in ('postgres', 'supabase_admin') then
+  if current_user is distinct from 'postgres' then
     raise exception using
       errcode = '42501',
       message = 'Verification grant operation is not available';
@@ -190,10 +243,10 @@ end;
 $$;
 
 comment on function public.verification_grant_technical_principal() is
-  'Returns the PostgreSQL login principal for postgres or supabase_admin. Does not read auth.uid() and does not invent a PERSON. Not executable by PUBLIC, anon, authenticated, or service_role.';
+  'Returns the PostgreSQL login principal when current_user is postgres. Does not read auth.uid(), does not invent a PERSON, and does not treat supabase_admin as a grant operator. Not executable by PUBLIC, anon, authenticated, or service_role.';
 
 revoke all on function public.verification_grant_technical_principal()
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role, supabase_admin;
 
 create function public.bootstrap_verification_review_grant(
   p_reviewer_person_id uuid
@@ -295,7 +348,7 @@ comment on function public.bootstrap_verification_review_grant(uuid) is
   'Creates one MARKET / ES review grant for an ACTIVE person with an ACTIVE account. Scope and market are fixed. The actor is the PostgreSQL principal, not a client id. Does not grant administration of other grants. Not an Expo or service_role API.';
 
 revoke all on function public.bootstrap_verification_review_grant(uuid)
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role, supabase_admin;
 
 create function public.suspend_verification_review_grant(
   p_grant_id uuid
@@ -380,7 +433,7 @@ comment on function public.suspend_verification_review_grant(uuid) is
   'Moves one ACTIVE MARKET / ES grant to SUSPENDED and appends one event. Does not reactivate and does not close. A suspended grant no longer matches. Not an Expo or service_role API.';
 
 revoke all on function public.suspend_verification_review_grant(uuid)
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role, supabase_admin;
 
 create function public.close_verification_review_grant(
   p_grant_id uuid
@@ -417,7 +470,7 @@ begin
   if not found
      or grant_row.scope_type is distinct from 'MARKET'
      or grant_row.market_country_code is distinct from 'ES'
-     or grant_row.status is distinct from 'ACTIVE' then
+     or grant_row.status not in ('ACTIVE', 'SUSPENDED') then
     raise exception using
       errcode = '42501',
       message = 'Verification grant operation is not available';
@@ -429,7 +482,8 @@ begin
      set status = 'ENDED',
          valid_until = closed_at
    where open_grant.id = p_grant_id
-     and open_grant.status = 'ACTIVE'
+     and open_grant.status = grant_row.status
+     and open_grant.status in ('ACTIVE', 'SUSPENDED')
      and open_grant.scope_type = 'MARKET'
      and open_grant.market_country_code = 'ES';
 
@@ -456,7 +510,7 @@ begin
     grant_row.reviewer_person_id,
     grant_row.scope_type,
     grant_row.market_country_code,
-    'ACTIVE',
+    grant_row.status,
     'ENDED',
     'TECHNICAL',
     technical_principal,
@@ -466,15 +520,15 @@ end;
 $$;
 
 comment on function public.close_verification_review_grant(uuid) is
-  'Closes one ACTIVE MARKET / ES grant. ENDED is final: this function does not close a suspended grant and does not reactivate. Not an Expo or service_role API.';
+  'Closes one ACTIVE or SUSPENDED MARKET / ES grant. The CLOSED event records that previous status. ENDED is final and this function does not reactivate. Not an Expo or service_role API.';
 
 revoke all on function public.close_verification_review_grant(uuid)
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role, supabase_admin;
 
 alter table public.verification_review_grant_events enable row level security;
 
 revoke all on table public.verification_review_grant_events
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role, supabase_admin;
 
 revoke all on table public.verification_review_grants
-  from service_role;
+  from public, anon, authenticated, service_role, supabase_admin;

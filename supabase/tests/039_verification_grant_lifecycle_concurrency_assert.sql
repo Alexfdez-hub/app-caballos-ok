@@ -2,7 +2,9 @@ do $$
 declare
   reviewer_person uuid;
   grant_status text;
-  transition_count integer;
+  suspended_count integer;
+  closed_count integer;
+  closed_previous text;
 begin
   select account.person_id
     into reviewer_person
@@ -17,18 +19,39 @@ begin
      and grant_row.market_country_code = 'ES';
 
   select count(*)
-    into transition_count
+    into suspended_count
     from public.verification_review_grant_events as event
    where event.reviewer_person_id = reviewer_person
-     and event.event_type in ('SUSPENDED', 'CLOSED');
+     and event.event_type = 'SUSPENDED'
+     and event.previous_status = 'ACTIVE'
+     and event.new_status = 'SUSPENDED';
 
-  if transition_count <> 1
-     or grant_status not in ('SUSPENDED', 'ENDED')
-     or public.verification_review_grant_matches(reviewer_person, 'IDENTITY', 'ES') then
+  select count(*), min(event.previous_status)
+    into closed_count, closed_previous
+    from public.verification_review_grant_events as event
+   where event.reviewer_person_id = reviewer_person
+     and event.event_type = 'CLOSED'
+     and event.new_status = 'ENDED';
+
+  if grant_status is distinct from 'ENDED'
+     or public.verification_review_grant_matches(reviewer_person, 'IDENTITY', 'ES')
+     or public.verification_review_grant_matches(reviewer_person, 'EQUINE', 'ES')
+     or closed_count <> 1
+     or suspended_count > 1
+     or (
+       suspended_count = 0
+       and closed_previous is distinct from 'ACTIVE'
+     )
+     or (
+       suspended_count = 1
+       and closed_previous is distinct from 'SUSPENDED'
+     ) then
     raise exception
-      'Concurrent suspend/close left status % and % transition events',
+      'Concurrent suspend/close left status %, % suspended events, % closed events from %',
       grant_status,
-      transition_count;
+      suspended_count,
+      closed_count,
+      closed_previous;
   end if;
 end;
 $$;
