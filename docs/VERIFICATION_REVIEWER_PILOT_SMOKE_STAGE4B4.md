@@ -125,7 +125,7 @@ Expected: exactly one grant, `ACTIVE`, `MARKET`, `ES`, `valid_until` null, revie
 
 1. As the applicant on Android, open `Verificación` and submit the Spain identity request. Expected local notice: the request was sent and the identity is not verified. The case state is `SUBMITTED`.
 2. As the applicant, create the fictional equine and do not add a photo. Then, still as the applicant session, call `submit_my_equine_ownership_claim` and `submit_my_equine_management_claim` with the arguments in the table above. There is no screen for those two calls. A postgres insert into the claim tables is not a substitute.
-3. Evidence, only if the smoke must show the sufficient indicator: one later postgres insert per required category, using the fictional tokens above, parented to the case the applicant just created. Do not upload an object. Do not use a real bucket. The queue and the detail still work with no evidence; the indicator then stays false and the copy is `La evidencia todavía no es suficiente para continuar.`
+3. This runbook contains no `INSERT` into `verification_evidence`. There is no client RPC that binds that row to `auth.uid()`, and a hand-written insert could set `submitted_by_account_id` to any account. The smoke therefore expects the incomplete-evidence copy: `La evidencia todavía no es suficiente para continuar.` The category table above is the shape only. It is not a statement to run. A later authorization would have to add its own statement, bind the submitter to the applicant account returned by step 3, create no Storage object, and write no actor column.
 
 Expected after the three cases exist: the applicant's own verification screen shows the identity request as pending. It does not show the reviewer.
 
@@ -249,7 +249,7 @@ This document does not approve any of them.
 | Read that resolves person id from an address | Remote SQL, `postgres` or a reviewed read role | Touches `auth.users`. The address must not be logged. |
 | `bootstrap_verification_review_grant` once | Remote SQL as `postgres` | Creates the only pilot grant. |
 | `submit_my_equine_ownership_claim` and `submit_my_equine_management_claim` | Applicant session | No screen. Must not be a table insert or a forged `auth.uid()`. |
-| `verification_evidence` inserts | Remote SQL as `postgres` | No client RPC. Must not create a Storage object. |
+| Evidence rows | Not a statement in this runbook | A later statement would need its own authorization. It must not choose an actor or a submitter other than the applicant account from step 3, and it must not create a Storage object. |
 | Android smoke as the reviewer | Device | Reads private fictional detail and writes open audits. |
 | `suspend_verification_review_grant` | Remote SQL as `postgres` | Stops the grant. |
 | `close_verification_review_grant` | Remote SQL as `postgres` | Ends the grant. |
