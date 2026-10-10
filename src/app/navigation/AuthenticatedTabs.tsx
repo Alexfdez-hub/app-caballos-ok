@@ -14,6 +14,7 @@ import MyCentersScreen from '../../screens/MyCentersScreen';
 import CreateEquineScreen from '../../screens/CreateEquineScreen';
 import EquineDetailScreen from '../../screens/EquineDetailScreen';
 import MyEquinesScreen from '../../screens/MyEquinesScreen';
+import ReviewPilotScreen from '../../screens/ReviewPilotScreen';
 import VerificationScreen from '../../screens/VerificationScreen';
 import MyManagedEquinesScreen from '../../screens/MyManagedEquinesScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
@@ -109,6 +110,16 @@ function ProfileStack() {
         component={VerificationScreen}
         options={{
           title: 'Verificación',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
+      />
+      <ProfileStackNavigator.Screen
+        name="ReviewPilot"
+        component={ReviewPilotScreen}
+        options={{
+          title: 'Revisión piloto',
           headerTintColor: colors.text,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,

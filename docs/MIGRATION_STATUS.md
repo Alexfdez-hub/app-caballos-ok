@@ -1,12 +1,13 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-08, Stage 4B.2 branch):** repository `main` is
-`78e9a699559f6be4409a25c39c109cc12d8167f4`. Migrations `036`, `037`, and
-`038` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at
-exact version `038`. This branch adds migration `039` only in the pull
-request. It is not deployed, the bootstrap has not been executed, and no
-real grant exists. It does not open publication, services, bookings, or
-payments.
+**Live note (2026-10-09, Stage 4B.3 branch):** repository `main` is
+`eeb6d9c121a3aec2406bec215b3c297d95dfe4e5`. Migrations `036` through `039`
+are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at
+exact version `039`, with 0 grants and 0 grant events. The bootstrap has
+not been executed and no reviewer account exists. This branch adds
+unreleased migration `040` for a read-only Spain review queue and detail.
+`040` is not deployed. It does not decide a case, open a document, or
+open publication, services, bookings, or payments.
 Existing null countries are not assigned `ES`. The Phase 14B record below
 is historical.
 
@@ -64,11 +65,11 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. Migrations `036`, `037`, and `038` are on `main`. Remote is at exact
-   version `038`. This branch adds unreleased migration `039` for the
-   fictional grant lifecycle. See
-   `docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`. No remote bootstrap,
-   no real grant, no migration `040`, no KYC vendor, and no calendar
+2. Migrations `036` through `039` are on `main`. Remote is at exact
+   version `039`, with 0 grants and no bootstrap. This branch adds
+   unreleased migration `040` for the read-only reviewer queue. See
+   `docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`. No remote bootstrap,
+   no real grant, no migration `041`, no KYC vendor, and no calendar
    change.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.

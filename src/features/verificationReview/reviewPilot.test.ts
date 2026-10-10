@@ -1,0 +1,473 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { describe, it } from 'node:test';
+
+import {
+  caseStateLabel,
+  caseTypeLabel,
+  evidenceCategoryLabel,
+  marketLabel,
+  relationLabel,
+} from './labels.ts';
+import {
+  DECISION_BLOCKED_COPY,
+  compareReviewQueue,
+  pilotReviewIsVisible,
+  presentReviewScreen,
+  reviewActionsBlocked,
+  sortReviewQueue,
+} from './presentation.ts';
+import {
+  isReviewDenied,
+  userFacingReviewMessage,
+} from './reviewErrors.ts';
+import {
+  parseReviewCapabilities,
+  parseReviewCase,
+  parseReviewQueue,
+} from './reviewRow.ts';
+import {
+  beginReviewLoad,
+  createReviewPilotSession,
+  markReviewBlurred,
+  markReviewFocused,
+  reviewUserKey,
+  shouldApplyReviewResult,
+  shouldResetReview,
+  switchReviewUser,
+  type ReviewPilotSession,
+} from './reviewSession.ts';
+import { SPAIN_REVIEW_MARKET, SPAIN_REVIEW_SCOPE } from './types.ts';
+
+const IDENTITY = '04010000-0000-4000-8000-0000000000a1';
+const OWNERSHIP = '04010000-0000-4000-8000-0000000000b1';
+const MANAGEMENT = '04010000-0000-4000-8000-0000000000c2';
+
+describe('review row adapters', () => {
+  it('adapts the three case classes and drops nothing private from the allowed fields', () => {
+    const queue = parseReviewQueue([
+      {
+        case_id: IDENTITY,
+        case_type: 'IDENTITY',
+        market_country_code: 'ES',
+        state: 'SUBMITTED',
+        updated_at: '2026-10-09T10:00:00Z',
+        evidence_categories: ['IDENTITY_PROVIDER_REFERENCE'],
+      },
+      {
+        case_id: OWNERSHIP,
+        case_type: 'OWNERSHIP',
+        market_country_code: 'ES',
+        state: 'RESUBMITTED',
+        updated_at: '2026-10-09T11:00:00Z',
+        evidence_categories: ['OWNERSHIP_ARTIFACT'],
+      },
+      {
+        case_id: MANAGEMENT,
+        case_type: 'MANAGEMENT',
+        market_country_code: 'ES',
+        state: 'IN_REVIEW',
+        updated_at: '2026-10-09T12:00:00Z',
+        evidence_categories: ['MANAGEMENT_DELEGATION_ARTIFACT'],
+      },
+    ]);
+
+    assert.deepEqual(
+      queue.map((item) => item.caseType),
+      ['IDENTITY', 'OWNERSHIP', 'MANAGEMENT'],
+    );
+
+    const detail = parseReviewCase([
+      {
+        case_id: OWNERSHIP,
+        case_type: 'OWNERSHIP',
+        state: 'RESUBMITTED',
+        market_country_code: 'ES',
+        created_at: '2026-10-09T09:00:00Z',
+        updated_at: '2026-10-09T11:00:00Z',
+        subject_name: 'Visible Subject',
+        equine_id: '04010000-0000-4000-8000-0000000000e1',
+        equine_name: 'Pilot Horse',
+        relation_type: 'PERSON',
+        relation_role: 'OWNER',
+        evidence: [
+          { category: 'OWNERSHIP_ARTIFACT', document_country_code: 'FR' },
+        ],
+        evidence_sufficient: true,
+      },
+    ]);
+
+    assert.equal(detail.subjectName, 'Visible Subject');
+    assert.equal(detail.equineName, 'Pilot Horse');
+    assert.equal(detail.evidence[0]?.documentCountryCode, 'FR');
+    assert.equal(JSON.stringify(detail).includes('storage_path'), false);
+    assert.equal(JSON.stringify(detail).includes('provider_reference'), false);
+  });
+
+  it('accepts only a current Spain capability', () => {
+    assert.equal(
+      pilotReviewIsVisible(
+        parseReviewCapabilities([
+          { scope_type: SPAIN_REVIEW_SCOPE, market_country_code: SPAIN_REVIEW_MARKET },
+        ]),
+      ),
+      true,
+    );
+    assert.equal(pilotReviewIsVisible([]), false);
+  });
+});
+
+describe('review labels and order', () => {
+  it('shows unknown codes as No disponible', () => {
+    assert.equal(caseTypeLabel('FUTURE'), 'No disponible');
+    assert.equal(caseStateLabel('DRAFT'), 'No disponible');
+    assert.equal(evidenceCategoryLabel('SECRET_BLOB'), 'No disponible');
+    assert.equal(relationLabel('UNKNOWN'), 'No disponible');
+    assert.equal(marketLabel('Spain'), 'No disponible');
+    assert.equal(caseTypeLabel('IDENTITY'), 'Identidad');
+    assert.equal(caseTypeLabel('OWNERSHIP'), 'Propiedad');
+    assert.equal(caseTypeLabel('MANAGEMENT'), 'Gestión');
+  });
+
+  it('sorts by date, then type, then id', () => {
+    const sorted = sortReviewQueue([
+      queueItem(IDENTITY, 'IDENTITY', '2026-10-09T10:00:00Z'),
+      queueItem(MANAGEMENT, 'MANAGEMENT', '2026-10-09T12:00:00Z'),
+      queueItem(OWNERSHIP, 'OWNERSHIP', '2026-10-09T12:00:00Z'),
+    ]);
+
+    assert.deepEqual(
+      sorted.map((item) => item.caseId),
+      [MANAGEMENT, OWNERSHIP, IDENTITY],
+    );
+    assert.equal(
+      compareReviewQueue(
+        queueItem(IDENTITY, 'IDENTITY', '2026-10-09T10:00:00Z'),
+        queueItem(IDENTITY, 'IDENTITY', '2026-10-09T10:00:00Z'),
+      ),
+      0,
+    );
+  });
+});
+
+describe('review screen states', () => {
+  it('covers loading, empty, error, denial, and a blocked decision', () => {
+    assert.equal(
+      presentReviewScreen({
+        hasSession: true,
+        isLoading: true,
+        hadAccess: false,
+        denied: false,
+        errorMessage: null,
+        items: [],
+        detail: { kind: 'none' },
+      }).kind,
+      'loading',
+    );
+    assert.equal(
+      presentReviewScreen({
+        hasSession: true,
+        isLoading: false,
+        hadAccess: false,
+        denied: false,
+        errorMessage: null,
+        items: [],
+        detail: { kind: 'none' },
+      }).kind,
+      'empty',
+    );
+    assert.equal(
+      presentReviewScreen({
+        hasSession: true,
+        isLoading: false,
+        hadAccess: false,
+        denied: false,
+        errorMessage: 'No se pudo consultar la revisión. Inténtalo de nuevo.',
+        items: [],
+        detail: { kind: 'none' },
+      }).kind,
+      'error',
+    );
+    assert.equal(
+      presentReviewScreen({
+        hasSession: true,
+        isLoading: false,
+        hadAccess: false,
+        denied: true,
+        errorMessage: null,
+        items: [],
+        detail: { kind: 'none' },
+      }).kind,
+      'unauthorized',
+    );
+    assert.equal(
+      presentReviewScreen({
+        hasSession: true,
+        isLoading: false,
+        hadAccess: true,
+        denied: true,
+        errorMessage: null,
+        items: [],
+        detail: { kind: 'unavailable' },
+      }).kind,
+      'suspended',
+    );
+    assert.match(DECISION_BLOCKED_COPY, /bloqueada/);
+    assert.equal(DECISION_BLOCKED_COPY.includes('Aceptar'), false);
+    assert.equal(DECISION_BLOCKED_COPY.includes('Rechazar'), false);
+  });
+
+  it('hides SQL and clears data when the account changes or the screen blurs', () => {
+    assert.equal(
+      userFacingReviewMessage({
+        code: '42501',
+        message: 'select storage_path from verification_evidence',
+      }),
+      'No se pudo consultar la revisión. Inténtalo de nuevo.',
+    );
+    assert.equal(isReviewDenied({ code: '42501', message: 'hidden' }), true);
+    assert.equal(shouldResetReview('user-a', null), true);
+    assert.equal(shouldResetReview('user-a', 'user-b'), true);
+    assert.equal(reviewUserKey(undefined), null);
+
+    const started = beginReviewLoad(
+      markReviewFocused(createReviewPilotSession('user-a')),
+      'user-a',
+    );
+    const blurred = markReviewBlurred(started.session);
+
+    assert.equal(blurred.loading, false);
+    assert.equal(shouldApplyReviewResult(started.request, blurred), false);
+    assert.equal(reviewActionsBlocked(true, false), false);
+    assert.equal(reviewActionsBlocked(false, true), false);
+  });
+});
+
+describe('review account changes', () => {
+  it('drops account A after B finishes, even when A resolves last', () => {
+    const race = startAccountA();
+    const switched = clearForUser(race.pilot, race.access, 'user-b');
+    const next = startAccountB(switched.pilot, switched.access);
+    const afterB = acceptAccountB(next);
+    const afterA = acceptAccountA(afterB, race);
+
+    assert.deepEqual(afterA.view, { items: ['case-b'], detail: null, visible: true });
+  });
+
+  it('drops account A when it resolves before B starts', () => {
+    const race = startAccountA();
+    const switched = clearForUser(race.pilot, race.access, 'user-b');
+    const earlyA = acceptAccountA(switched, race);
+    const next = startAccountB(earlyA.pilot, earlyA.access);
+    const afterB = acceptAccountB(next);
+
+    assert.deepEqual(earlyA.view, { items: [], detail: null, visible: false });
+    assert.deepEqual(afterB.view, { items: ['case-b'], detail: null, visible: true });
+  });
+
+  it('drops a pending detail from A after the account changes', () => {
+    const race = startAccountA();
+    const detail = beginReviewLoad(race.pilot, 'user-a');
+    const switched = clearForUser(detail.session, race.access, 'user-b');
+    const next = startAccountB(switched.pilot, switched.access);
+    const afterB = acceptAccountB(next);
+    const leaked =
+      shouldApplyReviewResult(detail.request, afterB.pilot)
+        ? 'detail-a'
+        : afterB.view.detail;
+
+    assert.equal(leaked, null);
+    assert.deepEqual(afterB.view.items, ['case-b']);
+  });
+
+  it('drops A across logout before B signs in', () => {
+    const race = startAccountA();
+    const signedOut = clearForUser(race.pilot, race.access, null);
+    const duringLogout = acceptAccountA(signedOut, race);
+    const signedIn = clearForUser(duringLogout.pilot, duringLogout.access, 'user-b');
+    const next = startAccountB(
+      markReviewFocused(signedIn.pilot),
+      markReviewFocused(signedIn.access),
+    );
+    const afterB = acceptAccountB(next);
+    const afterA = acceptAccountA(afterB, race);
+
+    assert.deepEqual(duringLogout.view, { items: [], detail: null, visible: false });
+    assert.deepEqual(afterA.view, { items: ['case-b'], detail: null, visible: true });
+  });
+
+  it('rejects a refresh and an open that were started by the previous account', () => {
+    const race = startAccountA();
+    const refreshA = beginReviewLoad(race.pilot, 'user-a');
+    const openA = beginReviewLoad(refreshA.session, 'user-a');
+    const switched = clearForUser(openA.session, race.access, 'user-b');
+    const refreshB = beginReviewLoad(markReviewFocused(switched.pilot), 'user-b');
+
+    assert.equal(shouldApplyReviewResult(refreshA.request, refreshB.session), false);
+    assert.equal(shouldApplyReviewResult(openA.request, refreshB.session), false);
+    assert.equal(shouldApplyReviewResult(refreshB.request, refreshB.session), true);
+  });
+
+  it('rejects the old sequence collision because the user no longer matches', () => {
+    let session = markReviewFocused(createReviewPilotSession('user-a'));
+    const accountA = beginReviewLoad(session, 'user-a');
+    session = accountA.session;
+
+    const reset = markReviewFocused(createReviewPilotSession('user-b'));
+    const collided = beginReviewLoad(reset, 'user-b');
+
+    assert.equal(accountA.request.requestSeq, collided.request.requestSeq);
+    assert.equal(
+      legacySequenceOnlyApply(
+        accountA.request.requestSeq,
+        collided.session.requestSeq,
+        collided.session.screenActive,
+      ),
+      true,
+    );
+    assert.equal(shouldApplyReviewResult(accountA.request, collided.session), false);
+
+    session = switchReviewUser(session, 'user-b');
+    assert.equal(session.requestSeq, accountA.request.requestSeq);
+    const accountB = beginReviewLoad(session, 'user-b');
+    assert.equal(accountB.request.requestSeq, accountA.request.requestSeq + 1);
+    assert.equal(shouldApplyReviewResult(accountA.request, accountB.session), false);
+    assert.equal(shouldApplyReviewResult(accountB.request, accountB.session), true);
+  });
+});
+
+describe('review client surface', () => {
+  it('does not call review functions or render a decision button', () => {
+    const sources = [
+      'reviewService.ts',
+      'useReviewPilot.ts',
+      'usePilotReviewAccess.ts',
+      '../../screens/ReviewPilotScreen.tsx',
+    ].map((file) => readFileSync(new URL(file, import.meta.url), 'utf8'));
+    const combined = sources.join('\n');
+
+    assert.equal(combined.includes('review_identity_case'), false);
+    assert.equal(combined.includes('review_equine_ownership_claim'), false);
+    assert.equal(combined.includes('review_equine_management_claim'), false);
+    assert.equal(combined.includes('>Aceptar<'), false);
+    assert.equal(combined.includes('>Rechazar<'), false);
+    assert.equal(combined.includes("rpc('get_my_review_capabilities')"), true);
+    assert.equal(combined.includes("rpc('list_my_review_queue')"), true);
+    assert.equal(combined.includes("rpc('get_my_review_case'"), true);
+  });
+});
+
+function legacySequenceOnlyApply(
+  requestSeq: number,
+  latestSeq: number,
+  screenActive: boolean,
+): boolean {
+  return screenActive && requestSeq === latestSeq;
+}
+
+type ReviewRaceView = {
+  items: string[];
+  detail: string | null;
+  visible: boolean;
+};
+
+type ReviewRace = {
+  pilot: ReviewPilotSession;
+  access: ReviewPilotSession;
+  queue: ReviewRequest;
+  menu: ReviewRequest;
+  view: ReviewRaceView;
+};
+
+function startAccountA(): ReviewRace {
+  const pilotStart = beginReviewLoad(
+    markReviewFocused(createReviewPilotSession('user-a')),
+    'user-a',
+  );
+  const accessStart = beginReviewLoad(
+    markReviewFocused(createReviewPilotSession('user-a')),
+    'user-a',
+  );
+
+  return {
+    pilot: pilotStart.session,
+    access: accessStart.session,
+    queue: pilotStart.request,
+    menu: accessStart.request,
+    view: { items: ['case-a'], detail: 'detail-a', visible: true },
+  };
+}
+
+function clearForUser(
+  pilot: ReviewPilotSession,
+  access: ReviewPilotSession,
+  userKey: string | null,
+): ReviewRace {
+  return {
+    pilot: switchReviewUser(pilot, userKey),
+    access: switchReviewUser(access, userKey),
+    queue: { requestSeq: -1, userKey },
+    menu: { requestSeq: -1, userKey },
+    view: { items: [], detail: null, visible: false },
+  };
+}
+
+function startAccountB(
+  pilot: ReviewPilotSession,
+  access: ReviewPilotSession,
+): ReviewRace {
+  const queue = beginReviewLoad(pilot, 'user-b');
+  const menu = beginReviewLoad(access, 'user-b');
+
+  return {
+    pilot: queue.session,
+    access: menu.session,
+    queue: queue.request,
+    menu: menu.request,
+    view: { items: [], detail: null, visible: false },
+  };
+}
+
+function acceptAccountB(race: ReviewRace): ReviewRace {
+  const view = { ...race.view };
+
+  if (shouldApplyReviewResult(race.queue, race.pilot)) {
+    view.items = ['case-b'];
+    view.detail = null;
+  }
+
+  if (shouldApplyReviewResult(race.menu, race.access)) {
+    view.visible = true;
+  }
+
+  return { ...race, view };
+}
+
+function acceptAccountA(race: ReviewRace, accountA: ReviewRace): ReviewRace {
+  const view = { ...race.view };
+
+  if (shouldApplyReviewResult(accountA.queue, race.pilot)) {
+    view.items = ['case-a'];
+  }
+
+  if (shouldApplyReviewResult(accountA.menu, race.access)) {
+    view.visible = true;
+  }
+
+  return { ...race, view };
+}
+
+function queueItem(
+  caseId: string,
+  caseType: string,
+  updatedAt: string,
+) {
+  return {
+    caseId,
+    caseType,
+    marketCountryCode: 'ES',
+    state: 'SUBMITTED',
+    updatedAt,
+    evidenceCategories: [],
+  };
+}

@@ -373,11 +373,12 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-08, Stage 4B.2 branch):** `main` is
-`78e9a699559f6be4409a25c39c109cc12d8167f4` and includes migrations `036`,
-`037`, and `038`. Remote is at exact version `038`. This branch adds
-unreleased migration `039` and does not execute the bootstrap. No real
-grant exists. It does not add migration `040` and does not open
+**Siguiente fase (live 2026-10-09, Stage 4B.3 branch):** `main` is
+`eeb6d9c121a3aec2406bec215b3c297d95dfe4e5` and includes migrations `036`
+through `039`. Remote is at exact version `039`, with 0 grants and no
+bootstrap. This branch adds unreleased migration `040` for a read-only
+Spain review queue and detail. It does not decide, sign evidence, execute
+the bootstrap, or add migration `041`, and it does not open
 publication, services, bookings or payments. Existing ownership and management rows
 remain the effective relationships. A private self-created equine stays
 declared. Do not enable public listing, services, real bookings, or

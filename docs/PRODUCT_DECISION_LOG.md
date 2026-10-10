@@ -163,3 +163,22 @@ boundary. A suspended `MARKET` / `ES` grant can be closed, and that
 does not return to `ACTIVE`, and `ENDED` does not change. A future
 `PRODUCT` actor must reference one `user_accounts` row through
 `(id, person_id)`. No remote bootstrap, real grant, or migration `040`.
+
+## 2026-10-09 — Migration 039 deployed, still no grant
+
+Remote project `efkauegdlmfkonzwyyiv` is normalized at exact version
+`039`. The grant table and the grant-event table are empty. The
+technical bootstrap has not been executed, and no reviewer account
+exists. That deployment does not authorize a queue, a decision, or
+migration `040`.
+
+## 2026-10-09 — Read-only reviewer queue, Stage 4B.3
+
+Authorizes only unreleased migration `040` and a read-only Spain pilot
+screen. An authenticated caller with a current `MARKET` / `ES` grant may
+read their capability, a pseudonymous queue, and one re-authorized case.
+Opening that case writes `audit_events` without names, paths, or
+documents. The screen does not call `review_*` and does not show a
+decision. Evidence signing, remote bootstrap, a real grant, and migration
+`041` stay unauthorized. See
+`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`.

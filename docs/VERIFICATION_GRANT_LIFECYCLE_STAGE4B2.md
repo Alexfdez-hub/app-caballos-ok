@@ -1,9 +1,9 @@
 # Verification grant lifecycle — Stage 4B.2
 
-**Status:** migration `039` exists only on this branch. It is not deployed. The bootstrap has not been executed against the remote project. No real grant exists.
+**Status:** migration `039` is on `main` and deployed. The bootstrap has not been executed. Remote grants and grant events are both zero.
 **Date:** 2026-10-08
 **Base:** `origin/main` `78e9a699559f6be4409a25c39c109cc12d8167f4`.
-**Remote:** project `efkauegdlmfkonzwyyiv` stays at exact version `038`.
+**Remote:** project `efkauegdlmfkonzwyyiv` is normalized at exact version `039`.
 
 This stage prepares the technical lifecycle for one fictional `MARKET` / `ES` review grant. It does not add a reviewer queue, a case detail, evidence access, a signed URL, an Edge Function, a reviewer screen, a KYC provider, or an acceptance of identity. Ordinary authenticated administration stays deferred. Real users stay blocked.
 
