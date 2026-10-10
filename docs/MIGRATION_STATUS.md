@@ -1,13 +1,13 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-09, Stage 4B.3 branch):** repository `main` is
-`eeb6d9c121a3aec2406bec215b3c297d95dfe4e5`. Migrations `036` through `039`
-are on `main`. Remote project `efkauegdlmfkonzwyyiv` is normalized at
-exact version `039`, with 0 grants and 0 grant events. The bootstrap has
-not been executed and no reviewer account exists. This branch adds
-unreleased migration `040` for a read-only Spain review queue and detail.
-`040` is not deployed. It does not decide a case, open a document, or
-open publication, services, bookings, or payments.
+**Live note (2026-10-10, Stage 4B.4):** repository `main` is
+`0df9baddc9eb8bf72938a584f5f2bfeab723aca4`. Migrations `036` through
+`040` are on `main`. The recorded remote state for project
+`efkauegdlmfkonzwyyiv` is exact version `040`, with 0 grants, 0 grant
+events, and 0 `verification_review_opened` rows. The bootstrap has not
+been executed and no reviewer account exists. This branch adds the
+pilot smoke runbook only. It does not decide a case, open a document,
+or open publication, services, bookings, or payments.
 Existing null countries are not assigned `ES`. The Phase 14B record below
 is historical.
 
@@ -65,12 +65,12 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. Migrations `036` through `039` are on `main`. Remote is at exact
-   version `039`, with 0 grants and no bootstrap. This branch adds
-   unreleased migration `040` for the read-only reviewer queue. See
-   `docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`. No remote bootstrap,
-   no real grant, no migration `041`, no KYC vendor, and no calendar
-   change.
+2. Migrations `036` through `040` are on `main`. The recorded remote
+   history is exact version `040`, with 0 grants, 0 grant events, and
+   no bootstrap. The next document is the fictional Android smoke
+   runbook, `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. That
+   runbook does not itself authorize the bootstrap, a grant, or
+   migration `041`. No KYC vendor and no calendar change.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.

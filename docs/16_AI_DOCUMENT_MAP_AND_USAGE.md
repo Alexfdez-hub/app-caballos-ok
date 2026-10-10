@@ -321,16 +321,17 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (verified 2026-10-09, Stage 4B.3 branch):** repository
-`main` is `eeb6d9c121a3aec2406bec215b3c297d95dfe4e5`. Migrations `036`
-through `039` are on `main`. Remote project `efkauegdlmfkonzwyyiv` is
-normalized at exact version `039`, with 0 grants and 0 grant events. The
-bootstrap has not been executed and no reviewer account exists. This
-branch adds unreleased migration `040` and
-`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`. `040` is not deployed.
-It does not decide a case, open private evidence, or open publication,
-services, bookings, or payments.
-Identity completion still requires an explicit selectable country.
+**Live status (recorded 2026-10-10, Stage 4B.4):** repository `main` is
+`0df9baddc9eb8bf72938a584f5f2bfeab723aca4`, the merge of PR #59.
+Migrations `036` through `040` are on `main`. The recorded remote state
+for project `efkauegdlmfkonzwyyiv` is exact version `040`, with 0 grants,
+0 grant events, and 0 `verification_review_opened` rows. The bootstrap
+has not been executed and no reviewer account exists. This branch adds
+`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md` only. It does not
+create accounts, execute the bootstrap, insert cases, decide a case,
+open private evidence, or open publication, services, bookings, or
+payments. Identity completion still requires an explicit selectable
+country.
 
 The Level 1–3 handoff documents named above are maintained outside this
 repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
@@ -345,8 +346,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/VERIFICATION_STATUS_UI_STAGE4A.md`,
 `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`,
 `docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`,
-`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`, and
-`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`. The decision log is append-only. It records
+`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`,
+`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`, and
+`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
 reviews. A later entry can authorize one named slice. It does not authorize
 work beyond that slice. Authentication,

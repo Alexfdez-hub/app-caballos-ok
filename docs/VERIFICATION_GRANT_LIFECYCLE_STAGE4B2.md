@@ -1,6 +1,6 @@
 # Verification grant lifecycle — Stage 4B.2
 
-**Status:** migration `039` is on `main` and deployed. The bootstrap has not been executed. Remote grants and grant events are both zero.
+**Status:** migration `039` is on `main` and deployed. The bootstrap has not been executed. The Stage 4B.4 starting state still records 0 grants and 0 grant events after remote version `040`.
 **Date:** 2026-10-08
 **Base:** `origin/main` `78e9a699559f6be4409a25c39c109cc12d8167f4`.
 **Remote:** project `efkauegdlmfkonzwyyiv` is normalized at exact version `039`.
