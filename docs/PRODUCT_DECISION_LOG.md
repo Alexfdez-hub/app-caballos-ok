@@ -182,3 +182,29 @@ documents. The screen does not call `review_*` and does not show a
 decision. Evidence signing, remote bootstrap, a real grant, and migration
 `041` stay unauthorized. See
 `docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`.
+
+## 2026-10-10 — Pilot reviewer smoke runbook, Stage 4B.4
+
+Authorizes a document only: `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`.
+The recorded remote state is exact version `040` on
+`efkauegdlmfkonzwyyiv`, with 0 grants, 0 grant events, 0
+`verification_review_opened` rows, and no reviewer account. A later
+smoke, if separately authorized, uses two fictional accounts, fictional
+Spain cases, and referential evidence tokens. It does not use a real
+document, a personal address, or a stored password. The bootstrap,
+suspension, and closure remain later `postgres` operations. Cleanup
+isolates the fixture and does not delete audit rows or grant events.
+This entry does not execute that procedure and does not authorize
+migration `041`, a decision, or a signed evidence URL.
+
+## 2026-10-11 — Smoke fixtures stay open after the reviewer is closed
+
+Corrects the isolation sentence in the 2026-10-10 Stage 4B.4 entry.
+Closing the pilot grant isolates that reviewer. It does not make the
+three fictional cases unreachable. They remain `SUBMITTED`, with no
+evidence, and `list_my_review_queue()` will show them to any later
+active `MARKET` / `ES` reviewer who has no conflict. Until a separately
+reviewed retirement accounts for those case ids, another Spain reviewer
+grant is forbidden. This correction invents no `DELETE`, `UPDATE`,
+rejection, decision, or artificial case close. See
+`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`.

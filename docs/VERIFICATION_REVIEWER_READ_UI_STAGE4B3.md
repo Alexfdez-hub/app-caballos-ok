@@ -1,9 +1,9 @@
 # Verification reviewer read UI — Stage 4B.3
 
-**Status:** migration `040` exists only on this branch. It is not deployed. No remote bootstrap has been executed. No reviewer account and no grant exist.
+**Status:** migration `040` is on `main` after PR #59. The Stage 4B.4 starting state records remote version `040`, still with no bootstrap, no reviewer account, and no grant. The Android smoke procedure is `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. It does not execute that smoke.
 **Date:** 2026-10-09
 **Base:** `origin/main` `eeb6d9c121a3aec2406bec215b3c297d95dfe4e5`.
-**Remote:** project `efkauegdlmfkonzwyyiv` is normalized at exact version `039`. That deployment has 0 grants and 0 grant events. This stage does not change the remote project.
+**Remote at the time of this stage:** project `efkauegdlmfkonzwyyiv` was normalized at exact version `039`, with 0 grants and 0 grant events. This stage did not change the remote project. Stage 4B.4 later records remote version `040`, still with no bootstrap and no grant.
 
 ## Stage 0
 
