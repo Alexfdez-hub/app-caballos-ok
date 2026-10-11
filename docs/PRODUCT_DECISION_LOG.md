@@ -196,3 +196,15 @@ suspension, and closure remain later `postgres` operations. Cleanup
 isolates the fixture and does not delete audit rows or grant events.
 This entry does not execute that procedure and does not authorize
 migration `041`, a decision, or a signed evidence URL.
+
+## 2026-10-11 — Smoke fixtures stay open after the reviewer is closed
+
+Corrects the isolation sentence in the 2026-10-10 Stage 4B.4 entry.
+Closing the pilot grant isolates that reviewer. It does not make the
+three fictional cases unreachable. They remain `SUBMITTED`, with no
+evidence, and `list_my_review_queue()` will show them to any later
+active `MARKET` / `ES` reviewer who has no conflict. Until a separately
+reviewed retirement accounts for those case ids, another Spain reviewer
+grant is forbidden. This correction invents no `DELETE`, `UPDATE`,
+rejection, decision, or artificial case close. See
+`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`.
