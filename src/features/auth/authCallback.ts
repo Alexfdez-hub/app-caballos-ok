@@ -147,31 +147,49 @@ export function parseAuthCallbackParams(url: string) {
   return params;
 }
 
+const AUTH_CALLBACK_PATH = `/${AUTH_REDIRECT_PATH}`;
+const AUTH_EXPO_CALLBACK_PATH = `/--/${AUTH_REDIRECT_PATH}`;
+
+function isExactCallbackPath(pathname: string, allowed: string) {
+  return pathname === allowed;
+}
+
 export function isAuthCallbackUrl(url: string) {
-  const normalized = url.split('#')[0] ?? url;
-
-  if (
-    normalized.includes(`/--/${AUTH_REDIRECT_PATH}`) ||
-    normalized.includes(`/${AUTH_REDIRECT_PATH}`)
-  ) {
-    return true;
-  }
-
+  let parsed: URL;
   try {
-    const parsed = new URL(normalized);
-    const path = `${parsed.hostname}${parsed.pathname}`.replace(/\/+/g, '/');
-    return (
-      path === `/${AUTH_REDIRECT_PATH}` ||
-      path === AUTH_REDIRECT_PATH ||
-      path === `/auth/callback` ||
-      parsed.pathname === `/${AUTH_REDIRECT_PATH}` ||
-      (parsed.protocol === `${AUTH_APP_SCHEME}:` &&
-        parsed.hostname === 'auth' &&
-        parsed.pathname.replace(/\/$/, '') === '/callback')
-    );
+    parsed = new URL(url);
   } catch {
     return false;
   }
+
+  const beforeQuery = url.split('#')[0]?.split('?')[0] ?? '';
+  if (/%|\\/.test(beforeQuery) || parsed.username || parsed.password) {
+    return false;
+  }
+
+  if (parsed.protocol === 'exp:') {
+    return isExactCallbackPath(parsed.pathname, AUTH_EXPO_CALLBACK_PATH);
+  }
+
+  if (parsed.protocol === 'http:') {
+    const allowedHost =
+      parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    return (
+      allowedHost &&
+      parsed.port === AUTH_WEB_DEV_PORT &&
+      isExactCallbackPath(parsed.pathname, AUTH_CALLBACK_PATH)
+    );
+  }
+
+  if (parsed.protocol === `${AUTH_APP_SCHEME}:`) {
+    return (
+      (parsed.hostname === 'auth' && parsed.pathname === '/callback') ||
+      (parsed.hostname === '' &&
+        isExactCallbackPath(parsed.pathname, AUTH_CALLBACK_PATH))
+    );
+  }
+
+  return false;
 }
 
 function callbackError(

@@ -1,115 +1,71 @@
 # Expo Go auth link regression
 
-This note records the 11 October 2026 diagnosis and the client fix. It does
-not change remote Supabase. The manual email-template step is separate and
-has not been applied.
+This note records the 11 October 2026 smoke and the client fixes on this
+branch. It does not change remote Supabase. Do not edit the hosted email
+templates from this work.
 
 ## Confirmed cause
 
-Remote Auth logs for that day showed `POST /recover` returning 200 with
-`mail.send` `mail_type=recovery`, then two `GET /verify` calls in the same
-second: one `303` and one `403` with “Email link is invalid or has expired”.
-Creating an account produced four consecutive `POST /signup` calls.
+Expo Go was running on an Android phone. The recovery message was opened on
+a PC.
 
-The app does not call `GET /verify`. `createSessionFromUrl` only exchanges a
-PKCE code (`POST /token`), stores implicit tokens, or, after this fix, calls
-`verifyOtp` (`POST /verify`). The duplicate `GET /verify` pair is therefore
-not produced by the callback handler. It matches a one-time confirmation URL
-being opened twice before the app runs. The mail client or a link scanner is
-a sufficient explanation. This note does not claim the app issued those GETs.
+1. The PC followed the one-time `{{ .ConfirmationURL }}`.
+2. Supabase accepted that request (`GET /verify` 303) and consumed the link.
+3. Supabase then redirected to an `exp://…/--/auth/callback` URL that belongs
+   to the phone’s Expo Go session and tunnel.
+4. The PC does not have that phone’s Expo Go instance, its storage, or its
+   PKCE verifier, so it cannot finish the callback. The PC shows an
+   unhandled or black window.
+5. A second request to the already consumed link matches the `403`
+   “Email link is invalid or has expired” seen in the same second.
 
-The four signup requests are an app race. `AuthScreen` set `isSubmitting`
-and then awaited the request. React applies that state on a later render, so
-further presses still called `signUp` until the button was replaced.
-“Crear cuenta” was a second action on the same screen, not its own mode.
+`POST /recover` had already returned 200 with `mail_type=recovery`. The app
+does not call `GET /verify`. This was not a network failure inside the app.
 
-`AuthProvider` handled `Linking.getInitialURL` and the `url` listener
-independently. The same callback could be exchanged twice. That would be a
-`POST /token` or `setSession`, not the observed `GET /verify`.
+Creating an account also produced four consecutive `POST /signup` calls.
+That part is separate: `AuthScreen` set `isSubmitting` and then awaited the
+request, so more presses ran before React replaced the button.
 
-A recovery callback can arrive as `?code=` without `type`. `@supabase/auth-js`
-emits `PASSWORD_RECOVERY` only when the PKCE verifier stored in that app
-session was saved with redirect type `recovery`. The URL type stays null.
-Guessing recovery from a bare code would also catch signup confirmation, so
-the client uses the URL type first and the stored redirect type only when the
-URL type is absent.
+## What this incident is not
 
-Opening the link in a different Expo Go process, or after the Metro host or
-port changes, still fails for the current `{{ .ConfirmationURL }}` emails:
+Prefetch, or opening the same message twice, can also consume a one-time
+`/verify` link. That remains possible for other messages. It is not the
+confirmed cause of this smoke. The confirmed cause is the PC opening a link
+that only the Android Expo Go session can finish.
 
-- the redirect baked into the message is the `exp://` host from the session
-  that requested it;
-- a PKCE exchange needs the verifier stored in that same app storage;
-- Expo Go can show its own connection failure when the old tunnel is gone.
-  That screen is outside this app. Inside the app, a callback now stays on
-  “Procesando enlace…” or on a recoverable error with “Volver al acceso”.
+Releasing an in-flight callback claim after a network error, a 5xx response,
+or a recoverable exception is a separate preventive fix. It lets the same
+phone retry a link that Supabase has not consumed. It does not explain the
+PC → phone smoke, and it does not make a link opened on a PC succeed on the
+phone afterwards.
 
-PR #40 remains the redirect rule: Expo Go uses
-`makeRedirectUri({ path: 'auth/callback' })`, which is covered by
-`exp://**/--/auth/callback`. The allow-list does not add `exp://**`.
+## Opening the link
 
-## Client behavior after this fix
+During Expo Go, request a new message and open it for the first time on the
+same Android phone that is running this project, with the same Metro tunnel
+still active. Do not open or preview the link on a PC first.
 
-- `signIn`, `signUp`, `resend`, and `recover` share one synchronous
-  in-flight lock. One press sends one request, including a rapid switch
-  between Crear cuenta and Iniciar sesión. A later press works after the
-  first request finishes.
-- The same code, token hash, access token, or error URL is in-flight while
-  it is being exchanged, then finalized after success or a definitive Auth
-  error. A network failure, a 5xx response, or another recoverable exception
-  releases the claim so the same link can be opened again without restarting
-  Expo Go. A fresh runtime can claim a finalized link again. `getInitialURL`
-  and the linking listener cannot both exchange an in-flight callback. A
-  duplicate delivery does not clear an error or recovery screen that is
-  already showing.
-- If one callback in that runtime already succeeded, a later different error
-  URL does not replace it. An error alone still shows the error screen.
-- “Iniciar sesión” and “Crear cuenta” are separate modes. Repeated signup of
-  an existing address still uses the neutral copy and does not say that a
-  new account was created.
-- `token_hash` plus `type=recovery` calls `verifyOtp` and opens Nueva
-  contraseña. `type=email` or `type=signup` confirms the account and does not
-  open Nueva contraseña.
+Both of these still have to be opened on that phone:
 
-## Manual Dashboard operation — not done here
+- the current `{{ .ConfirmationURL }}`, which Supabase verifies and then
+  redirects to `exp://`;
+- a direct `{{ .RedirectTo }}?token_hash=…` link, because `RedirectTo` in
+  Expo Go is itself an `exp://…/--/auth/callback` URL.
 
-Do not change remote Auth, do not run `supabase config push`, and do not edit
-migrations while applying this. After review, a person can edit the hosted
-templates in Authentication → Emails → Templates. Send a new message
-afterwards. Messages already sent still use the old one-time `/verify` URL.
+Changing the template avoids a prefetch of Supabase `/verify`. It does not
+make a PC → phone flow work. The `exp://` URL still has to open in the Expo
+Go session that is running on the phone. Do not apply remote template
+changes for that reason.
 
-Keep a single link. Do not leave `{{ .ConfirmationURL }}` in these two
-templates: that URL is `GET /auth/v1/verify` and is consumed by the first
-request. Do not point the link at `{{ .SiteURL }}/auth/confirm`; this app has
-no server confirm route. `{{ .RedirectTo }}` is the allow-listed callback the
-app already passes (`exp://<current-host>/--/auth/callback` in Expo Go).
+If the product later needs someone to read the mail on a PC and finish on
+the phone, that is a separate flow: show a one-time code in the message and
+let the app collect the address and the code, then call `verifyOtp` with
+`type=email` or `type=recovery`. Design and test that flow on its own. It
+is not part of this branch.
 
-Confirm signup:
-
-```html
-<h2>Confirm your signup</h2>
-<p>Follow this link to confirm your email address.</p>
-<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">Confirm your email</a></p>
-```
-
-Reset password:
-
-```html
-<h2>Reset password</h2>
-<p>Follow this link to choose a new password.</p>
-<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Reset password</a></p>
-```
-
-`type=email` is the signup-confirmation type in the current Supabase
-password guide. `type=recovery` is the reset type. The app treats those as
-different intents.
-
-Prefetch of the `exp://` link does not call Supabase. The app verifies with
-`verifyOtp` only after the link opens. That does not require the PKCE
-verifier, so a reopened Expo Go session can still verify it when the tunnel
-host in the message is the one Expo Go loads. If the tunnel host or port
-changed after the message was sent, request a new message from the current
-session. The Redirect URL list stays:
+A different Expo Go process, or a Metro host or port that changed after the
+message was sent, still cannot use that message. Request a new one from the
+current phone session. The allow-list stays path-constrained:
 
 ```text
 app-caballos-ok://auth/callback
@@ -119,11 +75,53 @@ http://127.0.0.1:8081/auth/callback
 exp://**/--/auth/callback
 ```
 
-Do not add `exp://**`.
+Do not add `exp://**`. The parser accepts only those environments and only
+the exact path `/auth/callback`, or `/--/auth/callback` for an `exp://` URL.
+A URL that merely contains that text in another path, query, prefix, or
+suffix is ignored.
 
-## Uncertainty
+## Client behavior on this branch
 
-The logs show the duplicate verify calls and the recovery mail type. They do
-not identify which process issued the second `GET /verify`. The app code path
-cannot emit that request. Whether it was the mail client, a scanner, or two
-opens of the same message is not proven here.
+- `signIn`, `signUp`, `resend`, and `recover` share one synchronous
+  in-flight lock. One press sends one request, including a rapid switch
+  between Crear cuenta and Iniciar sesión.
+- A callback is in-flight while it is exchanged, finalized after success or
+  a definitive Auth error, and released after a network failure, a 5xx, or
+  a recoverable exception. A duplicate delivery does not clear an error or
+  recovery screen that is already showing.
+- A released failure says the connection could not be completed and that the
+  link can be opened again. A consumed, invalid, or expired token still says
+  the link is not valid. Those are not the same message.
+- “Iniciar sesión” and “Crear cuenta” are separate modes. Repeated signup of
+  an existing address still uses the neutral copy.
+- `token_hash` with `type=recovery` calls `verifyOtp` and opens Nueva
+  contraseña when that callback actually reaches the phone.
+  `type=email` or `type=signup` does not open Nueva contraseña.
+
+## Android smoke, Expo Go SDK 54
+
+Not run on a device in this note. Request every message from the phone and
+open it there for the first time. Do not open it on a PC.
+
+1. Start the current Metro session and open this project in Expo Go on the
+   Android phone. Keep that tunnel active.
+2. On **Iniciar sesión**, press several times quickly. One sign-in request.
+3. Switch to **Crear cuenta** and, without waiting, switch back and press.
+   Only the first operation is sent.
+4. On **Crear cuenta**, press several times with an unused address. One
+   `POST /signup`.
+5. Request a new recovery message from the phone and press **Enviar enlace**
+   several times. One `POST /recover`. On the same phone, open that message
+   for the first time. **Procesando enlace…**, then **Nueva contraseña**.
+6. As an extra check, not as the diagnosis of the PC incident: interrupt the
+   network, open a new message once, restore the network, choose **Volver al
+   acceso**, and open that same message again. The copy must offer a retry,
+   not say the link expired, when the failure was only the connection.
+7. Open a consumed message again on the phone. **Enlace no válido** and
+   **Volver al acceso**.
+8. Confirm a new signup from a message opened first on the same phone. The
+   app returns without **Nueva contraseña**.
+9. Repeat signup with an address that already has an account. The copy stays
+   “Si ya tenías cuenta, inicia sesión o restablece la contraseña.”
+10. If the tunnel host or port changes, request another message from the
+    phone. Do not reuse a link that was opened on a PC.
