@@ -5,7 +5,12 @@ import * as WebBrowser from 'expo-web-browser';
 import type { Session } from '@supabase/supabase-js';
 
 import { AuthContext } from '../../features/auth/AuthContext';
-import { createSessionFromUrl } from '../../features/auth/authLinks';
+import {
+  claimAuthCallback,
+  establishSessionFromCallback,
+  interpretAuthCallbackUrl,
+  reduceAuthCallbackResult,
+} from '../../features/auth/authCallback';
 import {
   logAuthFailure,
   userFacingAuthMessage,
@@ -32,34 +37,64 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [isProcessingAuthLink, setIsProcessingAuthLink] = useState(false);
   const [authLinkError, setAuthLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    let acceptedCallback = false;
 
     async function handleAuthUrl(url: string | null) {
       if (!url || !isMounted) {
         return;
       }
 
-      const result = await createSessionFromUrl(url);
-
-      if (result.ignored) {
+      if (claimAuthCallback(url) !== 'claimed') {
         return;
       }
 
-      if (result.error) {
-        logAuthFailure('callback', result.error);
-        if (isMounted) {
-          setAuthLinkError(userFacingAuthMessage('callback', result.error));
+      setIsProcessingAuthLink(true);
+      setAuthLinkError(null);
+
+      try {
+        const result = await establishSessionFromCallback(
+          interpretAuthCallbackUrl(url),
+          {
+            exchangeCodeForSession: (code) =>
+              supabase.auth.exchangeCodeForSession(code),
+            setSession: (tokens) => supabase.auth.setSession(tokens),
+            verifyOtp: (params) => supabase.auth.verifyOtp(params),
+          },
+        );
+
+        if (!isMounted || result.ignored) {
+          return;
         }
-        return;
-      }
 
-      if (isMounted) {
+        const next = reduceAuthCallbackResult(
+          { acceptedCallback, isPasswordRecovery: false },
+          result,
+        );
+        acceptedCallback = next.acceptedCallback;
+
+        if (result.error) {
+          if (next.showError) {
+            logAuthFailure('callback', result.error);
+            setAuthLinkError(userFacingAuthMessage('callback', result.error));
+          }
+          return;
+        }
+
         setAuthLinkError(null);
-        if (result.type === 'recovery') {
-          setIsPasswordRecovery(true);
+        setIsPasswordRecovery(next.isPasswordRecovery);
+      } catch (error) {
+        if (isMounted && !acceptedCallback) {
+          logAuthFailure('callback', error);
+          setAuthLinkError(userFacingAuthMessage('callback', error));
+        }
+      } finally {
+        if (isMounted) {
+          setIsProcessingAuthLink(false);
         }
       }
     }
@@ -111,11 +146,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       session,
       isRestoringSession,
       isPasswordRecovery,
+      isProcessingAuthLink,
       authLinkError,
       completePasswordRecovery: () => setIsPasswordRecovery(false),
       clearAuthLinkError: () => setAuthLinkError(null),
     }),
-    [authLinkError, isPasswordRecovery, isRestoringSession, session],
+    [
+      authLinkError,
+      isPasswordRecovery,
+      isProcessingAuthLink,
+      isRestoringSession,
+      session,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

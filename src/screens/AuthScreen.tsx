@@ -25,8 +25,13 @@ import {
   signInWithEmail,
   signUpWithEmail,
 } from '../features/auth/authService';
+import {
+  beginAuthOperation,
+  endAuthOperation,
+} from '../features/auth/authSubmitGate';
 
 type Props = NativeStackScreenProps<PublicStackParamList, 'Auth'>;
+type AuthMode = 'signIn' | 'signUp';
 
 const PENDING_CONFIRMATION_MESSAGE =
   'Confirma tu correo antes de iniciar sesión. Revisa la bandeja de entrada y el spam.';
@@ -34,6 +39,7 @@ const EXISTING_ACCOUNT_MESSAGE =
   'Si ya tenías cuenta, inicia sesión o restablece la contraseña.';
 
 export default function AuthScreen({ navigation }: Props) {
+  const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,8 +64,21 @@ export default function AuthScreen({ navigation }: Props) {
     return true;
   }
 
+  function switchMode(nextMode: AuthMode) {
+    if (isSubmitting || nextMode === mode) {
+      return;
+    }
+
+    setMode(nextMode);
+    setMessage(null);
+  }
+
   async function handleSignIn() {
     if (!hasCredentials()) {
+      return;
+    }
+
+    if (!beginAuthOperation('signIn')) {
       return;
     }
 
@@ -89,12 +108,17 @@ export default function AuthScreen({ navigation }: Props) {
       logAuthFailure('signIn', error);
       setMessage(userFacingAuthMessage('signIn', error));
     } finally {
+      endAuthOperation('signIn');
       setIsSubmitting(false);
     }
   }
 
   async function handleSignUp() {
     if (!hasCredentials(true)) {
+      return;
+    }
+
+    if (!beginAuthOperation('signUp')) {
       return;
     }
 
@@ -132,12 +156,17 @@ export default function AuthScreen({ navigation }: Props) {
       logAuthFailure('signUp', error);
       setMessage(userFacingAuthMessage('signUp', error));
     } finally {
+      endAuthOperation('signUp');
       setIsSubmitting(false);
     }
   }
 
   async function handleResendConfirmation() {
     if (!pendingEmail) {
+      return;
+    }
+
+    if (!beginAuthOperation('resend')) {
       return;
     }
 
@@ -158,6 +187,7 @@ export default function AuthScreen({ navigation }: Props) {
       logAuthFailure('resend', error);
       setMessage(userFacingAuthMessage('resend', error));
     } finally {
+      endAuthOperation('resend');
       setIsSubmitting(false);
     }
   }
@@ -169,12 +199,59 @@ export default function AuthScreen({ navigation }: Props) {
         style={styles.content}
       >
         <Text style={styles.eyebrow}>APP CABALLOS</Text>
-        <Text style={styles.title}>Acceso</Text>
+        <Text style={styles.title}>
+          {mode === 'signIn' ? 'Iniciar sesión' : 'Crear cuenta'}
+        </Text>
         <Text style={styles.description}>
           {showResend
             ? 'Confirma tu correo antes de iniciar sesión. Puedes reenviar el mensaje si no te ha llegado.'
-            : 'Crea una cuenta o inicia sesión para continuar.'}
+            : mode === 'signIn'
+              ? 'Introduce tu correo y contraseña para entrar en tu cuenta.'
+              : 'Introduce tu correo y una contraseña de al menos 6 caracteres. Si el alta es nueva, te pediremos que confirmes el correo.'}
         </Text>
+
+        <View accessibilityRole="tablist" style={styles.modeSwitch}>
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === 'signIn' }}
+            disabled={isSubmitting}
+            onPress={() => switchMode('signIn')}
+            style={({ pressed }) => [
+              styles.modeButton,
+              mode === 'signIn' && styles.modeButtonSelected,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modeButtonText,
+                mode === 'signIn' && styles.modeButtonTextSelected,
+              ]}
+            >
+              Iniciar sesión
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === 'signUp' }}
+            disabled={isSubmitting}
+            onPress={() => switchMode('signUp')}
+            style={({ pressed }) => [
+              styles.modeButton,
+              mode === 'signUp' && styles.modeButtonSelected,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modeButtonText,
+                mode === 'signUp' && styles.modeButtonTextSelected,
+              ]}
+            >
+              Crear cuenta
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={styles.form}>
           <Text style={styles.label}>Correo electrónico</Text>
@@ -213,38 +290,31 @@ export default function AuthScreen({ navigation }: Props) {
             <>
               <Pressable
                 accessibilityRole="button"
-                onPress={handleSignIn}
+                onPress={mode === 'signIn' ? handleSignIn : handleSignUp}
                 style={({ pressed }) => [
                   styles.primaryButton,
                   pressed && styles.buttonPressed,
                 ]}
               >
-                <Text style={styles.primaryButtonText}>Iniciar sesión</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleSignUp}
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  pressed && styles.buttonPressed,
-                ]}
-              >
-                <Text style={styles.secondaryButtonText}>Crear cuenta</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => navigation.navigate('ForgotPassword')}
-                style={({ pressed }) => [
-                  styles.linkButton,
-                  pressed && styles.buttonPressed,
-                ]}
-              >
-                <Text style={styles.linkButtonText}>
-                  ¿Has olvidado tu contraseña?
+                <Text style={styles.primaryButtonText}>
+                  {mode === 'signIn' ? 'Iniciar sesión' : 'Crear cuenta'}
                 </Text>
               </Pressable>
+
+              {mode === 'signIn' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                  style={({ pressed }) => [
+                    styles.linkButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.linkButtonText}>
+                    ¿Has olvidado tu contraseña?
+                  </Text>
+                </Pressable>
+              ) : null}
 
               {showResend ? (
                 <Pressable
@@ -297,7 +367,32 @@ const styles = StyleSheet.create({
     lineHeight: 23,
   },
   form: {
+    marginTop: 8,
+  },
+  modeSwitch: {
+    flexDirection: 'row',
     marginTop: 28,
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: '#e7e7e7',
+  },
+  modeButton: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  modeButtonSelected: {
+    backgroundColor: '#111',
+  },
+  modeButtonText: {
+    color: '#333',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modeButtonTextSelected: {
+    color: '#fff',
   },
   label: {
     marginBottom: 6,

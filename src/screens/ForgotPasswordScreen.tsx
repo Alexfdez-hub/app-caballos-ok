@@ -18,6 +18,10 @@ import {
   userFacingAuthMessage,
 } from '../features/auth/authErrors';
 import { requestPasswordReset } from '../features/auth/authService';
+import {
+  beginAuthOperation,
+  endAuthOperation,
+} from '../features/auth/authSubmitGate';
 
 type Props = NativeStackScreenProps<PublicStackParamList, 'ForgotPassword'>;
 
@@ -29,6 +33,10 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   async function handleSubmit() {
     if (!email.trim()) {
       setMessage('Introduce el correo electrónico de la cuenta.');
+      return;
+    }
+
+    if (!beginAuthOperation('recover')) {
       return;
     }
 
@@ -51,6 +59,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
       logAuthFailure('recover', error);
       setMessage(userFacingAuthMessage('recover', error));
     } finally {
+      endAuthOperation('recover');
       setIsSubmitting(false);
     }
   }

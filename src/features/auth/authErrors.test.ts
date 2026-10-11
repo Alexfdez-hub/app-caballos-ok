@@ -135,4 +135,16 @@ describe('expected auth errors', () => {
     assert.equal(errorSpy.mock.callCount(), 0);
     errorSpy.mock.restore();
   });
+
+  it('explains a callback opened outside the session that requested it', () => {
+    assert.match(
+      userFacingAuthMessage('callback', {
+        name: 'AuthPKCECodeVerifierMissingError',
+        code: 'pkce_code_verifier_not_found',
+        message: 'PKCE code verifier not found in storage.',
+        status: 400,
+      }),
+      /misma sesión/,
+    );
+  });
 });

@@ -48,16 +48,66 @@ export type AuthCallbackErrorShape = {
   status: number;
 };
 
+export const AUTH_OTP_TYPES = [
+  'signup',
+  'invite',
+  'magiclink',
+  'recovery',
+  'email_change',
+  'email',
+] as const;
+
+export type AuthOtpType = (typeof AUTH_OTP_TYPES)[number];
+
+const CONFIRMATION_OTP_TYPES = new Set<string>([
+  'signup',
+  'email',
+  'magiclink',
+  'invite',
+]);
+
 export type InterpretedAuthCallback =
   | { status: 'ignored' }
   | { status: 'error'; type: string | null; error: AuthCallbackErrorShape }
   | { status: 'code'; type: string | null; code: string }
+  | { status: 'otp'; type: AuthOtpType; tokenHash: string }
   | {
       status: 'tokens';
       type: string | null;
       accessToken: string;
       refreshToken: string;
     };
+
+export type AuthCallbackIntent = 'recovery' | 'confirmation' | 'unknown';
+
+export type AuthLinkGate =
+  | 'processing'
+  | 'link-error'
+  | 'update-password'
+  | 'signed-out'
+  | 'signed-in';
+
+export type AuthCallbackSessionClient = {
+  exchangeCodeForSession: (code: string) => Promise<{
+    data: { redirectType?: string | null; session?: unknown } | null;
+    error: { message?: string; code?: string; name?: string } | null;
+  }>;
+  setSession: (tokens: {
+    access_token: string;
+    refresh_token: string;
+  }) => Promise<{ error: { message?: string; code?: string; name?: string } | null }>;
+  verifyOtp: (params: {
+    token_hash: string;
+    type: AuthOtpType;
+  }) => Promise<{ error: { message?: string; code?: string; name?: string } | null }>;
+};
+
+export type EstablishedAuthCallback = {
+  type: string | null;
+  redirectType: string | null;
+  error: AuthCallbackErrorShape | { message?: string; code?: string; name?: string } | null;
+  ignored: boolean;
+};
 
 export function parseAuthCallbackParams(url: string) {
   const params: Record<string, string> = {};
@@ -156,6 +206,21 @@ export function interpretAuthCallbackUrl(url: string): InterpretedAuthCallback {
     };
   }
 
+  if (params.token_hash) {
+    if (!isAuthOtpType(params.type)) {
+      return {
+        status: 'error',
+        type,
+        error: callbackError(
+          'access_denied',
+          'El enlace de acceso no incluye un tipo válido.',
+        ),
+      };
+    }
+
+    return { status: 'otp', type: params.type, tokenHash: params.token_hash };
+  }
+
   if (params.code) {
     return { status: 'code', type, code: params.code };
   }
@@ -176,5 +241,195 @@ export function interpretAuthCallbackUrl(url: string): InterpretedAuthCallback {
       'access_denied',
       'El enlace de acceso no incluye un código válido.',
     ),
+  };
+}
+
+function readRedirectType(
+  data: { redirectType?: string | null } | null,
+) {
+  return typeof data?.redirectType === 'string' ? data.redirectType : null;
+}
+
+function isAuthOtpType(value: string | null | undefined): value is AuthOtpType {
+  return typeof value === 'string' && AUTH_OTP_TYPES.some((type) => type === value);
+}
+
+export function classifyAuthCallbackIntent(input: {
+  urlType: string | null;
+  redirectType: string | null;
+}): AuthCallbackIntent {
+  if (input.urlType === 'recovery') {
+    return 'recovery';
+  }
+
+  if (input.urlType && CONFIRMATION_OTP_TYPES.has(input.urlType)) {
+    return 'confirmation';
+  }
+
+  if (input.urlType) {
+    return 'unknown';
+  }
+
+  if (input.redirectType === 'recovery') {
+    return 'recovery';
+  }
+
+  if (input.redirectType && CONFIRMATION_OTP_TYPES.has(input.redirectType)) {
+    return 'confirmation';
+  }
+
+  return 'unknown';
+}
+
+export function selectAuthLinkGate(input: {
+  hasSession: boolean;
+  isPasswordRecovery: boolean;
+  isProcessingAuthLink: boolean;
+  hasAuthLinkError: boolean;
+}): AuthLinkGate {
+  if (input.isProcessingAuthLink) {
+    return 'processing';
+  }
+
+  if (input.hasAuthLinkError) {
+    return 'link-error';
+  }
+
+  if (input.hasSession && input.isPasswordRecovery) {
+    return 'update-password';
+  }
+
+  if (!input.hasSession) {
+    return 'signed-out';
+  }
+
+  return 'signed-in';
+}
+
+const claimedAuthCallbacks = new Set<string>();
+
+export function authCallbackDedupeKey(url: string) {
+  const interpreted = interpretAuthCallbackUrl(url);
+
+  if (interpreted.status === 'ignored') {
+    return null;
+  }
+
+  if (interpreted.status === 'code') {
+    return `code:${interpreted.code}`;
+  }
+
+  if (interpreted.status === 'otp') {
+    return `otp:${interpreted.tokenHash}`;
+  }
+
+  if (interpreted.status === 'tokens') {
+    return `access:${interpreted.accessToken}`;
+  }
+
+  return `url:${url}`;
+}
+
+export function claimAuthCallback(url: string) {
+  const key = authCallbackDedupeKey(url);
+
+  if (!key) {
+    return 'ignored' as const;
+  }
+
+  if (claimedAuthCallbacks.has(key)) {
+    return 'duplicate' as const;
+  }
+
+  claimedAuthCallbacks.add(key);
+  return 'claimed' as const;
+}
+
+export function resetAuthCallbackClaims() {
+  claimedAuthCallbacks.clear();
+}
+
+export function reduceAuthCallbackResult(
+  state: { acceptedCallback: boolean; isPasswordRecovery: boolean },
+  result: EstablishedAuthCallback,
+) {
+  if (result.ignored) {
+    return { ...state, showError: false };
+  }
+
+  if (result.error) {
+    return {
+      ...state,
+      showError: !state.acceptedCallback,
+    };
+  }
+
+  const intent = classifyAuthCallbackIntent({
+    urlType: result.type,
+    redirectType: result.redirectType,
+  });
+
+  return {
+    acceptedCallback: true,
+    isPasswordRecovery:
+      intent === 'recovery'
+        ? true
+        : intent === 'confirmation'
+          ? false
+          : state.isPasswordRecovery,
+    showError: false,
+  };
+}
+
+export async function establishSessionFromCallback(
+  interpreted: InterpretedAuthCallback,
+  client: AuthCallbackSessionClient,
+): Promise<EstablishedAuthCallback> {
+  if (interpreted.status === 'ignored') {
+    return { type: null, redirectType: null, error: null, ignored: true };
+  }
+
+  if (interpreted.status === 'error') {
+    return {
+      type: interpreted.type,
+      redirectType: null,
+      error: interpreted.error,
+      ignored: false,
+    };
+  }
+
+  if (interpreted.status === 'otp') {
+    const { error } = await client.verifyOtp({
+      token_hash: interpreted.tokenHash,
+      type: interpreted.type,
+    });
+    return {
+      type: interpreted.type,
+      redirectType: null,
+      error,
+      ignored: false,
+    };
+  }
+
+  if (interpreted.status === 'code') {
+    const { data, error } = await client.exchangeCodeForSession(interpreted.code);
+    return {
+      type: interpreted.type,
+      redirectType: readRedirectType(data),
+      error,
+      ignored: false,
+    };
+  }
+
+  const { error } = await client.setSession({
+    access_token: interpreted.accessToken,
+    refresh_token: interpreted.refreshToken,
+  });
+
+  return {
+    type: interpreted.type,
+    redirectType: null,
+    error,
+    ignored: false,
   };
 }

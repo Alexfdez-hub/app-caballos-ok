@@ -3,11 +3,18 @@ import { describe, it } from 'node:test';
 
 import {
   AUTH_NATIVE_REDIRECT_URI,
+  claimAuthCallback,
+  classifyAuthCallbackIntent,
+  establishSessionFromCallback,
   getAuthRedirectAllowList,
   interpretAuthCallbackUrl,
   isAuthCallbackUrl,
   parseAuthCallbackParams,
+  reduceAuthCallbackResult,
+  resetAuthCallbackClaims,
+  selectAuthLinkGate,
   selectAuthRedirectUrl,
+  type AuthCallbackSessionClient,
 } from './authCallback.ts';
 
 describe('auth callback URLs', () => {
@@ -144,5 +151,231 @@ describe('auth callback URLs', () => {
       'exp://**/--/auth/callback',
     ]);
     assert.equal(allowList.includes('exp://**'), false);
+  });
+});
+
+function unusedClient(method: string): never {
+  throw new Error(`${method} should not be called`);
+}
+
+function callbackClient(
+  overrides: Partial<AuthCallbackSessionClient> = {},
+): AuthCallbackSessionClient {
+  return {
+    exchangeCodeForSession: () => unusedClient('exchangeCodeForSession'),
+    setSession: () => unusedClient('setSession'),
+    verifyOtp: () => unusedClient('verifyOtp'),
+    ...overrides,
+  };
+}
+
+describe('auth callback delivery', () => {
+  it('processes one callback when getInitialURL and Linking deliver the same URL', async () => {
+    resetAuthCallbackClaims();
+    const url =
+      'exp://192.0.2.10:8081/--/auth/callback?code=placeholder-code&type=recovery';
+    const calls: string[] = [];
+    const client = callbackClient({
+      exchangeCodeForSession: async (code) => {
+        calls.push(code);
+        return { data: { redirectType: 'recovery' }, error: null };
+      },
+    });
+
+    async function deliver() {
+      if (claimAuthCallback(url) !== 'claimed') {
+        return null;
+      }
+
+      return establishSessionFromCallback(interpretAuthCallbackUrl(url), client);
+    }
+
+    const [first, second] = await Promise.all([deliver(), deliver()]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0], 'placeholder-code');
+    assert.ok(first);
+    assert.equal(second, null);
+    assert.equal(
+      classifyAuthCallbackIntent({
+        urlType: first?.type ?? null,
+        redirectType: first?.redirectType ?? null,
+      }),
+      'recovery',
+    );
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: true,
+        isPasswordRecovery: true,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: false,
+      }),
+      'update-password',
+    );
+  });
+
+  it('treats a recovery code without a URL type as recovery only from the stored redirect type', async () => {
+    const interpreted = interpretAuthCallbackUrl(
+      'exp://192.0.2.10:8081/--/auth/callback?code=placeholder-code',
+    );
+    assert.equal(interpreted.status, 'code');
+    if (interpreted.status !== 'code') {
+      return;
+    }
+
+    assert.equal(interpreted.type, null);
+    const established = await establishSessionFromCallback(
+      interpreted,
+      callbackClient({
+        exchangeCodeForSession: async () => ({
+          data: { redirectType: 'recovery' },
+          error: null,
+        }),
+      }),
+    );
+    const reduced = reduceAuthCallbackResult(
+      { acceptedCallback: false, isPasswordRecovery: false },
+      established,
+    );
+    assert.equal(reduced.isPasswordRecovery, true);
+    assert.equal(reduced.showError, false);
+  });
+
+  it('does not treat signup confirmation as password recovery', async () => {
+    assert.equal(
+      classifyAuthCallbackIntent({ urlType: 'signup', redirectType: 'recovery' }),
+      'confirmation',
+    );
+    assert.equal(
+      classifyAuthCallbackIntent({ urlType: 'email', redirectType: null }),
+      'confirmation',
+    );
+
+    const interpreted = interpretAuthCallbackUrl(
+      'exp://192.0.2.20:8082/--/auth/callback?token_hash=hash-placeholder&type=email',
+    );
+    assert.equal(interpreted.status, 'otp');
+    const calls: string[] = [];
+    const established = await establishSessionFromCallback(
+      interpreted,
+      callbackClient({
+        verifyOtp: async (params) => {
+          calls.push(params.type);
+          return { error: null };
+        },
+      }),
+    );
+    assert.deepEqual(calls, ['email']);
+    const reduced = reduceAuthCallbackResult(
+      { acceptedCallback: false, isPasswordRecovery: true },
+      established,
+    );
+    assert.equal(reduced.isPasswordRecovery, false);
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: true,
+        isPasswordRecovery: reduced.isPasswordRecovery,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: false,
+      }),
+      'signed-in',
+    );
+  });
+
+  it('verifies a recovery token hash without exchanging a code', async () => {
+    const interpreted = interpretAuthCallbackUrl(
+      'exp://192.0.2.10:8081/--/auth/callback?token_hash=hash-placeholder&type=recovery',
+    );
+    const calls: string[] = [];
+    const established = await establishSessionFromCallback(
+      interpreted,
+      callbackClient({
+        verifyOtp: async (params) => {
+          calls.push(params.type);
+          return { error: null };
+        },
+      }),
+    );
+    assert.deepEqual(calls, ['recovery']);
+    assert.equal(established.type, 'recovery');
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: true,
+        isPasswordRecovery: true,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: false,
+      }),
+      'update-password',
+    );
+  });
+
+  it('shows a recoverable error for a consumed callback and a visible processing state', () => {
+    const expired = interpretAuthCallbackUrl(
+      'exp://192.0.2.10:8081/--/auth/callback?error=otp_expired&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
+    );
+    assert.equal(expired.status, 'error');
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: false,
+        isPasswordRecovery: false,
+        isProcessingAuthLink: true,
+        hasAuthLinkError: false,
+      }),
+      'processing',
+    );
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: false,
+        isPasswordRecovery: false,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: true,
+      }),
+      'link-error',
+    );
+  });
+
+  it('keeps a successful callback when a later distinct error URL arrives', () => {
+    const success = reduceAuthCallbackResult(
+      { acceptedCallback: false, isPasswordRecovery: false },
+      {
+        type: null,
+        redirectType: 'recovery',
+        error: null,
+        ignored: false,
+      },
+    );
+    const afterError = reduceAuthCallbackResult(success, {
+      type: 'recovery',
+      redirectType: null,
+      error: {
+        name: 'AuthCallbackError',
+        message: 'Email link is invalid or has expired',
+        code: 'otp_expired',
+        status: 400,
+      },
+      ignored: false,
+    });
+    assert.equal(success.isPasswordRecovery, true);
+    assert.equal(afterError.showError, false);
+    assert.equal(afterError.isPasswordRecovery, true);
+  });
+
+  it('accepts the same callback again after a fresh runtime, and a changed tunnel host', () => {
+    resetAuthCallbackClaims();
+    const previousHost =
+      'exp://192.0.2.10:8081/--/auth/callback?code=reopen-placeholder&type=recovery';
+    assert.equal(claimAuthCallback(previousHost), 'claimed');
+    assert.equal(claimAuthCallback(previousHost), 'duplicate');
+    resetAuthCallbackClaims();
+    assert.equal(claimAuthCallback(previousHost), 'claimed');
+
+    const currentHost = selectAuthRedirectUrl({
+      platformOs: 'android',
+      executionEnvironment: 'storeClient',
+      makeRedirectUri: () => 'exp://192.0.2.20:8082/--/auth/callback',
+    });
+    assert.equal(currentHost, 'exp://192.0.2.20:8082/--/auth/callback');
+    assert.equal(isAuthCallbackUrl(previousHost), true);
+    assert.equal(isAuthCallbackUrl(currentHost), true);
+    assert.equal(getAuthRedirectAllowList().includes('exp://**'), false);
   });
 });

@@ -16,6 +16,7 @@ const EXPECTED_AUTH_CODES = new Set([
   'access_denied',
   'unexpected_failure',
   'user_repeated_signup',
+  'pkce_code_verifier_not_found',
 ]);
 
 const NETWORK_ERROR_PATTERN =
@@ -213,6 +214,10 @@ export function userFacingAuthMessage(
 
   if (code === 'same_password') {
     return 'La nueva contraseña debe ser distinta de la actual.';
+  }
+
+  if (code === 'pkce_code_verifier_not_found') {
+    return 'Este enlace tiene que abrirse en la misma sesión de la app que lo pidió. Si cerraste Expo Go, cambiaste de red o el túnel de desarrollo ya no es el mismo, solicita un enlace nuevo.';
   }
 
   if (
