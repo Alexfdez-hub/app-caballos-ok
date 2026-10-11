@@ -50,12 +50,18 @@ PR #40 remains the redirect rule: Expo Go uses
 
 ## Client behavior after this fix
 
-- `signIn`, `signUp`, `resend`, and `recover` each take a synchronous
-  in-flight lock. One press sends one request. A later press works after the
+- `signIn`, `signUp`, `resend`, and `recover` share one synchronous
+  in-flight lock. One press sends one request, including a rapid switch
+  between Crear cuenta and Iniciar sesión. A later press works after the
   first request finishes.
-- The same code, token hash, access token, or error URL is claimed once
-  until the JavaScript runtime restarts. A fresh Expo Go load can claim it
-  again. `getInitialURL` and the linking listener no longer both exchange it.
+- The same code, token hash, access token, or error URL is in-flight while
+  it is being exchanged, then finalized after success or a definitive Auth
+  error. A network failure, a 5xx response, or another recoverable exception
+  releases the claim so the same link can be opened again without restarting
+  Expo Go. A fresh runtime can claim a finalized link again. `getInitialURL`
+  and the linking listener cannot both exchange an in-flight callback. A
+  duplicate delivery does not clear an error or recovery screen that is
+  already showing.
 - If one callback in that runtime already succeeded, a later different error
   URL does not replace it. An error alone still shows the error screen.
 - “Iniciar sesión” and “Crear cuenta” are separate modes. Repeated signup of

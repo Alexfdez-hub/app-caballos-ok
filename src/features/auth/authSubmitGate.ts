@@ -1,20 +1,22 @@
 export type AuthSubmitOperation = 'signIn' | 'signUp' | 'resend' | 'recover';
 
-const inFlightAuthOperations = new Set<AuthSubmitOperation>();
+let inFlightAuthOperation: AuthSubmitOperation | null = null;
 
 export function beginAuthOperation(operation: AuthSubmitOperation) {
-  if (inFlightAuthOperations.has(operation)) {
+  if (inFlightAuthOperation !== null) {
     return false;
   }
 
-  inFlightAuthOperations.add(operation);
+  inFlightAuthOperation = operation;
   return true;
 }
 
 export function endAuthOperation(operation: AuthSubmitOperation) {
-  inFlightAuthOperations.delete(operation);
+  if (inFlightAuthOperation === operation) {
+    inFlightAuthOperation = null;
+  }
 }
 
 export function resetAuthOperations() {
-  inFlightAuthOperations.clear();
+  inFlightAuthOperation = null;
 }

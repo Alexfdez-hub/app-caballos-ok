@@ -306,7 +306,106 @@ export function selectAuthLinkGate(input: {
   return 'signed-in';
 }
 
-const claimedAuthCallbacks = new Set<string>();
+const TRANSIENT_CALLBACK_PATTERN =
+  /network request failed|failed to fetch|network error|fetch failed|internet connection|err_network|timeout|timed out/i;
+
+function callbackErrorName(error: unknown) {
+  if (error && typeof error === 'object' && 'name' in error) {
+    return String((error as { name?: unknown }).name ?? '');
+  }
+
+  if (error instanceof Error) {
+    return error.name;
+  }
+
+  return '';
+}
+
+function callbackErrorMessage(error: unknown) {
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message ?? '');
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return '';
+}
+
+function callbackErrorCode(error: unknown) {
+  if (error && typeof error === 'object') {
+    const record = error as { code?: unknown; error_code?: unknown };
+    const code = record.code ?? record.error_code;
+    return code == null ? '' : String(code);
+  }
+
+  return '';
+}
+
+function callbackErrorStatus(error: unknown) {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : null;
+  }
+
+  return null;
+}
+
+function isTransientCallbackFailure(error: unknown) {
+  const status = callbackErrorStatus(error);
+  if (status !== null && status >= 500) {
+    return true;
+  }
+
+  if (status !== null && status > 0) {
+    return false;
+  }
+
+  const name = callbackErrorName(error);
+  const message = callbackErrorMessage(error);
+  return (
+    name === 'AuthRetryableFetchError' ||
+    status === 0 ||
+    TRANSIENT_CALLBACK_PATTERN.test(name) ||
+    TRANSIENT_CALLBACK_PATTERN.test(message)
+  );
+}
+
+const DEFINITIVE_CALLBACK_CODES = new Set([
+  'otp_expired',
+  'flow_state_expired',
+  'flow_state_not_found',
+  'access_denied',
+  'refresh_token_not_found',
+  'session_not_found',
+  'pkce_code_verifier_not_found',
+  'validation_failed',
+]);
+
+const claimedAuthCallbacks = new Map<string, 'in-flight' | 'finalized'>();
+
+export function authCallbackClaimSettlement(error: unknown) {
+  if (isTransientCallbackFailure(error)) {
+    return 'released' as const;
+  }
+
+  const status = callbackErrorStatus(error);
+  const name = callbackErrorName(error);
+  const code = callbackErrorCode(error);
+  const message = callbackErrorMessage(error);
+
+  if (
+    name === 'AuthCallbackError' ||
+    DEFINITIVE_CALLBACK_CODES.has(code) ||
+    (status !== null && status >= 400 && status < 500) ||
+    /otp expired|invalid or has expired|access denied|invalid grant/i.test(message)
+  ) {
+    return 'finalized' as const;
+  }
+
+  return 'released' as const;
+}
 
 export function authCallbackDedupeKey(url: string) {
   const interpreted = interpretAuthCallbackUrl(url);
@@ -337,12 +436,37 @@ export function claimAuthCallback(url: string) {
     return 'ignored' as const;
   }
 
-  if (claimedAuthCallbacks.has(key)) {
+  const current = claimedAuthCallbacks.get(key);
+  if (current === 'in-flight' || current === 'finalized') {
     return 'duplicate' as const;
   }
 
-  claimedAuthCallbacks.add(key);
+  claimedAuthCallbacks.set(key, 'in-flight');
   return 'claimed' as const;
+}
+
+export function settleAuthCallback(
+  url: string,
+  outcome: 'finalized' | 'released',
+) {
+  const key = authCallbackDedupeKey(url);
+
+  if (!key || claimedAuthCallbacks.get(key) !== 'in-flight') {
+    return;
+  }
+
+  if (outcome === 'released') {
+    claimedAuthCallbacks.delete(key);
+    return;
+  }
+
+  claimedAuthCallbacks.set(key, 'finalized');
+}
+
+export function shouldReplaceAuthLinkState(
+  claim: 'ignored' | 'duplicate' | 'claimed',
+) {
+  return claim === 'claimed';
 }
 
 export function resetAuthCallbackClaims() {

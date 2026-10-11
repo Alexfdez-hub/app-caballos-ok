@@ -6,10 +6,13 @@ import type { Session } from '@supabase/supabase-js';
 
 import { AuthContext } from '../../features/auth/AuthContext';
 import {
+  authCallbackClaimSettlement,
   claimAuthCallback,
   establishSessionFromCallback,
   interpretAuthCallbackUrl,
   reduceAuthCallbackResult,
+  settleAuthCallback,
+  shouldReplaceAuthLinkState,
 } from '../../features/auth/authCallback';
 import {
   logAuthFailure,
@@ -49,7 +52,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return;
       }
 
-      if (claimAuthCallback(url) !== 'claimed') {
+      const claim = claimAuthCallback(url);
+      if (!shouldReplaceAuthLinkState(claim)) {
         return;
       }
 
@@ -67,7 +71,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
           },
         );
 
-        if (!isMounted || result.ignored) {
+        if (result.ignored) {
+          settleAuthCallback(url, 'released');
+          return;
+        }
+
+        settleAuthCallback(
+          url,
+          result.error ? authCallbackClaimSettlement(result.error) : 'finalized',
+        );
+
+        if (!isMounted) {
           return;
         }
 
@@ -88,6 +102,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setAuthLinkError(null);
         setIsPasswordRecovery(next.isPasswordRecovery);
       } catch (error) {
+        settleAuthCallback(url, authCallbackClaimSettlement(error));
         if (isMounted && !acceptedCallback) {
           logAuthFailure('callback', error);
           setAuthLinkError(userFacingAuthMessage('callback', error));

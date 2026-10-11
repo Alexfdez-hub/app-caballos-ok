@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   AUTH_NATIVE_REDIRECT_URI,
+  authCallbackClaimSettlement,
   claimAuthCallback,
   classifyAuthCallbackIntent,
   establishSessionFromCallback,
@@ -14,6 +15,8 @@ import {
   resetAuthCallbackClaims,
   selectAuthLinkGate,
   selectAuthRedirectUrl,
+  settleAuthCallback,
+  shouldReplaceAuthLinkState,
   type AuthCallbackSessionClient,
 } from './authCallback.ts';
 
@@ -377,5 +380,146 @@ describe('auth callback delivery', () => {
     assert.equal(isAuthCallbackUrl(previousHost), true);
     assert.equal(isAuthCallbackUrl(currentHost), true);
     assert.equal(getAuthRedirectAllowList().includes('exp://**'), false);
+  });
+
+  it('retries a transient failure and ignores a callback that already succeeded', async () => {
+    resetAuthCallbackClaims();
+    const url =
+      'exp://192.0.2.10:8081/--/auth/callback?code=retry-placeholder&type=recovery';
+    const calls: string[] = [];
+    const client = callbackClient({
+      exchangeCodeForSession: async (code) => {
+        calls.push(code);
+        if (calls.length === 1) {
+          return {
+            data: { redirectType: null, session: null },
+            error: {
+              name: 'AuthRetryableFetchError',
+              message: 'Network request failed',
+              status: 0,
+            },
+          };
+        }
+
+        return { data: { redirectType: 'recovery', session: {} }, error: null };
+      },
+    });
+
+    async function deliver() {
+      const claim = claimAuthCallback(url);
+      if (!shouldReplaceAuthLinkState(claim)) {
+        return claim;
+      }
+
+      const established = await establishSessionFromCallback(
+        interpretAuthCallbackUrl(url),
+        client,
+      );
+      settleAuthCallback(
+        url,
+        established.error
+          ? authCallbackClaimSettlement(established.error)
+          : 'finalized',
+      );
+      return established;
+    }
+
+    const first = await deliver();
+    assert.equal(authCallbackClaimSettlement(
+      first && typeof first === 'object' && 'error' in first ? first.error : null,
+    ), 'released');
+    const second = await deliver();
+    assert.equal(calls.length, 2);
+    assert.ok(second && typeof second === 'object' && 'error' in second);
+    if (second && typeof second === 'object' && 'redirectType' in second) {
+      assert.equal(second.redirectType, 'recovery');
+    }
+    assert.equal(await deliver(), 'duplicate');
+    assert.equal(calls.length, 2);
+  });
+
+  it('keeps a consumed callback finalized and visible without another exchange', async () => {
+    resetAuthCallbackClaims();
+    const url =
+      'exp://192.0.2.10:8081/--/auth/callback?error=otp_expired&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+    const calls: string[] = [];
+    const client = callbackClient({
+      exchangeCodeForSession: async (code) => {
+        calls.push(code);
+        return { data: null, error: null };
+      },
+    });
+    const claim = claimAuthCallback(url);
+    const established = await establishSessionFromCallback(
+      interpretAuthCallbackUrl(url),
+      client,
+    );
+    settleAuthCallback(
+      url,
+      established.error
+        ? authCallbackClaimSettlement(established.error)
+        : 'finalized',
+    );
+
+    assert.equal(claim, 'claimed');
+    assert.equal(calls.length, 0);
+    assert.equal(authCallbackClaimSettlement(established.error), 'finalized');
+    assert.equal(
+      reduceAuthCallbackResult(
+        { acceptedCallback: false, isPasswordRecovery: false },
+        established,
+      ).showError,
+      true,
+    );
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: false,
+        isPasswordRecovery: false,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: true,
+      }),
+      'link-error',
+    );
+    assert.equal(claimAuthCallback(url), 'duplicate');
+    assert.equal(calls.length, 0);
+  });
+
+  it('does not clear an established error or recovery screen for a duplicate callback', () => {
+    assert.equal(shouldReplaceAuthLinkState('duplicate'), false);
+    assert.equal(shouldReplaceAuthLinkState('ignored'), false);
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: false,
+        isPasswordRecovery: false,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: true,
+      }),
+      'link-error',
+    );
+    assert.equal(
+      selectAuthLinkGate({
+        hasSession: true,
+        isPasswordRecovery: true,
+        isProcessingAuthLink: false,
+        hasAuthLinkError: false,
+      }),
+      'update-password',
+    );
+  });
+
+  it('releases a thrown recoverable exception and finalizes an expired token response', () => {
+    assert.equal(
+      authCallbackClaimSettlement(new Error('timeout')),
+      'released',
+    );
+    assert.equal(
+      authCallbackClaimSettlement({
+        name: 'AuthApiError',
+        message: 'Email link is invalid or has expired',
+        code: 'otp_expired',
+        status: 403,
+      }),
+      'finalized',
+    );
   });
 });
