@@ -283,6 +283,94 @@ describe('relation claim payloads', () => {
     assert.equal(managementSection.management.managementPayload?.p_management_role, 'PRIMARY_MANAGER');
   });
 
+  it('lets an open center claim block the person submit for the same equine', () => {
+    const ownershipSection = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [ownership()],
+      assignments: [],
+      ownershipClaims: [
+        {
+          claimId: CLAIM_ID,
+          equineId: EQUINE,
+          state: 'SUBMITTED',
+          marketCountryCode: 'ES',
+          ownerType: 'CENTER',
+          ownershipPercentage: 60,
+          decidedAt: null,
+        },
+      ],
+      managementClaims: [],
+      trustRows: [trust('OWNERSHIP', OWNERSHIP_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(ownershipSection.ownership.canSubmit, false);
+    assert.equal(ownershipSection.ownership.statusLabel, 'Solicitud pendiente');
+
+    const managementSection = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [],
+      assignments: [assignment()],
+      ownershipClaims: [],
+      managementClaims: [
+        {
+          claimId: CLAIM_ID,
+          equineId: EQUINE,
+          state: 'IN_REVIEW',
+          marketCountryCode: 'ES',
+          managerType: 'CENTER',
+          managementRole: 'PRIMARY_MANAGER',
+          decidedAt: null,
+        },
+      ],
+      trustRows: [trust('MANAGEMENT', ASSIGNMENT_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(managementSection.management.canSubmit, false);
+    assert.equal(managementSection.management.statusLabel, 'En revisión');
+  });
+
+  it('does not let a finished center claim block a new person submit', () => {
+    const ownershipSection = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [ownership()],
+      assignments: [],
+      ownershipClaims: [
+        {
+          claimId: CLAIM_ID,
+          equineId: EQUINE,
+          state: 'REJECTED',
+          marketCountryCode: 'ES',
+          ownerType: 'CENTER',
+          ownershipPercentage: 60,
+          decidedAt: '2024-01-01T00:00:00+00',
+        },
+      ],
+      managementClaims: [],
+      trustRows: [trust('OWNERSHIP', OWNERSHIP_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(ownershipSection.ownership.canSubmit, true);
+    assert.equal(ownershipSection.ownership.statusLabel, null);
+
+    const managementSection = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [],
+      assignments: [assignment()],
+      ownershipClaims: [],
+      managementClaims: [
+        {
+          claimId: CLAIM_ID,
+          equineId: EQUINE,
+          state: 'ACCEPTED',
+          marketCountryCode: 'ES',
+          managerType: 'CENTER',
+          managementRole: 'PRIMARY_MANAGER',
+          decidedAt: '2024-01-01T00:00:00+00',
+        },
+      ],
+      trustRows: [trust('MANAGEMENT', ASSIGNMENT_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(managementSection.management.canSubmit, true);
+    assert.equal(managementSection.management.statusLabel, null);
+  });
+
   it('explains when no current relation can be submitted', () => {
     const section = presentRelationClaims({
       equineId: EQUINE,

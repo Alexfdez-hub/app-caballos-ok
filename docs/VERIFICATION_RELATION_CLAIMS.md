@@ -17,9 +17,9 @@ Migration `041` is already deployed. This screen calls the existing authenticate
 
 The ownership payload copies `ownership_percentage` and `ownership_id` from the single current `PERSON` row. The management payload copies `management_role`, `valid_from`, `valid_until`, and `assignment_id` from the single current assignment. `valid_from` is never `now()`. A row that is not currently effective is not offered. Spain (`ES`) is the only market. The owner and manager type sent for these rows is `PERSON`, and the center id is null. The signed-in account comes from the Auth session inside each RPC.
 
-Request labels reuse the existing copy: `Solicitud pendiente`, `En revisión`, `Aceptada`, `No aceptada`, and `No disponible`. Trust stays `Verificada` or `No verificada`. An accepted claim is not shown as verified trust.
+An open request shows `Solicitud pendiente` or `En revisión`. `No disponible` means the screen cannot tell which open request applies. Trust stays `Verificada` or `No verificada`. `Aceptada` appears only when the current effective id is `VERIFIED`. A finished claim, including `No aceptada`, is not shown as the decision of the current row. The lists do not identify which effective row a finished claim used, so that history is not attached here.
 
-The claim lists do not return the effective row id or the management window. Only an open claim for that equine and market blocks another submit. `Aceptada` is shown only when `list_my_verification_status` says the current effective id is `VERIFIED`. A finished claim is not treated as the decision for a newer row that keeps the same percentage or role.
+Any open claim from this account for the same equine and Spain blocks another submit, whether its owner or manager type is `PERSON` or `CENTER`. The server uniqueness rule is the account, the equine, and the market. A finished `CENTER` claim does not block a new `PERSON` claim.
 
 ## Smoke for the requester
 

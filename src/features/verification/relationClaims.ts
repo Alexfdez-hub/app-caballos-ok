@@ -285,8 +285,7 @@ function ownershipAction(
       .filter(
         (claim) =>
           claim.equineId === equineId &&
-          claim.marketCountryCode === SPAIN_MARKET &&
-          claim.ownerType === 'PERSON',
+          claim.marketCountryCode === SPAIN_MARKET,
       )
       .map((claim) => claim.state),
   );
@@ -357,8 +356,7 @@ function managementAction(
       .filter(
         (claim) =>
           claim.equineId === equineId &&
-          claim.marketCountryCode === SPAIN_MARKET &&
-          claim.managerType === 'PERSON',
+          claim.marketCountryCode === SPAIN_MARKET,
       )
       .map((claim) => claim.state),
   );
