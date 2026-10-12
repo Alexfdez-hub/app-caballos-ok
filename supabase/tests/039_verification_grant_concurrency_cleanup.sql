@@ -13,6 +13,13 @@ delete from public.verification_review_grant_events as event
 delete from public.verification_review_grants as grant_row
  where grant_row.reviewer_person_id in (select id from grant_cleanup_persons);
 
+delete from public.verification_review_cohort_events
+ where cohort_code = 'ES-039-CONCURRENCY';
+delete from public.verification_review_cohort_cases
+ where cohort_code = 'ES-039-CONCURRENCY';
+delete from public.verification_review_cohorts
+ where code = 'ES-039-CONCURRENCY';
+
 delete from public.user_accounts as account
  where account.auth_user_id = '03920000-0000-4000-8000-000000000001';
 

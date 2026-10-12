@@ -17,6 +17,13 @@ delete from public.verification_review_grants as grant_row
    select id from grant_lifecycle_cleanup_persons
  );
 
+delete from public.verification_review_cohort_events
+ where cohort_code = 'ES-039-LIFECYCLE';
+delete from public.verification_review_cohort_cases
+ where cohort_code = 'ES-039-LIFECYCLE';
+delete from public.verification_review_cohorts
+ where code = 'ES-039-LIFECYCLE';
+
 delete from public.user_accounts as account
  where account.auth_user_id = '03930000-0000-4000-8000-000000000001';
 

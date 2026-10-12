@@ -15,7 +15,7 @@ set local role authenticated;
 do $$
 begin
   perform public.review_identity_case(
-    '03730000-0000-4000-8000-0000000000c2',
+    '03730000-0000-4000-8000-0000000000c1',
     'ACCEPTED',
     'subject-race'
   );
