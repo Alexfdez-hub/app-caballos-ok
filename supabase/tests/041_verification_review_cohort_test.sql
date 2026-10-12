@@ -138,6 +138,37 @@ begin
   select submitted.case_id
     into identity_case
     from public.submit_my_identity_case('ES') as submitted;
+
+  begin
+    perform public.submit_my_equine_ownership_claim(
+      '04110000-0000-4000-8000-0000000000e1',
+      'ES', 'PERSON', null, 50,
+      '04110000-0000-4000-8000-0000000000a1'
+    );
+    raise exception using errcode = 'P0002', message = 'Mismatched ownership percentage was claimable';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Verification request is not available' then
+        raise exception 'Unexpected percentage refusal: %', sqlerrm;
+      end if;
+  end;
+
+  begin
+    perform public.submit_my_equine_management_claim(
+      '04110000-0000-4000-8000-0000000000e1',
+      'ES', 'PERSON', null, 'CO_MANAGER',
+      timestamptz '2020-01-01 00:00:00+00',
+      null,
+      '04110000-0000-4000-8000-0000000000b1'
+    );
+    raise exception using errcode = 'P0002', message = 'Mismatched management role was claimable';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Verification request is not available' then
+        raise exception 'Unexpected role refusal: %', sqlerrm;
+      end if;
+  end;
+
   select submitted.claim_id
     into ownership_claim
     from public.submit_my_equine_ownership_claim(

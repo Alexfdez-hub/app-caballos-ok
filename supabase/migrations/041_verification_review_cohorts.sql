@@ -881,6 +881,7 @@ begin
        and ownership.status = 'ACTIVE'
        and ownership.ended_at is null
        and ownership.started_at <= pg_catalog.now()
+       and ownership.ownership_percentage is not distinct from p_ownership_percentage
        and (
          (
            p_owner_type = 'PERSON'
@@ -954,7 +955,7 @@ end;
 $$;
 
 comment on function public.submit_my_equine_ownership_claim(uuid, text, text, uuid, numeric, uuid) is
-  'Submits one open ownership claim. An effective row must be that caller, that equine, and current. Does not write equine_ownerships.';
+  'Submits one open ownership claim. An effective row must be that caller, that equine, current, and the same percentage. Does not write equine_ownerships.';
 
 create or replace function public.submit_my_equine_management_claim(
   p_equine_id uuid,
@@ -1025,6 +1026,7 @@ begin
        )
        and assignment.valid_from is not distinct from p_valid_from
        and assignment.valid_until is not distinct from p_valid_until
+       and assignment.management_role = p_management_role
        and (
          (
            p_manager_type = 'PERSON'
@@ -1102,7 +1104,7 @@ end;
 $$;
 
 comment on function public.submit_my_equine_management_claim(uuid, text, text, uuid, text, timestamptz, timestamptz, uuid) is
-  'Submits one open management claim. An effective assignment must be current and the claim window must equal that row. Does not write equine_management_assignments.';
+  'Submits one open management claim. An effective assignment must be current, the same role, and the claim window must equal that row. Does not write equine_management_assignments.';
 
 alter table public.verification_review_cohorts enable row level security;
 alter table public.verification_review_cohort_cases enable row level security;

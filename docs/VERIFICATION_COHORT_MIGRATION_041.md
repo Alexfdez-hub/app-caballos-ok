@@ -11,7 +11,7 @@
 - Composition does not reopen. A closed cohort does not take new dossiers. Membership is not updated or deleted, including while a linked grant is `ACTIVE` or `SUSPENDED`.
 - `bootstrap_verification_review_grant(person, cohort)` inserts the grant already linked to a `CLOSED` cohort. A null or legacy grant authorizes nothing.
 - Suspending or closing the grant cuts capabilities, queue, detail, and decisions immediately and leaves the cohort history in place.
-- One open identity case per person and market. One open ownership or management claim per submitter, equine, and market. An effective row must be current; a management window must match that row.
+- One open identity case per person and market. One open ownership or management claim per submitter, equine, and market. An effective ownership must be current and the same percentage. An effective management assignment must be current, the same role, and the same window.
 
 Claim screens stay disabled until this migration is reviewed and deployed. This pull request does not deploy it.
 
