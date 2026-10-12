@@ -18,11 +18,22 @@ select
   from public.user_accounts as subject
  where subject.auth_user_id = '04020000-0000-4000-8000-000000000002';
 
+select public.create_verification_review_cohort('ES-040-CONCURRENCY');
+
+select public.add_verification_review_cohort_case(
+  'ES-040-CONCURRENCY',
+  'IDENTITY',
+  '04020000-0000-4000-8000-0000000000a1'
+);
+
+select public.close_verification_review_cohort_composition('ES-040-CONCURRENCY');
+
 insert into public.verification_review_grants (
   reviewer_person_id,
   scope_type,
-  market_country_code
+  market_country_code,
+  cohort_code
 )
-select account.person_id, 'MARKET', 'ES'
+select account.person_id, 'MARKET', 'ES', 'ES-040-CONCURRENCY'
   from public.user_accounts as account
  where account.auth_user_id = '04020000-0000-4000-8000-000000000001';

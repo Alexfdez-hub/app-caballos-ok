@@ -10,7 +10,7 @@ begin
     from public.user_accounts as account
    where account.auth_user_id = '03920000-0000-4000-8000-000000000001';
 
-  perform public.bootstrap_verification_review_grant(reviewer_person);
+  perform public.bootstrap_verification_review_grant(reviewer_person, 'ES-039-CONCURRENCY');
 exception
   when insufficient_privilege then
     null;

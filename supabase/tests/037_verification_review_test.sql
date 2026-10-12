@@ -457,66 +457,46 @@ begin
       '03710000-0000-4000-8000-0000000000b1'
     ) as submitted;
 
-  select submitted.claim_id
-    into unlinked_ownership_claim
-    from public.submit_my_equine_ownership_claim(
+  begin
+    perform public.submit_my_equine_ownership_claim(
       '03710000-0000-4000-8000-0000000000e1',
       'ES',
       'PERSON',
       null,
       100,
       null
-    ) as submitted;
+    );
+    raise exception using
+      errcode = 'P0002',
+      message = 'A second open ownership claim was accepted';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Verification request is not available' then
+        raise exception 'Unexpected duplicate ownership submit: %', sqlerrm;
+      end if;
+  end;
 
-  select submitted.claim_id
-    into historical_ownership_claim
-    from public.submit_my_equine_ownership_claim(
+  begin
+    perform public.submit_my_equine_ownership_claim(
       '03710000-0000-4000-8000-0000000000e1',
       'ES',
       'PERSON',
       null,
       100,
       '03710000-0000-4000-8000-0000000000a2'
-    ) as submitted;
+    );
+    raise exception using
+      errcode = 'P0002',
+      message = 'An ended ownership was claimable';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Verification request is not available' then
+        raise exception 'Unexpected historical ownership submit: %', sqlerrm;
+      end if;
+  end;
 
-  select submitted.claim_id
-    into mismatched_ownership_claim
-    from public.submit_my_equine_ownership_claim(
-      '03710000-0000-4000-8000-0000000000e1',
-      'ES',
-      'PERSON',
-      null,
-      50,
-      '03710000-0000-4000-8000-0000000000a1'
-    ) as submitted;
-
-  select submitted.claim_id
-    into duplicate_ownership_claim
-    from public.submit_my_equine_ownership_claim(
-      '03710000-0000-4000-8000-0000000000e1',
-      'ES',
-      'PERSON',
-      null,
-      100,
-      '03710000-0000-4000-8000-0000000000a1'
-    ) as submitted;
-
-  select submitted.claim_id
-    into unlinked_management_claim
-    from public.submit_my_equine_management_claim(
-      '03710000-0000-4000-8000-0000000000e1',
-      'ES',
-      'PERSON',
-      null,
-      'PRIMARY_MANAGER',
-      timestamptz '2020-01-01 00:00:00+00',
-      null,
-      null
-    ) as submitted;
-
-  select submitted.claim_id
-    into historical_management_claim
-    from public.submit_my_equine_management_claim(
+  begin
+    perform public.submit_my_equine_management_claim(
       '03710000-0000-4000-8000-0000000000e1',
       'ES',
       'PERSON',
@@ -525,20 +505,37 @@ begin
       timestamptz '2019-01-01 00:00:00+00',
       timestamptz '2019-06-01 00:00:00+00',
       '03710000-0000-4000-8000-0000000000b2'
-    ) as submitted;
+    );
+    raise exception using
+      errcode = 'P0002',
+      message = 'An ended management assignment was claimable';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Verification request is not available' then
+        raise exception 'Unexpected historical management submit: %', sqlerrm;
+      end if;
+  end;
 
-  select submitted.claim_id
-    into mismatched_management_claim
-    from public.submit_my_equine_management_claim(
+  begin
+    perform public.submit_my_equine_management_claim(
       '03710000-0000-4000-8000-0000000000e1',
       'ES',
       'PERSON',
       null,
-      'CO_MANAGER',
-      timestamptz '2020-01-01 00:00:00+00',
+      'PRIMARY_MANAGER',
+      timestamptz '2020-02-01 00:00:00+00',
       null,
       '03710000-0000-4000-8000-0000000000b1'
-    ) as submitted;
+    );
+    raise exception using
+      errcode = 'P0002',
+      message = 'A mismatched management window was claimable';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Verification request is not available' then
+        raise exception 'Unexpected management window submit: %', sqlerrm;
+      end if;
+  end;
 
   if (select count(*) from public.list_my_identity_cases()) <> 1 then
     raise exception 'Claimant cannot read the submitted identity case';
@@ -546,14 +543,7 @@ begin
 
   perform set_config('verification.identity_case', identity_case::text, true);
   perform set_config('verification.ownership_claim', ownership_claim::text, true);
-  perform set_config('verification.unlinked_ownership_claim', unlinked_ownership_claim::text, true);
-  perform set_config('verification.historical_ownership_claim', historical_ownership_claim::text, true);
-  perform set_config('verification.mismatched_ownership_claim', mismatched_ownership_claim::text, true);
-  perform set_config('verification.duplicate_ownership_claim', duplicate_ownership_claim::text, true);
   perform set_config('verification.management_claim', management_claim::text, true);
-  perform set_config('verification.unlinked_management_claim', unlinked_management_claim::text, true);
-  perform set_config('verification.historical_management_claim', historical_management_claim::text, true);
-  perform set_config('verification.mismatched_management_claim', mismatched_management_claim::text, true);
 end;
 $$;
 
@@ -673,6 +663,28 @@ end;
 $$;
 
 reset role;
+do $$
+begin
+  perform public.create_verification_review_cohort('ES-037-IDENTITY');
+  perform public.add_verification_review_cohort_case(
+    'ES-037-IDENTITY',
+    'IDENTITY',
+    current_setting('verification.identity_case')::uuid
+  );
+  perform public.close_verification_review_cohort_composition('ES-037-IDENTITY');
+
+  insert into public.verification_review_grants (
+    reviewer_person_id,
+    scope_type,
+    market_country_code,
+    cohort_code
+  )
+  select account.person_id, 'MARKET', 'ES', 'ES-037-IDENTITY'
+    from public.user_accounts as account
+   where account.auth_user_id = '03710000-0000-4000-8000-000000000002';
+end;
+$$;
+
 select set_config(
   'request.jwt.claim.sub',
   '03710000-0000-4000-8000-000000000002',
@@ -924,6 +936,38 @@ end;
 $$;
 
 reset role;
+do $$
+begin
+  perform public.create_verification_review_cohort('ES-037-EQUINE');
+  perform public.add_verification_review_cohort_case(
+    'ES-037-EQUINE',
+    'OWNERSHIP',
+    current_setting('verification.ownership_claim')::uuid
+  );
+  perform public.add_verification_review_cohort_case(
+    'ES-037-EQUINE',
+    'MANAGEMENT',
+    current_setting('verification.management_claim')::uuid
+  );
+  perform public.add_verification_review_cohort_case(
+    'ES-037-EQUINE',
+    'OWNERSHIP',
+    current_setting('verification.center_claim')::uuid
+  );
+  perform public.close_verification_review_cohort_composition('ES-037-EQUINE');
+
+  insert into public.verification_review_grants (
+    reviewer_person_id,
+    scope_type,
+    market_country_code,
+    cohort_code
+  )
+  select account.person_id, 'MARKET', 'ES', 'ES-037-EQUINE'
+    from public.user_accounts as account
+   where account.auth_user_id = '03710000-0000-4000-8000-000000000006';
+end;
+$$;
+
 select set_config(
   'request.jwt.claim.sub',
   '03710000-0000-4000-8000-000000000006',
@@ -937,97 +981,21 @@ select set_config(
 set local role authenticated;
 
 do $$
-declare
-  claim_name text;
 begin
-  foreach claim_name in array array[
-    'verification.unlinked_ownership_claim',
-    'verification.historical_ownership_claim',
-    'verification.mismatched_ownership_claim'
-  ]
-  loop
-    begin
-      perform public.review_equine_ownership_claim(
-        current_setting(claim_name)::uuid,
-        'ACCEPTED',
-        'not-current'
-      );
-      raise exception using
-        errcode = 'P0002',
-        message = 'Ownership acceptance without a current match was stored';
-    exception
-      when insufficient_privilege then
-        if sqlerrm is distinct from 'Verification request is not available' then
-          raise exception 'Unexpected ownership refusal: %', sqlerrm;
-        end if;
-    end;
-  end loop;
-
   perform public.review_equine_ownership_claim(
     current_setting('verification.ownership_claim')::uuid,
     'ACCEPTED',
     'ownership-match'
-  );
-
-  begin
-    perform public.review_equine_ownership_claim(
-      current_setting('verification.duplicate_ownership_claim')::uuid,
-      'ACCEPTED',
-      'second-ownership'
-    );
-    raise exception using
-      errcode = 'P0002',
-      message = 'A second current ownership acceptance was stored';
-  exception
-    when insufficient_privilege then
-      if sqlerrm is distinct from 'Verification request is not available' then
-        raise exception 'Unexpected second ownership refusal: %', sqlerrm;
-      end if;
-  end;
-
-  perform public.review_equine_ownership_claim(
-    current_setting('verification.unlinked_ownership_claim')::uuid,
-    'REJECTED',
-    'ownership-unlinked'
   );
   perform public.review_equine_ownership_claim(
     current_setting('verification.center_claim')::uuid,
     'REJECTED',
     'center-unproven'
   );
-
-  foreach claim_name in array array[
-    'verification.unlinked_management_claim',
-    'verification.historical_management_claim',
-    'verification.mismatched_management_claim'
-  ]
-  loop
-    begin
-      perform public.review_equine_management_claim(
-        current_setting(claim_name)::uuid,
-        'ACCEPTED',
-        'not-current'
-      );
-      raise exception using
-        errcode = 'P0002',
-        message = 'Management acceptance without a current match was stored';
-    exception
-      when insufficient_privilege then
-        if sqlerrm is distinct from 'Verification request is not available' then
-          raise exception 'Unexpected management refusal: %', sqlerrm;
-        end if;
-    end;
-  end loop;
-
   perform public.review_equine_management_claim(
     current_setting('verification.management_claim')::uuid,
     'ACCEPTED',
     'management-match'
-  );
-  perform public.review_equine_management_claim(
-    current_setting('verification.unlinked_management_claim')::uuid,
-    'REJECTED',
-    'management-unlinked'
   );
 end;
 $$;
@@ -1063,15 +1031,15 @@ begin
   if (
     select count(*)
       from public.audit_events as event
-     where event.entity_id = current_setting('verification.unlinked_ownership_claim')::uuid
+     where event.entity_id = current_setting('verification.center_claim')::uuid
        and event.event_type = 'verification_ownership_claim_reviewed'
        and event.actor_person_id = current_setting('verification.equine_reviewer_person')::uuid
        and event.metadata = jsonb_build_object(
          'outcome', 'REJECTED',
-         'reason_code', 'ownership-unlinked'
+         'reason_code', 'center-unproven'
        )
   ) <> 1 then
-    raise exception 'Rejected ownership review did not write one audit event';
+    raise exception 'Rejected center ownership review did not write one audit event';
   end if;
 
   if (
@@ -1088,19 +1056,6 @@ begin
     raise exception 'Accepted management review did not write one audit event';
   end if;
 
-  if (
-    select count(*)
-      from public.audit_events as event
-     where event.entity_id = current_setting('verification.unlinked_management_claim')::uuid
-       and event.event_type = 'verification_management_claim_reviewed'
-       and event.actor_person_id = current_setting('verification.equine_reviewer_person')::uuid
-       and event.metadata = jsonb_build_object(
-         'outcome', 'REJECTED',
-         'reason_code', 'management-unlinked'
-       )
-  ) <> 1 then
-    raise exception 'Rejected management review did not write one audit event';
-  end if;
 end;
 $$;
 

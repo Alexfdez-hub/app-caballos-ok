@@ -25,6 +25,15 @@ begin
   delete from public.verification_review_grants
    where reviewer_person_id = any (person_ids);
 
+  set session_replication_role = replica;
+  delete from public.verification_review_cohort_events
+   where cohort_code = 'ES-038-CONCURRENCY';
+  delete from public.verification_review_cohort_cases
+   where cohort_code = 'ES-038-CONCURRENCY';
+  delete from public.verification_review_cohorts
+   where code = 'ES-038-CONCURRENCY';
+  set session_replication_role = origin;
+
   delete from public.user_accounts where person_id = any (person_ids);
   delete from public.persons where id = any (person_ids);
   delete from auth.users

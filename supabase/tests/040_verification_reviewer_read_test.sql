@@ -117,14 +117,6 @@ begin
     ('04010000-0000-4000-8000-0000000000c1', hipica_person, 'ADMIN'),
     ('04010000-0000-4000-8000-0000000000c1', member_only_person, 'ADMIN');
 
-  insert into public.verification_review_grants (
-    reviewer_person_id,
-    scope_type,
-    market_country_code
-  ) values
-    (reviewer_person, 'MARKET', 'ES'),
-    (hipica_person, 'MARKET', 'ES');
-
   insert into public.verification_review_grants (reviewer_person_id, scope_type)
   values (platform_person, 'PLATFORM_IDENTITY');
 
@@ -209,7 +201,11 @@ begin
     'CENTER',
     '04010000-0000-4000-8000-0000000000c1',
     100,
-    subject_account,
+    (
+      select account.id
+        from public.user_accounts as account
+       where account.person_id = member_only_person
+    ),
     now() - interval '3 minutes'
   );
 
@@ -330,6 +326,38 @@ begin
     'PRIVATE-PATH-040',
     subject_account
   );
+
+  perform public.create_verification_review_cohort('ES-040-READ');
+  perform public.add_verification_review_cohort_case(
+    'ES-040-READ',
+    'IDENTITY',
+    '04010000-0000-4000-8000-0000000000a1'
+  );
+  perform public.add_verification_review_cohort_case(
+    'ES-040-READ',
+    'OWNERSHIP',
+    '04010000-0000-4000-8000-0000000000b1'
+  );
+  perform public.add_verification_review_cohort_case(
+    'ES-040-READ',
+    'OWNERSHIP',
+    '04010000-0000-4000-8000-0000000000b2'
+  );
+  perform public.add_verification_review_cohort_case(
+    'ES-040-READ',
+    'MANAGEMENT',
+    '04010000-0000-4000-8000-0000000000c2'
+  );
+  perform public.close_verification_review_cohort_composition('ES-040-READ');
+
+  insert into public.verification_review_grants (
+    reviewer_person_id,
+    scope_type,
+    market_country_code,
+    cohort_code
+  ) values
+    (reviewer_person, 'MARKET', 'ES', 'ES-040-READ'),
+    (hipica_person, 'MARKET', 'ES', 'ES-040-READ');
 
   perform set_config('request.jwt.claim.sub', '04010000-0000-4000-8000-000000000001', true);
   perform set_config(

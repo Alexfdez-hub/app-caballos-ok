@@ -11,21 +11,39 @@ insert into public.identity_verification_cases (
   submitted_by_account_id
 )
 select
-  case_id,
+  '03730000-0000-4000-8000-0000000000c1',
   account.person_id,
   'ES',
   'SUBMITTED',
   account.id
   from public.user_accounts as account
-  cross join (
-    values
-      ('03730000-0000-4000-8000-0000000000c1'::uuid),
-      ('03730000-0000-4000-8000-0000000000c2'::uuid)
-  ) as cases (case_id)
  where account.auth_user_id = '03730000-0000-4000-8000-000000000001';
 
 insert into public.verification_review_grants (reviewer_person_id, scope_type)
 select account.person_id, 'PLATFORM_IDENTITY'
+  from public.user_accounts as account
+ where account.auth_user_id in (
+   '03730000-0000-4000-8000-000000000002',
+   '03730000-0000-4000-8000-000000000003'
+ );
+
+select public.create_verification_review_cohort('ES-037-SUBJECT');
+
+select public.add_verification_review_cohort_case(
+  'ES-037-SUBJECT',
+  'IDENTITY',
+  '03730000-0000-4000-8000-0000000000c1'
+);
+
+select public.close_verification_review_cohort_composition('ES-037-SUBJECT');
+
+insert into public.verification_review_grants (
+  reviewer_person_id,
+  scope_type,
+  market_country_code,
+  cohort_code
+)
+select account.person_id, 'MARKET', 'ES', 'ES-037-SUBJECT'
   from public.user_accounts as account
  where account.auth_user_id in (
    '03730000-0000-4000-8000-000000000002',

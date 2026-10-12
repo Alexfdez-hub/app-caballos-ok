@@ -43,7 +43,7 @@ declare
 begin
   foreach function_name in array array[
     'verification_grant_technical_principal()',
-    'bootstrap_verification_review_grant(uuid)',
+    'bootstrap_verification_review_grant(uuid, text)',
     'suspend_verification_review_grant(uuid)',
     'close_verification_review_grant(uuid)',
     'enforce_verification_grant_event_immutability()',
@@ -89,12 +89,15 @@ begin
     end if;
   end loop;
 
+  perform public.create_verification_review_cohort('ES-039');
+  perform public.close_verification_review_cohort_composition('ES-039');
+
   select pg_catalog.pg_get_function_identity_arguments(procedure.oid)
     into signature
     from pg_catalog.pg_proc as procedure
-   where procedure.oid = 'public.bootstrap_verification_review_grant(uuid)'::regprocedure;
+   where procedure.oid = 'public.bootstrap_verification_review_grant(uuid, text)'::regprocedure;
 
-  if signature <> 'p_reviewer_person_id uuid' then
+  if signature <> 'p_reviewer_person_id uuid, p_cohort_code text' then
     raise exception 'Bootstrap accepts an unexpected argument list';
   end if;
 
@@ -224,7 +227,7 @@ begin
      and (
        has_function_privilege(
          'supabase_admin',
-         'public.bootstrap_verification_review_grant(uuid)',
+         'public.bootstrap_verification_review_grant(uuid, text)',
          'EXECUTE'
        )
        or has_function_privilege(
@@ -283,7 +286,8 @@ begin
 
   begin
     perform public.bootstrap_verification_review_grant(
-      '03910000-0000-4000-8000-000000000099'
+      '03910000-0000-4000-8000-000000000099',
+      'ES-039'
     );
     raise exception 'Missing person was granted';
   exception
@@ -292,7 +296,7 @@ begin
   end;
 
   begin
-    perform public.bootstrap_verification_review_grant(inactive_person);
+    perform public.bootstrap_verification_review_grant(inactive_person, 'ES-039');
     raise exception 'Inactive person was granted';
   exception
     when insufficient_privilege then
@@ -300,14 +304,14 @@ begin
   end;
 
   begin
-    perform public.bootstrap_verification_review_grant(suspended_person);
+    perform public.bootstrap_verification_review_grant(suspended_person, 'ES-039');
     raise exception 'Person without an active account was granted';
   exception
     when insufficient_privilege then
       null;
   end;
 
-  created_grant_id := public.bootstrap_verification_review_grant(reviewer_person);
+  created_grant_id := public.bootstrap_verification_review_grant(reviewer_person, 'ES-039');
 
   if not exists (
     select 1
@@ -355,7 +359,7 @@ begin
   end if;
 
   begin
-    perform public.bootstrap_verification_review_grant(reviewer_person);
+    perform public.bootstrap_verification_review_grant(reviewer_person, 'ES-039');
     raise exception 'Duplicate bootstrap succeeded';
   exception
     when insufficient_privilege then
@@ -388,7 +392,7 @@ begin
   end;
 
   begin
-    perform public.bootstrap_verification_review_grant(reviewer_person);
+    perform public.bootstrap_verification_review_grant(reviewer_person, 'ES-039');
     raise exception 'Suspended grant was duplicated';
   exception
     when insufficient_privilege then
@@ -425,7 +429,7 @@ begin
     raise exception 'Suspended grant did not close with its previous status';
   end if;
 
-  replaced_grant_id := public.bootstrap_verification_review_grant(reviewer_person);
+  replaced_grant_id := public.bootstrap_verification_review_grant(reviewer_person, 'ES-039');
 
   if replaced_grant_id = created_grant_id
      or exists (
@@ -443,7 +447,7 @@ begin
     raise exception 'A grant after close was not a separate row';
   end if;
 
-  second_grant_id := public.bootstrap_verification_review_grant(close_person);
+  second_grant_id := public.bootstrap_verification_review_grant(close_person, 'ES-039');
   perform public.close_verification_review_grant(second_grant_id);
 
   if public.verification_review_grant_matches(close_person, 'IDENTITY', 'ES')
@@ -487,7 +491,7 @@ begin
   end;
 
   begin
-    perform public.bootstrap_verification_review_grant(close_person);
+    perform public.bootstrap_verification_review_grant(close_person, 'ES-039');
   end;
 
   if (
@@ -665,7 +669,8 @@ set local role anon;
 do $$
 begin
   perform public.bootstrap_verification_review_grant(
-    '03910000-0000-4000-8000-000000000001'
+    '03910000-0000-4000-8000-000000000001',
+    'ES-039'
   );
   raise exception 'anon executed bootstrap';
 exception
@@ -681,7 +686,8 @@ set local role service_role;
 do $$
 begin
   perform public.bootstrap_verification_review_grant(
-    '03910000-0000-4000-8000-000000000001'
+    '03910000-0000-4000-8000-000000000001',
+    'ES-039'
   );
   raise exception 'service_role executed bootstrap';
 exception
@@ -714,7 +720,7 @@ begin
     from public.user_accounts as account
    where account.auth_user_id = '03910000-0000-4000-8000-000000000004';
 
-  perform public.bootstrap_verification_review_grant(hipica_person);
+  perform public.bootstrap_verification_review_grant(hipica_person, 'ES-039');
   raise exception 'Reviewer session executed bootstrap';
 exception
   when insufficient_privilege then

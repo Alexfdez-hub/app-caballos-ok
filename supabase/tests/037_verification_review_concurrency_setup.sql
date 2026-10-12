@@ -26,3 +26,26 @@ select account.person_id, 'PLATFORM_IDENTITY'
    '03720000-0000-4000-8000-000000000002',
    '03720000-0000-4000-8000-000000000003'
  );
+
+select public.create_verification_review_cohort('ES-037-CONCURRENCY');
+
+select public.add_verification_review_cohort_case(
+  'ES-037-CONCURRENCY',
+  'IDENTITY',
+  '03720000-0000-4000-8000-0000000000c1'
+);
+
+select public.close_verification_review_cohort_composition('ES-037-CONCURRENCY');
+
+insert into public.verification_review_grants (
+  reviewer_person_id,
+  scope_type,
+  market_country_code,
+  cohort_code
+)
+select account.person_id, 'MARKET', 'ES', 'ES-037-CONCURRENCY'
+  from public.user_accounts as account
+ where account.auth_user_id in (
+   '03720000-0000-4000-8000-000000000002',
+   '03720000-0000-4000-8000-000000000003'
+ );
