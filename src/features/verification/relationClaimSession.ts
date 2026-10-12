@@ -106,7 +106,10 @@ export function settleRelationClaimSubmit(
   request: RelationClaimRequest,
   result: { ok: true; notice: string } | { ok: false; errorMessage: string },
 ): { session: RelationClaimSession; apply: boolean } {
-  const apply = shouldApplyRelationClaimResult(request, session);
+  if (!shouldApplyRelationClaimResult(request, session)) {
+    return { session, apply: false };
+  }
+
   const next: RelationClaimSession = result.ok
     ? {
         ...session,
@@ -121,5 +124,5 @@ export function settleRelationClaimSubmit(
         errorMessage: result.errorMessage,
       };
 
-  return { session: next, apply };
+  return { session: next, apply: true };
 }

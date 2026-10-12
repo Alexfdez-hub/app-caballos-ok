@@ -19,7 +19,7 @@ The ownership payload copies `ownership_percentage` and `ownership_id` from the 
 
 Request labels reuse the existing copy: `Solicitud pendiente`, `En revisión`, `Aceptada`, `No aceptada`, and `No disponible`. Trust stays `Verificada` or `No verificada`. An accepted claim is not shown as verified trust.
 
-The claim lists do not return the effective row id. An open claim for that equine and market blocks another submit. A finished claim is shown only when its percentage or role matches the current row. If that match is ambiguous, the action stays `No disponible`.
+The claim lists do not return the effective row id or the management window. Only an open claim for that equine and market blocks another submit. `Aceptada` is shown only when `list_my_verification_status` says the current effective id is `VERIFIED`. A finished claim is not treated as the decision for a newer row that keeps the same percentage or role.
 
 ## Smoke for the requester
 

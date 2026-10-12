@@ -118,10 +118,10 @@ function isCurrentOwnership(row: EquineOwnership): boolean {
 function isCurrentAssignment(row: EquineManagementAssignment): boolean {
   return (
     row.status === 'ACTIVE' &&
-    row.validUntil === null &&
     row.isCurrentlyEffective === true &&
     typeof row.validFrom === 'string' &&
-    row.validFrom.length > 0
+    row.validFrom.length > 0 &&
+    (row.validUntil === null || row.validUntil.length > 0)
   );
 }
 
@@ -190,37 +190,22 @@ function trustLabelFor(
   };
 }
 
-function latestMatching<T extends { state: ClaimRequestState; decidedAt: string | null }>(
-  rows: T[],
+function openClaimState(
+  states: ClaimRequestState[],
 ): { state: ClaimRequestState } | 'AMBIGUOUS' | null {
-  const open = rows.filter((row) => OPEN_CLAIM_STATES.has(row.state));
+  const open = states.filter((state) => OPEN_CLAIM_STATES.has(state));
   if (open.length === 1) {
-    return { state: open[0]!.state };
+    return { state: open[0]! };
   }
   if (open.length > 1) {
     return 'AMBIGUOUS';
   }
-
-  const finished = rows.filter((row) => !OPEN_CLAIM_STATES.has(row.state));
-  if (finished.length === 0) {
-    return null;
-  }
-
-  const ranked = [...finished].sort((left, right) =>
-    (right.decidedAt ?? '').localeCompare(left.decidedAt ?? ''),
-  );
-  const latestTime = ranked[0]?.decidedAt ?? null;
-  const tied = ranked.filter((row) => (row.decidedAt ?? null) === latestTime);
-  const states = new Set(tied.map((row) => row.state));
-  if (states.size !== 1 || !ranked[0]) {
-    return 'AMBIGUOUS';
-  }
-
-  return { state: ranked[0].state };
+  return null;
 }
 
 function requestLabel(
   matched: { state: ClaimRequestState } | 'AMBIGUOUS' | null,
+  trustVerified: boolean,
 ): { statusLabel: string | null; blocksSubmit: boolean; unavailable: boolean } {
   if (matched === 'AMBIGUOUS') {
     return {
@@ -230,11 +215,7 @@ function requestLabel(
     };
   }
 
-  if (!matched) {
-    return { statusLabel: null, blocksSubmit: false, unavailable: false };
-  }
-
-  if (matched.state === 'SUBMITTED' || matched.state === 'RESUBMITTED') {
+  if (matched?.state === 'SUBMITTED' || matched?.state === 'RESUBMITTED') {
     return {
       statusLabel: claimRequestLabel('SUBMITTED'),
       blocksSubmit: true,
@@ -242,7 +223,7 @@ function requestLabel(
     };
   }
 
-  if (matched.state === 'IN_REVIEW') {
+  if (matched?.state === 'IN_REVIEW') {
     return {
       statusLabel: claimRequestLabel('IN_REVIEW'),
       blocksSubmit: true,
@@ -250,7 +231,7 @@ function requestLabel(
     };
   }
 
-  if (matched.state === 'ACCEPTED') {
+  if (trustVerified) {
     return {
       statusLabel: claimRequestLabel('ACCEPTED'),
       blocksSubmit: true,
@@ -258,19 +239,7 @@ function requestLabel(
     };
   }
 
-  if (matched.state === 'REJECTED') {
-    return {
-      statusLabel: claimRequestLabel('REJECTED'),
-      blocksSubmit: false,
-      unavailable: false,
-    };
-  }
-
-  return {
-    statusLabel: claimRequestLabel('UNAVAILABLE'),
-    blocksSubmit: true,
-    unavailable: true,
-  };
+  return { statusLabel: null, blocksSubmit: false, unavailable: false };
 }
 
 function ownershipAction(
@@ -311,16 +280,17 @@ function ownershipAction(
   const row = current[0]!;
   const payload = ownershipClaimPayload(row);
   const trust = trustLabelFor(trustRows, equineId, 'OWNERSHIP', row.ownershipId);
-  const matched = latestMatching(
-    claims.filter(
-      (claim) =>
-        claim.equineId === equineId &&
-        claim.marketCountryCode === SPAIN_MARKET &&
-        claim.ownerType === 'PERSON' &&
-        claim.ownershipPercentage === row.ownershipPercentage,
-    ),
+  const matched = openClaimState(
+    claims
+      .filter(
+        (claim) =>
+          claim.equineId === equineId &&
+          claim.marketCountryCode === SPAIN_MARKET &&
+          claim.ownerType === 'PERSON',
+      )
+      .map((claim) => claim.state),
   );
-  const request = requestLabel(matched);
+  const request = requestLabel(matched, trust.verified);
   const canSubmit = Boolean(
     payload &&
       payload.p_ownership_percentage === row.ownershipPercentage &&
@@ -382,16 +352,17 @@ function managementAction(
   const row = current[0]!;
   const payload = managementClaimPayload(row);
   const trust = trustLabelFor(trustRows, equineId, 'MANAGEMENT', row.assignmentId);
-  const matched = latestMatching(
-    claims.filter(
-      (claim) =>
-        claim.equineId === equineId &&
-        claim.marketCountryCode === SPAIN_MARKET &&
-        claim.managerType === 'PERSON' &&
-        claim.managementRole === row.managementRole,
-    ),
+  const matched = openClaimState(
+    claims
+      .filter(
+        (claim) =>
+          claim.equineId === equineId &&
+          claim.marketCountryCode === SPAIN_MARKET &&
+          claim.managerType === 'PERSON',
+      )
+      .map((claim) => claim.state),
   );
-  const request = requestLabel(matched);
+  const request = requestLabel(matched, trust.verified);
   const canSubmit = Boolean(
     payload &&
       payload.p_management_role === row.managementRole &&

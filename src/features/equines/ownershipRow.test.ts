@@ -118,6 +118,17 @@ describe('equine management RPC lifecycle payloads', () => {
     );
   });
 
+  it('accepts an active assignment whose end is still in the future', () => {
+    const row = parseEquineManagementRow(
+      managementRpc({
+        is_currently_effective: true,
+        valid_until: '2099-01-01T00:00:00.000Z',
+      }),
+    );
+    assert.equal(row.isCurrentlyEffective, true);
+    assert.equal(row.validUntil, '2099-01-01T00:00:00.000Z');
+  });
+
   it('fails closed for ENDED with valid_until null', () => {
     assert.throws(
       () =>

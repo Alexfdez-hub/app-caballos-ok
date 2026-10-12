@@ -161,7 +161,7 @@ describe('relation claim payloads', () => {
     );
   });
 
-  it('shows pending, review, accepted, and rejected with the shared labels', () => {
+  it('shows an open request and accepts a verified row without reusing an old decision', () => {
     assert.equal(claimRequestLabel('SUBMITTED'), 'Solicitud pendiente');
     assert.equal(claimRequestLabel('IN_REVIEW'), 'En revisión');
     assert.equal(claimRequestLabel('ACCEPTED'), 'Aceptada');
@@ -180,11 +180,9 @@ describe('relation claim payloads', () => {
       decidedAt: '2024-01-01T00:00:00+00',
     });
 
-    for (const [state, label, canSubmit] of [
-      ['SUBMITTED', 'Solicitud pendiente', false],
-      ['IN_REVIEW', 'En revisión', false],
-      ['ACCEPTED', 'Aceptada', false],
-      ['REJECTED', 'No aceptada', true],
+    for (const [state, label] of [
+      ['SUBMITTED', 'Solicitud pendiente'],
+      ['IN_REVIEW', 'En revisión'],
     ] as const) {
       const section = presentRelationClaims({
         equineId: EQUINE,
@@ -195,8 +193,94 @@ describe('relation claim payloads', () => {
         trustRows: [trust('OWNERSHIP', OWNERSHIP_ID)],
       });
       assert.equal(section.ownership.statusLabel, label);
-      assert.equal(section.ownership.canSubmit, canSubmit);
+      assert.equal(section.ownership.canSubmit, false);
     }
+
+    const verified = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [ownership()],
+      assignments: [],
+      ownershipClaims: [],
+      managementClaims: [],
+      trustRows: [trust('OWNERSHIP', OWNERSHIP_ID, 'VERIFIED')],
+    });
+    assert.equal(verified.ownership.statusLabel, 'Aceptada');
+    assert.equal(verified.ownership.canSubmit, false);
+  });
+
+  it('copies a future management end when the row is currently effective', () => {
+    const until = '2099-01-01T00:00:00+00';
+    const payload = managementClaimPayload(
+      assignment({
+        isCurrentlyEffective: true,
+        validUntil: until,
+      }),
+    );
+    assert.equal(payload?.p_valid_from, VALID_FROM);
+    assert.equal(payload?.p_valid_until, until);
+    assert.equal(
+      managementClaimPayload(
+        assignment({
+          status: 'ENDED',
+          isCurrentlyEffective: false,
+          validFrom: '2019-01-01T00:00:00+00',
+          validUntil: '2019-06-01T00:00:00+00',
+        }),
+      ),
+      null,
+    );
+  });
+
+  it('does not treat an old finished claim as the decision for a new effective row', () => {
+    const oldOwnership: OwnershipClaimRecord = {
+      claimId: CLAIM_ID,
+      equineId: EQUINE,
+      state: 'ACCEPTED',
+      marketCountryCode: 'ES',
+      ownerType: 'PERSON',
+      ownershipPercentage: 60,
+      decidedAt: '2024-01-01T00:00:00+00',
+    };
+    const rejectedOwnership: OwnershipClaimRecord = {
+      ...oldOwnership,
+      state: 'REJECTED',
+    };
+    const ownershipSection = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [ownership({ ownershipId: OWNERSHIP_ID })],
+      assignments: [],
+      ownershipClaims: [oldOwnership, rejectedOwnership],
+      managementClaims: [],
+      trustRows: [trust('OWNERSHIP', OWNERSHIP_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(ownershipSection.ownership.statusLabel, null);
+    assert.equal(ownershipSection.ownership.canSubmit, true);
+    assert.notEqual(ownershipSection.ownership.statusLabel, 'Aceptada');
+    assert.notEqual(ownershipSection.ownership.statusLabel, 'No aceptada');
+
+    const oldManagement: ManagementClaimRecord = {
+      claimId: CLAIM_ID,
+      equineId: EQUINE,
+      state: 'ACCEPTED',
+      marketCountryCode: 'ES',
+      managerType: 'PERSON',
+      managementRole: 'PRIMARY_MANAGER',
+      decidedAt: '2024-01-01T00:00:00+00',
+    };
+    const managementSection = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [],
+      assignments: [assignment({ assignmentId: ASSIGNMENT_ID })],
+      ownershipClaims: [],
+      managementClaims: [
+        oldManagement,
+        { ...oldManagement, state: 'REJECTED' },
+      ],
+      trustRows: [trust('MANAGEMENT', ASSIGNMENT_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(managementSection.management.statusLabel, null);
+    assert.equal(managementSection.management.canSubmit, true);
+    assert.equal(managementSection.management.managementPayload?.p_management_role, 'PRIMARY_MANAGER');
   });
 
   it('explains when no current relation can be submitted', () => {
@@ -243,7 +327,30 @@ describe('relation claim submit session', () => {
       notice: CLAIM_RECORDED_NOTICE,
     });
     assert.equal(settled.apply, false);
-    assert.equal(settled.session.notice, CLAIM_RECORDED_NOTICE);
+    assert.equal(settled.session, current);
+    assert.equal(settled.session.notice, null);
+    assert.equal(settled.session.errorMessage, null);
+  });
+
+  it('keeps the new account locked when the previous submit finishes late', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const accountA = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(accountA);
+    current = switchRelationClaimContext(accountA.session, 'user-b', EQUINE);
+    const accountB = beginRelationClaimSubmit(current, 'user-b', EQUINE);
+    assert.ok(accountB);
+    current = accountB.session;
+    const late = settleRelationClaimSubmit(current, accountA.request, {
+      ok: true,
+      notice: CLAIM_RECORDED_NOTICE,
+    });
+    assert.equal(late.apply, false);
+    assert.equal(late.session, current);
+    assert.equal(late.session.inFlight, true);
+    assert.equal(late.session.userKey, 'user-b');
+    assert.equal(beginRelationClaimSubmit(late.session, 'user-b', EQUINE), null);
   });
 
   it('releases the button after a recoverable or definitive failure', () => {
