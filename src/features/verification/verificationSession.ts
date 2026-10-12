@@ -4,15 +4,40 @@ import type { VerificationSnapshot } from './types';
 export type VerificationSession = {
   requestSeq: number;
   screenActive: boolean;
+  userKey: string | null;
   submit: SubmitState;
   pendingSnapshot: VerificationSnapshot | null;
   pendingError: string | null;
 };
 
-export function createVerificationSession(): VerificationSession {
+export function createVerificationSession(
+  userKey: string | null = null,
+): VerificationSession {
   return {
     requestSeq: 0,
     screenActive: false,
+    userKey,
+    submit: { inFlight: false, notice: null },
+    pendingSnapshot: null,
+    pendingError: null,
+  };
+}
+
+export function shouldResetVerificationUser(
+  previousKey: string | null,
+  nextKey: string | null,
+): boolean {
+  return previousKey !== nextKey;
+}
+
+export function switchVerificationUser(
+  session: VerificationSession,
+  userKey: string | null,
+): VerificationSession {
+  return {
+    requestSeq: session.requestSeq + 1,
+    screenActive: session.screenActive,
+    userKey,
     submit: { inFlight: false, notice: null },
     pendingSnapshot: null,
     pendingError: null,
@@ -23,8 +48,14 @@ export function shouldApplyVerificationResult(
   requestSeq: number,
   latestSeq: number,
   screenActive: boolean,
+  requestUserKey: string | null = null,
+  sessionUserKey: string | null = null,
 ): boolean {
-  return screenActive && requestSeq === latestSeq;
+  return (
+    screenActive &&
+    requestSeq === latestSeq &&
+    requestUserKey === sessionUserKey
+  );
 }
 
 export function markVerificationFocused(
@@ -49,7 +80,7 @@ export function beginVerificationRefresh(
   const requestSeq = session.requestSeq + 1;
   return {
     requestSeq,
-    session: { ...session, requestSeq },
+    session: { ...session, requestSeq, userKey: session.userKey },
   };
 }
 

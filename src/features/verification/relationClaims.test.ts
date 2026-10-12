@@ -1,0 +1,299 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import type {
+  EquineManagementAssignment,
+  EquineOwnership,
+} from '../equines/types.ts';
+import { relationStatusLabel } from './presentation.ts';
+import {
+  CLAIM_RECORDED_NOTICE,
+  claimRequestLabel,
+  managementClaimPayload,
+  ownershipClaimPayload,
+  presentRelationClaims,
+  type ManagementClaimRecord,
+  type OwnershipClaimRecord,
+} from './relationClaims.ts';
+import {
+  beginRelationClaimSubmit,
+  createRelationClaimSession,
+  markRelationClaimsFocused,
+  settleRelationClaimSubmit,
+  switchRelationClaimContext,
+} from './relationClaimSession.ts';
+import {
+  switchVerificationUser,
+  shouldApplyVerificationResult,
+  createVerificationSession,
+} from './verificationSession.ts';
+import { userFacingVerificationMessage } from './verificationErrors.ts';
+import type { VerificationStatusRow } from './types.ts';
+
+const EQUINE = '11111111-1111-4111-8111-111111111111';
+const OTHER_EQUINE = '22222222-2222-4222-8222-222222222222';
+const OWNERSHIP_ID = '33333333-3333-4333-8333-333333333333';
+const ASSIGNMENT_ID = '44444444-4444-4444-8444-444444444444';
+const CLAIM_ID = '55555555-5555-4555-8555-555555555555';
+const VALID_FROM = '2020-01-01T00:00:00+00';
+
+function ownership(overrides: Partial<EquineOwnership> = {}): EquineOwnership {
+  return {
+    ownershipId: OWNERSHIP_ID,
+    equineId: EQUINE,
+    equineName: 'Caballo',
+    equineType: 'HORSE',
+    ownerType: 'PERSON',
+    ownershipPercentage: 60,
+    status: 'ACTIVE',
+    isCurrentlyEffective: true,
+    startedAt: VALID_FROM,
+    endedAt: null,
+    ...overrides,
+  };
+}
+
+function assignment(
+  overrides: Partial<EquineManagementAssignment> = {},
+): EquineManagementAssignment {
+  return {
+    assignmentId: ASSIGNMENT_ID,
+    equineId: EQUINE,
+    equineName: 'Caballo',
+    equineType: 'HORSE',
+    managementRole: 'PRIMARY_MANAGER',
+    status: 'ACTIVE',
+    isCurrentlyEffective: true,
+    validFrom: VALID_FROM,
+    validUntil: null,
+    ...overrides,
+  };
+}
+
+function trust(
+  kind: 'OWNERSHIP' | 'MANAGEMENT',
+  effectiveId: string,
+  statusCode: VerificationStatusRow['statusCode'] = 'NOT_VERIFIED',
+): VerificationStatusRow {
+  return {
+    subjectKind: kind,
+    marketCountryCode: null,
+    equineId: EQUINE,
+    effectiveId,
+    statusCode,
+  };
+}
+
+describe('relation claim payloads', () => {
+  it('copies the effective ownership percentage and id', () => {
+    const payload = ownershipClaimPayload(ownership());
+    assert.deepEqual(payload, {
+      p_equine_id: EQUINE,
+      p_market_country_code: 'ES',
+      p_owner_type: 'PERSON',
+      p_owner_center_id: null,
+      p_ownership_percentage: 60,
+      p_effective_ownership_id: OWNERSHIP_ID,
+    });
+  });
+
+  it('cannot build a percentage other than the effective row', () => {
+    const current = ownership({ ownershipPercentage: 60 });
+    const drifted = ownership({ ownershipPercentage: 40 });
+    assert.equal(ownershipClaimPayload(current)?.p_ownership_percentage, 60);
+    assert.equal(ownershipClaimPayload(drifted)?.p_ownership_percentage, 40);
+    assert.notEqual(
+      ownershipClaimPayload(drifted)?.p_ownership_percentage,
+      current.ownershipPercentage,
+    );
+    const section = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [current],
+      assignments: [],
+      ownershipClaims: [],
+      managementClaims: [],
+      trustRows: [trust('OWNERSHIP', OWNERSHIP_ID)],
+    });
+    assert.equal(section.ownership.ownershipPayload?.p_ownership_percentage, 60);
+    assert.equal(section.ownership.trustLabel, relationStatusLabel('NOT_VERIFIED'));
+    assert.equal('ownershipPercentage' in section.ownership, false);
+  });
+
+  it('copies the management role and the effective window', () => {
+    const payload = managementClaimPayload(assignment());
+    assert.equal(payload?.p_management_role, 'PRIMARY_MANAGER');
+    assert.equal(payload?.p_valid_from, VALID_FROM);
+    assert.equal(payload?.p_valid_until, null);
+    assert.equal(payload?.p_effective_assignment_id, ASSIGNMENT_ID);
+    assert.notEqual(payload?.p_valid_from, new Date().toISOString());
+  });
+
+  it('refuses a historical or expired assignment', () => {
+    assert.equal(
+      managementClaimPayload(
+        assignment({
+          status: 'ENDED',
+          isCurrentlyEffective: false,
+          validFrom: '2019-01-01T00:00:00+00',
+          validUntil: '2019-06-01T00:00:00+00',
+        }),
+      ),
+      null,
+    );
+    assert.equal(
+      managementClaimPayload(
+        assignment({
+          isCurrentlyEffective: false,
+          validFrom: '2099-01-01T00:00:00+00',
+        }),
+      ),
+      null,
+    );
+    assert.equal(
+      ownershipClaimPayload(
+        ownership({
+          status: 'ENDED',
+          isCurrentlyEffective: false,
+          endedAt: '2019-06-01T00:00:00+00',
+        }),
+      ),
+      null,
+    );
+  });
+
+  it('shows pending, review, accepted, and rejected with the shared labels', () => {
+    assert.equal(claimRequestLabel('SUBMITTED'), 'Solicitud pendiente');
+    assert.equal(claimRequestLabel('IN_REVIEW'), 'En revisión');
+    assert.equal(claimRequestLabel('ACCEPTED'), 'Aceptada');
+    assert.equal(claimRequestLabel('REJECTED'), 'No aceptada');
+    assert.equal(claimRequestLabel('UNAVAILABLE'), 'No disponible');
+
+    const claim = (
+      state: OwnershipClaimRecord['state'],
+    ): OwnershipClaimRecord => ({
+      claimId: CLAIM_ID,
+      equineId: EQUINE,
+      state,
+      marketCountryCode: 'ES',
+      ownerType: 'PERSON',
+      ownershipPercentage: 60,
+      decidedAt: '2024-01-01T00:00:00+00',
+    });
+
+    for (const [state, label, canSubmit] of [
+      ['SUBMITTED', 'Solicitud pendiente', false],
+      ['IN_REVIEW', 'En revisión', false],
+      ['ACCEPTED', 'Aceptada', false],
+      ['REJECTED', 'No aceptada', true],
+    ] as const) {
+      const section = presentRelationClaims({
+        equineId: EQUINE,
+        ownerships: [ownership()],
+        assignments: [],
+        ownershipClaims: [claim(state)],
+        managementClaims: [],
+        trustRows: [trust('OWNERSHIP', OWNERSHIP_ID)],
+      });
+      assert.equal(section.ownership.statusLabel, label);
+      assert.equal(section.ownership.canSubmit, canSubmit);
+    }
+  });
+
+  it('explains when no current relation can be submitted', () => {
+    const section = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [ownership({ equineId: OTHER_EQUINE })],
+      assignments: [],
+      ownershipClaims: [],
+      managementClaims: [] as ManagementClaimRecord[],
+      trustRows: [],
+    });
+    assert.equal(section.ownership.canSubmit, false);
+    assert.equal(section.ownership.ownershipPayload, null);
+    assert.match(section.ownership.explanation ?? '', /propiedad vigente/);
+    assert.equal(section.management.canSubmit, false);
+    assert.match(section.management.explanation ?? '', /responsabilidad vigente/);
+  });
+});
+
+describe('relation claim submit session', () => {
+  it('sends one request when the action is pressed twice', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const first = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(first);
+    current = first.session;
+    assert.equal(beginRelationClaimSubmit(current, 'user-a', EQUINE), null);
+    assert.equal(current.inFlight, true);
+  });
+
+  it('drops a response after the account changes', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const started = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(started);
+    current = switchRelationClaimContext(started.session, 'user-b', EQUINE);
+    assert.equal(current.inFlight, false);
+    assert.equal(current.notice, null);
+    assert.equal(current.errorMessage, null);
+    const settled = settleRelationClaimSubmit(current, started.request, {
+      ok: true,
+      notice: CLAIM_RECORDED_NOTICE,
+    });
+    assert.equal(settled.apply, false);
+    assert.equal(settled.session.notice, CLAIM_RECORDED_NOTICE);
+  });
+
+  it('releases the button after a recoverable or definitive failure', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const started = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(started);
+    const recoverable = settleRelationClaimSubmit(started.session, started.request, {
+      ok: false,
+      errorMessage: userFacingVerificationMessage(new Error('Network request failed')),
+    });
+    assert.equal(recoverable.apply, true);
+    assert.equal(recoverable.session.inFlight, false);
+    assert.equal(
+      recoverable.session.errorMessage,
+      'No se pudo completar la verificación. Inténtalo de nuevo.',
+    );
+    assert.equal(beginRelationClaimSubmit(recoverable.session, 'user-a', EQUINE) !== null, true);
+
+    const again = beginRelationClaimSubmit(recoverable.session, 'user-a', EQUINE);
+    assert.ok(again);
+    const definitive = userFacingVerificationMessage({
+      message: `Verification request is not available ${CLAIM_ID}`,
+      code: '42501',
+    });
+    const settled = settleRelationClaimSubmit(again.session, again.request, {
+      ok: false,
+      errorMessage: definitive,
+    });
+    assert.equal(settled.session.inFlight, false);
+    assert.equal(settled.session.errorMessage?.includes(CLAIM_ID), false);
+    assert.equal(settled.session.errorMessage?.includes('42501'), false);
+    assert.equal(settled.session.errorMessage?.toLowerCase().includes('select '), false);
+  });
+});
+
+describe('verification account switch', () => {
+  it('clears the previous account before a late response can apply', () => {
+    const started = createVerificationSession('user-a');
+    const switched = switchVerificationUser(
+      { ...started, requestSeq: 4, pendingSnapshot: null, pendingError: 'old' },
+      'user-b',
+    );
+    assert.equal(switched.userKey, 'user-b');
+    assert.equal(switched.pendingError, null);
+    assert.equal(switched.submit.inFlight, false);
+    assert.equal(
+      shouldApplyVerificationResult(4, switched.requestSeq, true, 'user-a', switched.userKey),
+      false,
+    );
+  });
+});

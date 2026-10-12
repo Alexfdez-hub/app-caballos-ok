@@ -16,10 +16,55 @@ import { colors } from '../app/ui/theme';
 import { equineTypeLabel } from '../features/equines/labels';
 import { useEquineDetail } from '../features/equines/useEquineDetail';
 import { useEquinePhotos } from '../features/equines/useEquinePhotos';
+import { useRelationClaims } from '../features/verification/useRelationClaims';
+
+function RelationClaimBlock({
+  action,
+  buttonLabel,
+  disabled,
+  onPress,
+}: {
+  action: {
+    title: string;
+    statusLabel: string | null;
+    trustLabel: string;
+    explanation: string | null;
+  };
+  buttonLabel: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <>
+      <Text style={styles.line}>
+        {action.title}
+        {' · '}
+        {action.trustLabel}
+        {action.statusLabel ? ` · ${action.statusLabel}` : ''}
+      </Text>
+      {action.explanation ? (
+        <Text style={styles.hint}>{action.explanation}</Text>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.secondaryButton,
+          disabled && styles.buttonDisabled,
+          pressed && !disabled && styles.buttonPressed,
+        ]}
+      >
+        <Text style={styles.secondaryButtonText}>{buttonLabel}</Text>
+      </Pressable>
+    </>
+  );
+}
 
 export default function EquineDetailScreen({ route }: EquineDetailScreenProps) {
   const equineId = route.params.equineId;
   const { equine, isLoading, errorMessage, refresh } = useEquineDetail(equineId);
+  const claims = useRelationClaims(equineId);
   const photos = useEquinePhotos(equineId, equine?.isPrimaryManager === true);
   const [isChoosing, setIsChoosing] = useState(false);
 
@@ -86,6 +131,42 @@ export default function EquineDetailScreen({ route }: EquineDetailScreenProps) {
               : 'Sin gestión principal vigente'}
           </Text>
           <Text style={styles.hint}>El equino queda privado.</Text>
+        </SectionCard>
+      ) : null}
+
+      {equine && claims.hasSession ? (
+        <SectionCard title="Verificación de relación">
+          <Text style={styles.hint}>
+            La reclamación no verifica la relación, no transfiere el equino y no abre
+            publicación, reservas ni pagos.
+          </Text>
+          {claims.isLoading ? <ActivityIndicator color={colors.text} /> : null}
+          {claims.notice ? <Text style={styles.hint}>{claims.notice}</Text> : null}
+          {claims.errorMessage ? (
+            <Text accessibilityRole="alert" style={styles.message}>
+              {claims.errorMessage}
+            </Text>
+          ) : null}
+          {claims.section ? (
+            <>
+              <RelationClaimBlock
+                action={claims.section.ownership}
+                buttonLabel="Presentar reclamación de propiedad"
+                disabled={claims.isSubmitting || !claims.section.ownership.canSubmit}
+                onPress={() => {
+                  void claims.submitOwnership();
+                }}
+              />
+              <RelationClaimBlock
+                action={claims.section.management}
+                buttonLabel="Presentar reclamación de responsabilidad"
+                disabled={claims.isSubmitting || !claims.section.management.canSubmit}
+                onPress={() => {
+                  void claims.submitManagement();
+                }}
+              />
+            </>
+          ) : null}
         </SectionCard>
       ) : null}
 
@@ -262,6 +343,9 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.8,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
   },
   secondaryButtonText: {
     color: colors.text,
