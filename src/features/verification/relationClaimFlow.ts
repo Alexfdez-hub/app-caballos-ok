@@ -20,10 +20,7 @@ import {
   type RelationClaimRequest,
   type RelationClaimSession,
 } from './relationClaimSession.ts';
-import {
-  userFacingVerificationMessage,
-  VerificationResponseError,
-} from './verificationErrors.ts';
+import { userFacingVerificationMessage } from './verificationErrors.ts';
 
 export type RelationClaimKind = 'OWNERSHIP' | 'MANAGEMENT';
 
@@ -37,6 +34,8 @@ export type RelationClaimModel = {
   held: RelationClaimSnapshot | null;
   visible: RelationClaimSnapshot | null;
   confirmed: ConfirmedRelationClaims;
+  /** Ambiguous mutation. A valid snapshot with no open claim may release it. */
+  pending: ConfirmedRelationClaims;
 };
 
 const noneConfirmed = (): ConfirmedRelationClaims => ({
@@ -57,6 +56,7 @@ export function createRelationClaimModel(
     held: null,
     visible: null,
     confirmed: noneConfirmed(),
+    pending: noneConfirmed(),
   };
 }
 
@@ -107,6 +107,7 @@ export function switchRelationClaimModel(
     held: null,
     visible: null,
     confirmed: noneConfirmed(),
+    pending: noneConfirmed(),
   };
 }
 
@@ -164,6 +165,7 @@ export function settleRelationClaimModelSuccess(
       held: snapshot,
       visible: settled.apply ? snapshot : model.visible,
       confirmed: { ...model.confirmed, [kind]: true },
+      pending: { ...model.pending, [kind]: false },
     },
   };
 }
@@ -229,6 +231,7 @@ export function finishRelationClaimModelRefresh(
           held: model.held,
           visible: model.held ?? model.visible,
           confirmed: model.confirmed,
+          pending: model.pending,
         },
       };
     }
@@ -239,14 +242,15 @@ export function finishRelationClaimModelRefresh(
         held: null,
         visible: null,
         confirmed: noneConfirmed(),
+        pending: noneConfirmed(),
       },
     };
   }
 
   const equineId = finished.session.equineId;
-  const confirmed = equineId
-    ? confirmedAfterSnapshot(model.confirmed, equineId, result.snapshot)
-    : model.confirmed;
+  const holds = equineId
+    ? holdsAfterSnapshot(model, equineId, result.snapshot)
+    : { confirmed: model.confirmed, pending: model.pending };
 
   return {
     paint: true,
@@ -254,28 +258,48 @@ export function finishRelationClaimModelRefresh(
       session: finished.session,
       held: result.snapshot,
       visible: result.snapshot,
-      confirmed,
+      confirmed: holds.confirmed,
+      pending: holds.pending,
     },
   };
 }
 
-function confirmedAfterSnapshot(
-  confirmed: ConfirmedRelationClaims,
+const OPEN_CLAIM_STATES = new Set(['SUBMITTED', 'IN_REVIEW', 'RESUBMITTED']);
+
+function snapshotHasOpenClaim(
+  snapshot: RelationClaimSnapshot,
+  kind: RelationClaimKind,
+  equineId: string,
+): boolean {
+  const claims = kind === 'OWNERSHIP' ? snapshot.ownershipClaims : snapshot.managementClaims;
+  return claims.some(
+    (claim) =>
+      claim.equineId === equineId &&
+      claim.marketCountryCode === 'ES' &&
+      OPEN_CLAIM_STATES.has(claim.state),
+  );
+}
+
+/**
+ * An open claim drops the redundant lock because the snapshot itself blocks.
+ * A pending lock is released only when that valid snapshot has no open claim.
+ * A proven write stays locked if the list still does not show the claim.
+ */
+function holdsAfterSnapshot(
+  model: RelationClaimModel,
   equineId: string,
   snapshot: RelationClaimSnapshot,
-): ConfirmedRelationClaims {
-  const section = presentRelationClaims({
-    equineId,
-    ownerships: snapshot.ownerships,
-    assignments: snapshot.assignments,
-    ownershipClaims: snapshot.ownershipClaims,
-    managementClaims: snapshot.managementClaims,
-    trustRows: snapshot.trustRows,
-  });
-  return {
-    OWNERSHIP: confirmed.OWNERSHIP && section.ownership.canSubmit,
-    MANAGEMENT: confirmed.MANAGEMENT && section.management.canSubmit,
-  };
+): { confirmed: ConfirmedRelationClaims; pending: ConfirmedRelationClaims } {
+  const confirmed = { ...model.confirmed };
+  const pending = { ...model.pending };
+  for (const kind of ['OWNERSHIP', 'MANAGEMENT'] as const) {
+    if (!confirmed[kind] && !pending[kind]) continue;
+    if (snapshotHasOpenClaim(snapshot, kind, equineId) || pending[kind]) {
+      confirmed[kind] = false;
+      pending[kind] = false;
+    }
+  }
+  return { confirmed, pending };
 }
 
 /**
@@ -299,6 +323,7 @@ export function acceptRelationClaimMutation(
       held,
       visible: settled.apply ? held : model.visible,
       confirmed: { ...model.confirmed, [kind]: true },
+      pending: { ...model.pending, [kind]: false },
     },
   };
 }
@@ -331,14 +356,15 @@ export function reconcileRelationClaimSnapshot(
         held,
         visible: apply ? held : model.visible,
         confirmed: model.confirmed,
+        pending: model.pending,
       },
     };
   }
 
   const equineId = model.session.equineId;
-  const confirmed = equineId
-    ? confirmedAfterSnapshot(model.confirmed, equineId, result.snapshot)
-    : model.confirmed;
+  const holds = equineId
+    ? holdsAfterSnapshot(model, equineId, result.snapshot)
+    : { confirmed: model.confirmed, pending: model.pending };
   return {
     settled: true,
     apply,
@@ -351,7 +377,8 @@ export function reconcileRelationClaimSnapshot(
       },
       held: result.snapshot,
       visible: apply ? result.snapshot : model.visible,
-      confirmed,
+      confirmed: holds.confirmed,
+      pending: holds.pending,
     },
   };
 }
@@ -361,6 +388,52 @@ export class RelationClaimUnavailable extends Error {
     super('No se ha podido registrar la reclamación.');
     this.name = 'RelationClaimUnavailable';
   }
+}
+
+/**
+ * SQLSTATE 42501 is the only refusal this RPC returns, and only after the
+ * transaction aborts. Receiving it means the insert was not committed.
+ * Timeouts, network failures, and every other code stay ambiguous.
+ */
+export const UNEQUIVOCAL_CLAIM_REJECTION_CODE = '42501';
+
+export function relationClaimMutationDisposition(
+  error: unknown,
+): 'local' | 'rejected' | 'ambiguous' {
+  if (error instanceof RelationClaimUnavailable) return 'local';
+  if (!error || typeof error !== 'object' || !('code' in error)) return 'ambiguous';
+  return String((error as { code?: unknown }).code) === UNEQUIVOCAL_CLAIM_REJECTION_CODE
+    ? 'rejected'
+    : 'ambiguous';
+}
+
+/** Unknown mutation result. Block the kind until a snapshot proves what was written. */
+export function holdRelationClaimForReconciliation(
+  model: RelationClaimModel,
+  request: RelationClaimRequest,
+  kind: RelationClaimKind,
+): { model: RelationClaimModel; apply: boolean; settled: boolean } {
+  if (!shouldSettleRelationClaimResult(request, model.session)) {
+    return { model, apply: false, settled: false };
+  }
+  const apply = model.session.screenActive;
+  const held = model.held ?? model.visible;
+  return {
+    settled: true,
+    apply,
+    model: {
+      session: {
+        ...model.session,
+        inFlight: false,
+        notice: model.session.notice,
+        errorMessage: null,
+      },
+      held,
+      visible: apply ? held : model.visible,
+      confirmed: { ...model.confirmed, [kind]: true },
+      pending: { ...model.pending, [kind]: true },
+    },
+  };
 }
 
 /**
@@ -396,7 +469,8 @@ export async function attemptRelationClaimSubmit(input: {
     await input.mutate();
   } catch (error) {
     current = read();
-    if (!(error instanceof VerificationResponseError)) {
+    const disposition = relationClaimMutationDisposition(error);
+    if (disposition === 'local' || disposition === 'rejected') {
       const message =
         error instanceof RelationClaimUnavailable
           ? error.message
@@ -405,22 +479,31 @@ export async function attemptRelationClaimSubmit(input: {
       input.writeModel?.(failed.model);
       return { model: failed.model, sent: true, confirmed: false };
     }
+    const held = holdRelationClaimForReconciliation(current, started.request, input.kind);
+    if (!held.settled) {
+      input.writeModel?.(held.model);
+      return { model: held.model, sent: true, confirmed: false };
+    }
+    current = held.model;
+    input.writeModel?.(current);
     ambiguous = true;
   }
 
-  current = read();
-  const accepted = acceptRelationClaimMutation(
-    current,
-    started.request,
-    input.kind,
-    input.notice,
-  );
-  if (!accepted.settled) {
-    input.writeModel?.(accepted.model);
-    return { model: accepted.model, sent: true, confirmed: false };
+  if (!ambiguous) {
+    current = read();
+    const accepted = acceptRelationClaimMutation(
+      current,
+      started.request,
+      input.kind,
+      input.notice,
+    );
+    if (!accepted.settled) {
+      input.writeModel?.(accepted.model);
+      return { model: accepted.model, sent: true, confirmed: false };
+    }
+    current = accepted.model;
+    input.writeModel?.(current);
   }
-  current = accepted.model;
-  input.writeModel?.(current);
 
   try {
     const snapshot = await input.loadSnapshot();
@@ -438,10 +521,6 @@ export async function attemptRelationClaimSubmit(input: {
       errorMessage: CLAIM_RECONCILE_ERROR,
     });
     input.writeModel?.(reconciled.model);
-    return {
-      model: reconciled.model,
-      sent: true,
-      confirmed: ambiguous || accepted.settled,
-    };
+    return { model: reconciled.model, sent: true, confirmed: true };
   }
 }

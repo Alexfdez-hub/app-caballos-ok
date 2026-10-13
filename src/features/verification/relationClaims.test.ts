@@ -25,6 +25,7 @@ import {
   finishRelationClaimModelRefresh,
   focusRelationClaimModel,
   reconcileRelationClaimSnapshot,
+  RelationClaimUnavailable,
   relationClaimModelFlight,
   relationClaimModelSection,
   settleRelationClaimModelFailure,
@@ -953,9 +954,9 @@ describe('relation claim mutation and snapshot read', () => {
     );
   });
 
-  it('allows exactly one retry when the mutation fails before confirmation', async () => {
+  it('blocks a timed-out mutation when the snapshot shows the open claim', async () => {
     let calls = 0;
-    const failed = await driveClaimSubmit(
+    const first = await driveClaimSubmit(
       readyClaimModel(),
       async () => {
         calls += 1;
@@ -963,9 +964,129 @@ describe('relation claim mutation and snapshot read', () => {
       },
       async () => claimSnapshot(true),
     );
-    assert.equal(failed.confirmed, false);
+    assert.equal(first.model.pending.OWNERSHIP, false);
+    assert.equal(
+      relationClaimModelSection(first.model, EQUINE)?.ownership.statusLabel,
+      'Solicitud pendiente',
+    );
+    assert.equal(relationClaimModelSection(first.model, EQUINE)?.ownership.canSubmit, false);
+    const second = await driveClaimSubmit(
+      first.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(second.sent, false);
+    assert.equal(calls, 1);
+  });
+
+  it('stays blocked when a timeout and the snapshot read both fail', async () => {
+    let calls = 0;
+    const first = await driveClaimSubmit(
+      readyClaimModel(),
+      async (box) => {
+        calls += 1;
+        box.model = blurRelationClaimModel(box.model);
+        throw new Error('timeout');
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(first.model.confirmed.OWNERSHIP, true);
+    assert.equal(first.model.pending.OWNERSHIP, true);
+    assert.equal(first.model.session.notice, null);
+    assert.equal(first.model.session.errorMessage, CLAIM_RECONCILE_ERROR);
+    const returned = focusRelationClaimModel(first.model);
+    assert.equal(relationClaimModelSection(returned, EQUINE)?.ownership.canSubmit, false);
+    const second = await driveClaimSubmit(
+      returned,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(false),
+    );
+    assert.equal(second.sent, false);
+    assert.equal(calls, 1);
+  });
+
+  it('retries only after a valid snapshot shows no open claim', async () => {
+    let calls = 0;
+    const failed = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        calls += 1;
+        throw new Error('Network request failed');
+      },
+      async () => claimSnapshot(false),
+    );
     assert.equal(failed.model.confirmed.OWNERSHIP, false);
-    assert.equal(failed.model.session.inFlight, false);
+    assert.equal(failed.model.pending.OWNERSHIP, false);
+    const retry = await driveClaimSubmit(
+      failed.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(retry.sent, true);
+    assert.equal(calls, 2);
+    const extra = await driveClaimSubmit(
+      retry.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(extra.sent, false);
+    assert.equal(calls, 2);
+  });
+
+  it('retries a local failure that happens before the RPC', async () => {
+    let calls = 0;
+    const failed = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        throw new RelationClaimUnavailable();
+      },
+      async () => {
+        calls += 1;
+        return claimSnapshot(true);
+      },
+    );
+    assert.equal(calls, 0);
+    assert.equal(failed.model.confirmed.OWNERSHIP, false);
+    assert.equal(failed.model.pending.OWNERSHIP, false);
+    assert.equal(failed.model.session.errorMessage, 'No se ha podido registrar la reclamación.');
+    const retry = await driveClaimSubmit(
+      failed.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(retry.sent, true);
+    assert.equal(calls, 1);
+  });
+
+  it('allows exactly one retry when the server rejects with 42501', async () => {
+    let calls = 0;
+    let reads = 0;
+    const failed = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        calls += 1;
+        throw Object.assign(new Error('Verification request is not available'), { code: '42501' });
+      },
+      async () => {
+        reads += 1;
+        return claimSnapshot(true);
+      },
+    );
+    assert.equal(reads, 0);
+    assert.equal(failed.model.confirmed.OWNERSHIP, false);
+    assert.equal(failed.model.pending.OWNERSHIP, false);
     assert.equal(
       failed.model.session.errorMessage,
       'No se pudo completar la verificación. Inténtalo de nuevo.',
@@ -979,10 +1100,6 @@ describe('relation claim mutation and snapshot read', () => {
     );
     assert.equal(retry.sent, true);
     assert.equal(calls, 2);
-    assert.equal(
-      relationClaimModelSection(retry.model, EQUINE)?.ownership.statusLabel,
-      'Solicitud pendiente',
-    );
     const extra = await driveClaimSubmit(
       retry.model,
       async () => {
@@ -1006,10 +1123,10 @@ describe('relation claim mutation and snapshot read', () => {
         throw new Error('timeout');
       },
     );
-    assert.equal(ambiguous.confirmed, true);
     assert.equal(ambiguous.model.confirmed.OWNERSHIP, true);
-    assert.equal(ambiguous.model.session.notice, CLAIM_RECORDED_NOTICE);
-    assert.notEqual(ambiguous.model.session.errorMessage, null);
+    assert.equal(ambiguous.model.pending.OWNERSHIP, true);
+    assert.equal(ambiguous.model.session.notice, null);
+    assert.equal(ambiguous.model.session.errorMessage, CLAIM_RECONCILE_ERROR);
     const second = await driveClaimSubmit(
       ambiguous.model,
       async () => {

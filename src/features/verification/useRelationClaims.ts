@@ -43,6 +43,7 @@ function emptyModel(userKey: string | null): RelationClaimModel {
     held: null,
     visible: null,
     confirmed: EMPTY_CONFIRMED,
+    pending: EMPTY_CONFIRMED,
   };
 }
 
@@ -77,6 +78,7 @@ export function useRelationClaims(equineId: string) {
         held: null,
         visible: null,
         confirmed: EMPTY_CONFIRMED,
+        pending: EMPTY_CONFIRMED,
       };
       paint(cleared);
       setIsLoading(false);
@@ -90,6 +92,7 @@ export function useRelationClaims(equineId: string) {
         held: null,
         visible: null,
         confirmed: EMPTY_CONFIRMED,
+        pending: EMPTY_CONFIRMED,
       });
       setIsLoading(false);
       return;
@@ -187,6 +190,7 @@ export function useRelationClaims(equineId: string) {
           held: snapshot,
           visible: snapshot,
           confirmed,
+          pending: modelRef.current.pending,
         },
         equineId,
       )
