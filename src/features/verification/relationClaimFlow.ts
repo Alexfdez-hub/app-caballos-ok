@@ -347,12 +347,13 @@ export function reconcileRelationClaimSnapshot(
       settled: true,
       apply,
       model: {
-        session: {
-          ...model.session,
-          inFlight: false,
-          notice: model.session.notice,
-          errorMessage: result.errorMessage ?? CLAIM_RECONCILE_ERROR,
-        },
+      session: {
+        ...model.session,
+        mutationSeq: model.session.mutationSeq + 1,
+        inFlight: false,
+        notice: model.session.notice,
+        errorMessage: result.errorMessage ?? CLAIM_RECONCILE_ERROR,
+      },
         held,
         visible: apply ? held : model.visible,
         confirmed: model.confirmed,
@@ -371,6 +372,7 @@ export function reconcileRelationClaimSnapshot(
     model: {
       session: {
         ...model.session,
+        mutationSeq: model.session.mutationSeq + 1,
         inFlight: false,
         notice: model.session.notice,
         errorMessage: null,
@@ -424,6 +426,7 @@ export function holdRelationClaimForReconciliation(
     model: {
       session: {
         ...model.session,
+        mutationSeq: model.session.mutationSeq + 1,
         inFlight: false,
         notice: model.session.notice,
         errorMessage: null,

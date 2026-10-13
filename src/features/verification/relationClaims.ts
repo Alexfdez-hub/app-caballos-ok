@@ -3,6 +3,7 @@ import type {
   EquineOwnership,
 } from '../equines/types';
 import type { TrustStatusCode, VerificationStatusRow } from './types';
+import { VerificationResponseError } from './verificationErrors.ts';
 
 function relationTrustLabel(statusCode: TrustStatusCode): string {
   if (statusCode === 'VERIFIED') {
@@ -17,6 +18,31 @@ function relationTrustLabel(statusCode: TrustStatusCode): string {
 }
 
 export const SPAIN_MARKET = 'ES';
+
+/**
+ * Both submit RPCs return only claim_id, state, and market_country_code.
+ * PERSON is fixed by the payload and checked inside the function.
+ */
+export function assertSubmittedClaimResult(data: unknown): void {
+  const rows = Array.isArray(data) ? data : [];
+  const row = rows[0];
+  if (rows.length !== 1 || !isSubmittedClaimRow(row)) {
+    throw new VerificationResponseError();
+  }
+}
+
+function isSubmittedClaimRow(value: unknown): boolean {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.claim_id === 'string' &&
+    row.claim_id.trim().length > 0 &&
+    row.state === 'SUBMITTED' &&
+    row.market_country_code === SPAIN_MARKET
+  );
+}
 
 export const CLAIM_RECORDED_NOTICE =
   'Solicitud registrada. Esta reclamación no verifica la relación ni transfiere el equino, y no abre publicación, reservas ni pagos.';

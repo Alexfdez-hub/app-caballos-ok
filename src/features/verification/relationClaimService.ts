@@ -6,7 +6,7 @@ import { supabase } from '../../services/supabase/client';
 import { VerificationResponseError } from './verificationErrors';
 import { parseVerificationStatusRows } from './verificationRow';
 import {
-  SPAIN_MARKET,
+  assertSubmittedClaimResult,
   type ManagementClaimPayload,
   type ManagementClaimRecord,
   type OwnershipClaimPayload,
@@ -143,23 +143,8 @@ export async function loadRelationClaimSnapshot(): Promise<RelationClaimSnapshot
   };
 }
 
-function submittedRow(data: unknown, kind: 'ownership' | 'management'): void {
-  const rows = Array.isArray(data) ? data : [];
-  const row = rows[0];
-  if (
-    rows.length !== 1 ||
-    !isRecord(row) ||
-    row.state !== 'SUBMITTED' ||
-    row.market_country_code !== SPAIN_MARKET
-  ) {
-    throw new VerificationResponseError();
-  }
-  if (kind === 'ownership' && row.owner_type !== 'PERSON') {
-    throw new VerificationResponseError();
-  }
-  if (kind === 'management' && row.manager_type !== 'PERSON') {
-    throw new VerificationResponseError();
-  }
+function submittedRow(data: unknown): void {
+  assertSubmittedClaimResult(data);
 }
 
 export async function submitOwnershipClaim(
@@ -172,7 +157,7 @@ export async function submitOwnershipClaim(
   if (error) {
     throw error;
   }
-  submittedRow(data, 'ownership');
+  submittedRow(data);
 }
 
 export async function submitManagementClaim(
@@ -185,5 +170,5 @@ export async function submitManagementClaim(
   if (error) {
     throw error;
   }
-  submittedRow(data, 'management');
+  submittedRow(data);
 }

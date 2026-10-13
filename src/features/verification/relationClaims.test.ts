@@ -7,6 +7,7 @@ import type {
 } from '../equines/types.ts';
 import { relationStatusLabel } from './presentation.ts';
 import {
+  assertSubmittedClaimResult,
   CLAIM_RECORDED_NOTICE,
   CLAIM_RECONCILE_ERROR,
   claimRequestLabel,
@@ -1109,6 +1110,222 @@ describe('relation claim mutation and snapshot read', () => {
     );
     assert.equal(extra.sent, false);
     assert.equal(calls, 2);
+  });
+
+  it('accepts the real ownership and management RPC rows as a confirmed write', async () => {
+    const ownershipRow = [
+      {
+        claim_id: CLAIM_ID,
+        state: 'SUBMITTED',
+        market_country_code: 'ES',
+      },
+    ];
+    const managementRow = [
+      {
+        claim_id: CLAIM_ID,
+        state: 'SUBMITTED',
+        market_country_code: 'ES',
+      },
+    ];
+    assert.doesNotThrow(() => assertSubmittedClaimResult(ownershipRow));
+    assert.doesNotThrow(() => assertSubmittedClaimResult(managementRow));
+    const submitted = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        assertSubmittedClaimResult(ownershipRow);
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(submitted.model.confirmed.OWNERSHIP, false);
+    assert.equal(submitted.model.pending.OWNERSHIP, false);
+    assert.equal(submitted.model.session.notice, CLAIM_RECORDED_NOTICE);
+    assert.equal(
+      relationClaimModelSection(submitted.model, EQUINE)?.ownership.statusLabel,
+      'Solicitud pendiente',
+    );
+    assert.equal(
+      beginRelationClaimModelSubmit(submitted.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('fails closed when the RPC row omits the id, state, or market', async () => {
+    const invalid = [
+      [{ state: 'SUBMITTED', market_country_code: 'ES' }],
+      [{ claim_id: '   ', state: 'SUBMITTED', market_country_code: 'ES' }],
+      [{ claim_id: CLAIM_ID, state: 'IN_REVIEW', market_country_code: 'ES' }],
+      [{ claim_id: CLAIM_ID, state: 'SUBMITTED', market_country_code: 'FR' }],
+      [
+        {
+          claim_id: CLAIM_ID,
+          state: 'SUBMITTED',
+          market_country_code: 'ES',
+          owner_type: 'PERSON',
+          manager_type: 'PERSON',
+        },
+      ],
+      null,
+      [],
+    ];
+    for (const row of invalid.slice(0, 4)) {
+      assert.throws(() => assertSubmittedClaimResult(row), VerificationResponseError);
+    }
+    assert.doesNotThrow(() => assertSubmittedClaimResult(invalid[4]));
+    assert.throws(() => assertSubmittedClaimResult(invalid[5]), VerificationResponseError);
+    assert.throws(() => assertSubmittedClaimResult(invalid[6]), VerificationResponseError);
+
+    let calls = 0;
+    const failed = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        calls += 1;
+        assertSubmittedClaimResult([{ state: 'SUBMITTED', market_country_code: 'ES' }]);
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(failed.model.confirmed.OWNERSHIP, true);
+    assert.equal(failed.model.pending.OWNERSHIP, true);
+    assert.equal(failed.model.session.notice, null);
+    const second = await driveClaimSubmit(
+      failed.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(second.sent, false);
+    assert.equal(calls, 1);
+  });
+
+  it('does not let a pre-submit refresh replace the reconciled claim', async () => {
+    const initial = readyClaimModel();
+    const earlier = beginRelationClaimModelRefresh(initial);
+    assert.ok(earlier);
+    let calls = 0;
+    const submitted = await driveClaimSubmit(
+      earlier.model,
+      async () => {
+        calls += 1;
+        assertSubmittedClaimResult([
+          {
+            claim_id: CLAIM_ID,
+            state: 'SUBMITTED',
+            market_country_code: 'ES',
+          },
+        ]);
+      },
+      async () => claimSnapshot(true),
+    );
+    const late = finishRelationClaimModelRefresh(submitted.model, earlier.refresh, {
+      ok: true,
+      snapshot: claimSnapshot(false),
+    });
+    assert.equal(late.paint, false);
+    assert.equal(late.model, submitted.model);
+    assert.equal(
+      relationClaimModelSection(late.model, EQUINE)?.ownership.canSubmit,
+      false,
+    );
+    const second = await driveClaimSubmit(
+      late.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(false),
+    );
+    assert.equal(second.sent, false);
+    assert.equal(calls, 1);
+  });
+
+  it('does not let a refresh started before an ambiguous mutation release pending', async () => {
+    const initial = readyClaimModel();
+    const earlier = beginRelationClaimModelRefresh(initial);
+    assert.ok(earlier);
+    const ambiguous = await driveClaimSubmit(
+      earlier.model,
+      async () => {
+        throw new Error('timeout');
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(ambiguous.model.pending.OWNERSHIP, true);
+    const late = finishRelationClaimModelRefresh(ambiguous.model, earlier.refresh, {
+      ok: true,
+      snapshot: claimSnapshot(false),
+    });
+    assert.equal(late.paint, false);
+    assert.equal(late.model.pending.OWNERSHIP, true);
+    assert.equal(late.model.confirmed.OWNERSHIP, true);
+    assert.equal(
+      beginRelationClaimModelSubmit(late.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('does not let a refresh started during the submit release a pending hold', async () => {
+    let earlier: ReturnType<typeof beginRelationClaimModelRefresh> = null;
+    const ambiguous = await driveClaimSubmit(
+      readyClaimModel(),
+      async (box) => {
+        earlier = beginRelationClaimModelRefresh(box.model);
+        assert.ok(earlier);
+        box.model = earlier.model;
+        throw new Error('timeout');
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.ok(earlier);
+    assert.equal(ambiguous.model.pending.OWNERSHIP, true);
+    const late = finishRelationClaimModelRefresh(ambiguous.model, earlier.refresh, {
+      ok: true,
+      snapshot: claimSnapshot(false),
+    });
+    assert.equal(late.paint, false);
+    assert.equal(late.model.pending.OWNERSHIP, true);
+    assert.equal(late.model.confirmed.OWNERSHIP, true);
+    assert.equal(
+      beginRelationClaimModelSubmit(late.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('lets a refresh started after the mutation release a pending hold with no open claim', async () => {
+    const ambiguous = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        throw new Error('Network request failed');
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(ambiguous.model.pending.OWNERSHIP, true);
+    const later = beginRelationClaimModelRefresh(ambiguous.model);
+    assert.ok(later);
+    const finished = finishRelationClaimModelRefresh(later.model, later.refresh, {
+      ok: true,
+      snapshot: claimSnapshot(false),
+    });
+    assert.equal(finished.paint, true);
+    assert.equal(finished.model.pending.OWNERSHIP, false);
+    assert.equal(finished.model.confirmed.OWNERSHIP, false);
+    const retry = beginRelationClaimModelSubmit(
+      finished.model,
+      'OWNERSHIP',
+      'user-a',
+      EQUINE,
+    );
+    assert.ok(retry);
+    assert.equal(
+      beginRelationClaimModelSubmit(retry.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
   });
 
   it('fails closed when the mutation response cannot be read', async () => {

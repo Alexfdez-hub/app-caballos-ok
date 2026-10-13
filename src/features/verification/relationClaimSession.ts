@@ -7,6 +7,11 @@ export type RelationClaimRequest = {
 export type RelationClaimSession = {
   requestSeq: number;
   refreshSeq: number;
+  /**
+   * Advances when a submit starts and again when that attempt settles.
+   * A refresh records the value it observed and cannot apply after it moves.
+   */
+  mutationSeq: number;
   userKey: string | null;
   equineId: string | null;
   screenActive: boolean;
@@ -23,6 +28,8 @@ export type RelationClaimFlight = {
 
 export type RelationClaimRefresh = {
   refreshSeq: number;
+  /** mutationSeq observed when this refresh started. */
+  mutationSeq: number;
   userKey: string | null;
   equineId: string;
 };
@@ -33,6 +40,7 @@ export function createRelationClaimSession(
   return {
     requestSeq: 0,
     refreshSeq: 0,
+    mutationSeq: 0,
     userKey,
     equineId: null,
     screenActive: false,
@@ -58,6 +66,7 @@ export function switchRelationClaimContext(
   return {
     requestSeq: session.requestSeq + 1,
     refreshSeq: session.refreshSeq,
+    mutationSeq: session.mutationSeq,
     userKey,
     equineId,
     screenActive: session.screenActive,
@@ -126,6 +135,7 @@ export function beginRelationClaimSubmit(
     session: {
       ...session,
       requestSeq,
+      mutationSeq: session.mutationSeq + 1,
       userKey,
       equineId,
       inFlight: true,
@@ -147,12 +157,14 @@ export function settleRelationClaimSubmit(
   const next: RelationClaimSession = result.ok
     ? {
         ...session,
+        mutationSeq: session.mutationSeq + 1,
         inFlight: false,
         notice: result.notice,
         errorMessage: null,
       }
     : {
         ...session,
+        mutationSeq: session.mutationSeq + 1,
         inFlight: false,
         notice: null,
         errorMessage: result.errorMessage,
@@ -171,6 +183,7 @@ export function beginRelationClaimRefresh(
   const refreshSeq = session.refreshSeq + 1;
   const refresh = {
     refreshSeq,
+    mutationSeq: session.mutationSeq,
     userKey: session.userKey,
     equineId: session.equineId,
   };
@@ -187,6 +200,7 @@ export function finishRelationClaimRefresh(
 ): { session: RelationClaimSession; paint: boolean } {
   const sameContext =
     refresh.refreshSeq === session.refreshSeq &&
+    refresh.mutationSeq === session.mutationSeq &&
     refresh.userKey === session.userKey &&
     refresh.equineId === session.equineId;
   if (!sameContext || !session.screenActive) {
