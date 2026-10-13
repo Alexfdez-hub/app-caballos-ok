@@ -6,6 +6,7 @@ export type RelationClaimRequest = {
 
 export type RelationClaimSession = {
   requestSeq: number;
+  refreshSeq: number;
   userKey: string | null;
   equineId: string | null;
   screenActive: boolean;
@@ -14,11 +15,24 @@ export type RelationClaimSession = {
   errorMessage: string | null;
 };
 
+export type RelationClaimFlight = {
+  inFlight: boolean;
+  notice: string | null;
+  errorMessage: string | null;
+};
+
+export type RelationClaimRefresh = {
+  refreshSeq: number;
+  userKey: string | null;
+  equineId: string;
+};
+
 export function createRelationClaimSession(
   userKey: string | null = null,
 ): RelationClaimSession {
   return {
     requestSeq: 0,
+    refreshSeq: 0,
     userKey,
     equineId: null,
     screenActive: false,
@@ -43,6 +57,7 @@ export function switchRelationClaimContext(
 ): RelationClaimSession {
   return {
     requestSeq: session.requestSeq + 1,
+    refreshSeq: session.refreshSeq,
     userKey,
     equineId,
     screenActive: session.screenActive,
@@ -52,16 +67,35 @@ export function switchRelationClaimContext(
   };
 }
 
+export function shouldSettleRelationClaimResult(
+  request: RelationClaimRequest,
+  session: RelationClaimSession,
+): boolean {
+  return (
+    request.requestSeq === session.requestSeq &&
+    request.userKey === session.userKey &&
+    request.equineId === session.equineId
+  );
+}
+
 export function shouldApplyRelationClaimResult(
   request: RelationClaimRequest,
   session: RelationClaimSession,
 ): boolean {
   return (
     session.screenActive &&
-    request.requestSeq === session.requestSeq &&
-    request.userKey === session.userKey &&
-    request.equineId === session.equineId
+    shouldSettleRelationClaimResult(request, session)
   );
+}
+
+export function relationClaimFlight(
+  session: RelationClaimSession,
+): RelationClaimFlight {
+  return {
+    inFlight: session.inFlight,
+    notice: session.notice,
+    errorMessage: session.errorMessage,
+  };
 }
 
 export function markRelationClaimsFocused(
@@ -106,7 +140,7 @@ export function settleRelationClaimSubmit(
   request: RelationClaimRequest,
   result: { ok: true; notice: string } | { ok: false; errorMessage: string },
 ): { session: RelationClaimSession; apply: boolean } {
-  if (!shouldApplyRelationClaimResult(request, session)) {
+  if (!shouldSettleRelationClaimResult(request, session)) {
     return { session, apply: false };
   }
 
@@ -124,5 +158,59 @@ export function settleRelationClaimSubmit(
         errorMessage: result.errorMessage,
       };
 
-  return { session: next, apply: true };
+  return { session: next, apply: session.screenActive };
+}
+
+export function beginRelationClaimRefresh(
+  session: RelationClaimSession,
+): { session: RelationClaimSession; refresh: RelationClaimRefresh } | null {
+  if (!session.userKey || !session.equineId) {
+    return null;
+  }
+
+  const refreshSeq = session.refreshSeq + 1;
+  const refresh = {
+    refreshSeq,
+    userKey: session.userKey,
+    equineId: session.equineId,
+  };
+  return {
+    refresh,
+    session: { ...session, refreshSeq },
+  };
+}
+
+export function finishRelationClaimRefresh(
+  session: RelationClaimSession,
+  refresh: RelationClaimRefresh,
+  result: { ok: true } | { ok: false; errorMessage: string },
+): { session: RelationClaimSession; paint: boolean } {
+  const sameContext =
+    refresh.refreshSeq === session.refreshSeq &&
+    refresh.userKey === session.userKey &&
+    refresh.equineId === session.equineId;
+  if (!sameContext || !session.screenActive) {
+    return { session, paint: false };
+  }
+
+  if (!result.ok && !session.inFlight) {
+    return {
+      paint: true,
+      session: {
+        ...session,
+        inFlight: false,
+        notice: null,
+        errorMessage: result.errorMessage,
+      },
+    };
+  }
+
+  if (result.ok && !session.inFlight) {
+    return {
+      paint: true,
+      session: { ...session, errorMessage: null },
+    };
+  }
+
+  return { session, paint: true };
 }

@@ -14,10 +14,13 @@ import {
   type RelationClaimSnapshot,
 } from './relationClaimService';
 import {
+  beginRelationClaimRefresh,
   beginRelationClaimSubmit,
   createRelationClaimSession,
+  finishRelationClaimRefresh,
   markRelationClaimsBlurred,
   markRelationClaimsFocused,
+  relationClaimFlight,
   settleRelationClaimSubmit,
   shouldResetRelationClaims,
   switchRelationClaimContext,
@@ -57,44 +60,47 @@ export function useRelationClaims(equineId: string) {
       return;
     }
 
-    const requestSeq = sessionRef.current.requestSeq + 1;
-    const request = { requestSeq, userKey, equineId };
-    sessionRef.current = { ...sessionRef.current, requestSeq, userKey, equineId };
+    const started = beginRelationClaimRefresh(sessionRef.current);
+    if (!started) {
+      setSnapshot(null);
+      setFlight(EMPTY_FLIGHT);
+      setIsLoading(false);
+      return;
+    }
+
+    sessionRef.current = started.session;
+    const refresh = started.refresh;
     setIsLoading(true);
 
     try {
       const next = await loadRelationClaimSnapshot();
-      if (
-        request.requestSeq !== sessionRef.current.requestSeq ||
-        request.userKey !== sessionRef.current.userKey ||
-        request.equineId !== sessionRef.current.equineId ||
-        !sessionRef.current.screenActive
-      ) {
+      const finished = finishRelationClaimRefresh(sessionRef.current, refresh, {
+        ok: true,
+      });
+      sessionRef.current = finished.session;
+      if (!finished.paint) {
         return;
       }
       setSnapshot(next);
-      setFlight((current) =>
-        current.inFlight ? current : { ...current, errorMessage: null },
-      );
+      setFlight(relationClaimFlight(finished.session));
     } catch (error) {
-      if (
-        request.requestSeq !== sessionRef.current.requestSeq ||
-        request.userKey !== sessionRef.current.userKey ||
-        request.equineId !== sessionRef.current.equineId ||
-        !sessionRef.current.screenActive
-      ) {
-        return;
-      }
-      setSnapshot(null);
-      setFlight({
-        inFlight: false,
-        notice: null,
+      const finished = finishRelationClaimRefresh(sessionRef.current, refresh, {
+        ok: false,
         errorMessage: userFacingVerificationMessage(error),
       });
+      sessionRef.current = finished.session;
+      if (!finished.paint) {
+        return;
+      }
+      if (!finished.session.inFlight) {
+        setSnapshot(null);
+      }
+      setFlight(relationClaimFlight(finished.session));
     } finally {
       if (
-        request.requestSeq === sessionRef.current.requestSeq &&
-        request.userKey === sessionRef.current.userKey &&
+        refresh.refreshSeq === sessionRef.current.refreshSeq &&
+        refresh.userKey === sessionRef.current.userKey &&
+        refresh.equineId === sessionRef.current.equineId &&
         sessionRef.current.screenActive
       ) {
         setIsLoading(false);
@@ -143,11 +149,7 @@ export function useRelationClaims(equineId: string) {
         sessionRef.current = settled.session;
         if (settled.apply) {
           setSnapshot(next);
-          setFlight({
-            inFlight: false,
-            notice: CLAIM_RECORDED_NOTICE,
-            errorMessage: null,
-          });
+          setFlight(relationClaimFlight(settled.session));
         }
       } catch (error) {
         const message = userFacingVerificationMessage(error);
@@ -157,7 +159,7 @@ export function useRelationClaims(equineId: string) {
         });
         sessionRef.current = settled.session;
         if (settled.apply) {
-          setFlight({ inFlight: false, notice: null, errorMessage: message });
+          setFlight(relationClaimFlight(settled.session));
         }
       }
     },
@@ -167,6 +169,7 @@ export function useRelationClaims(equineId: string) {
   useFocusEffect(
     useCallback(() => {
       sessionRef.current = markRelationClaimsFocused(sessionRef.current);
+      setFlight(relationClaimFlight(sessionRef.current));
       void refresh();
       return () => {
         sessionRef.current = markRelationClaimsBlurred(sessionRef.current);

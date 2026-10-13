@@ -16,9 +16,13 @@ import {
   type OwnershipClaimRecord,
 } from './relationClaims.ts';
 import {
+  beginRelationClaimRefresh,
   beginRelationClaimSubmit,
   createRelationClaimSession,
+  finishRelationClaimRefresh,
+  markRelationClaimsBlurred,
   markRelationClaimsFocused,
+  relationClaimFlight,
   settleRelationClaimSubmit,
   switchRelationClaimContext,
 } from './relationClaimSession.ts';
@@ -473,6 +477,122 @@ describe('relation claim submit session', () => {
     assert.equal(settled.session.errorMessage?.includes(CLAIM_ID), false);
     assert.equal(settled.session.errorMessage?.includes('42501'), false);
     assert.equal(settled.session.errorMessage?.toLowerCase().includes('select '), false);
+  });
+
+  it('settles a successful submit while blurred and shows the pending claim on return', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const started = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(started);
+    current = markRelationClaimsBlurred(started.session);
+    const settled = settleRelationClaimSubmit(current, started.request, {
+      ok: true,
+      notice: CLAIM_RECORDED_NOTICE,
+    });
+    assert.equal(settled.apply, false);
+    assert.equal(settled.session.inFlight, false);
+    assert.equal(settled.session.notice, CLAIM_RECORDED_NOTICE);
+    const returned = markRelationClaimsFocused(settled.session);
+    const flight = relationClaimFlight(returned);
+    assert.equal(flight.inFlight, returned.inFlight);
+    assert.equal(flight.inFlight, false);
+    assert.equal(flight.notice, CLAIM_RECORDED_NOTICE);
+    const section = presentRelationClaims({
+      equineId: EQUINE,
+      ownerships: [ownership()],
+      assignments: [],
+      ownershipClaims: [
+        {
+          claimId: CLAIM_ID,
+          equineId: EQUINE,
+          state: 'SUBMITTED',
+          marketCountryCode: 'ES',
+          ownerType: 'PERSON',
+          ownershipPercentage: 60,
+          decidedAt: null,
+        },
+      ],
+      managementClaims: [],
+      trustRows: [trust('OWNERSHIP', OWNERSHIP_ID, 'NOT_VERIFIED')],
+    });
+    assert.equal(section.ownership.statusLabel, 'Solicitud pendiente');
+    assert.equal(section.ownership.canSubmit, false);
+  });
+
+  it('clears a recoverable failure that finished while blurred and lets the retry send', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const started = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(started);
+    current = markRelationClaimsBlurred(started.session);
+    const settled = settleRelationClaimSubmit(current, started.request, {
+      ok: false,
+      errorMessage: userFacingVerificationMessage(new Error('Network request failed')),
+    });
+    assert.equal(settled.apply, false);
+    assert.equal(settled.session.inFlight, false);
+    const returned = markRelationClaimsFocused(settled.session);
+    const flight = relationClaimFlight(returned);
+    assert.equal(flight.inFlight, false);
+    assert.equal(flight.inFlight, returned.inFlight);
+    const retry = beginRelationClaimSubmit(returned, 'user-a', EQUINE);
+    assert.ok(retry);
+    assert.equal(retry.session.inFlight, true);
+    assert.notEqual(retry.request.requestSeq, started.request.requestSeq);
+  });
+
+  it('keeps the visible flight aligned with the session when refresh finishes around a submit', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const started = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(started);
+    current = markRelationClaimsBlurred(started.session);
+    const refresh = beginRelationClaimRefresh(current);
+    assert.ok(refresh);
+    assert.equal(refresh.session.inFlight, true);
+    assert.equal(refresh.session.requestSeq, started.request.requestSeq);
+    const hiddenSuccess = finishRelationClaimRefresh(refresh.session, refresh.refresh, {
+      ok: true,
+    });
+    assert.equal(hiddenSuccess.paint, false);
+    assert.equal(hiddenSuccess.session.inFlight, true);
+    const visible = markRelationClaimsFocused(hiddenSuccess.session);
+    const success = finishRelationClaimRefresh(visible, refresh.refresh, { ok: true });
+    assert.equal(success.paint, true);
+    assert.equal(success.session.inFlight, true);
+    assert.equal(relationClaimFlight(success.session).inFlight, success.session.inFlight);
+
+    const failure = finishRelationClaimRefresh(visible, refresh.refresh, {
+      ok: false,
+      errorMessage: 'No se pudo completar la verificación. Inténtalo de nuevo.',
+    });
+    assert.equal(failure.paint, true);
+    assert.equal(failure.session.inFlight, true);
+    assert.equal(relationClaimFlight(failure.session).inFlight, true);
+    assert.equal(failure.session.errorMessage, null);
+  });
+
+  it('does not let a stale result from another equine change the current submit', () => {
+    let current = markRelationClaimsFocused(
+      switchRelationClaimContext(createRelationClaimSession('user-a'), 'user-a', EQUINE),
+    );
+    const equineA = beginRelationClaimSubmit(current, 'user-a', EQUINE);
+    assert.ok(equineA);
+    current = switchRelationClaimContext(equineA.session, 'user-a', OTHER_EQUINE);
+    const equineB = beginRelationClaimSubmit(current, 'user-a', OTHER_EQUINE);
+    assert.ok(equineB);
+    const late = settleRelationClaimSubmit(equineB.session, equineA.request, {
+      ok: true,
+      notice: CLAIM_RECORDED_NOTICE,
+    });
+    assert.equal(late.apply, false);
+    assert.equal(late.session, equineB.session);
+    assert.equal(late.session.inFlight, true);
+    assert.equal(late.session.equineId, OTHER_EQUINE);
+    assert.equal(beginRelationClaimSubmit(late.session, 'user-a', OTHER_EQUINE), null);
   });
 });
 
