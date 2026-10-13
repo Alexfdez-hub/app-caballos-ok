@@ -17,6 +17,8 @@ import {
   markVerificationFocused,
   settleSpainIdentitySubmit,
   shouldApplyVerificationResult,
+  shouldResetVerificationUser,
+  switchVerificationUser,
 } from './verificationSession';
 import { userFacingVerificationMessage } from './verificationErrors';
 import {
@@ -38,11 +40,20 @@ const EMPTY_SPAIN: SpainIdentityView = {
 
 export function useVerification() {
   const { session } = useAuth();
+  const userKey = session?.user.id ?? null;
   const [snapshot, setSnapshot] = useState<VerificationSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitState, setSubmitState] = useState(createVerificationSession().submit);
-  const sessionRef = useRef(createVerificationSession());
+  const sessionRef = useRef(createVerificationSession(userKey));
+
+  if (shouldResetVerificationUser(sessionRef.current.userKey, userKey)) {
+    sessionRef.current = switchVerificationUser(sessionRef.current, userKey);
+    setSnapshot(null);
+    setErrorMessage(null);
+    setSubmitState(sessionRef.current.submit);
+    setIsLoading(false);
+  }
 
   const refresh = useCallback(async () => {
     if (!session) {
@@ -69,6 +80,8 @@ export function useVerification() {
           requestSeq,
           sessionRef.current.requestSeq,
           sessionRef.current.screenActive,
+          userKey,
+          sessionRef.current.userKey,
         )
       ) {
         return;
@@ -85,6 +98,8 @@ export function useVerification() {
           requestSeq,
           sessionRef.current.requestSeq,
           sessionRef.current.screenActive,
+          userKey,
+          sessionRef.current.userKey,
         )
       ) {
         return;
@@ -103,12 +118,14 @@ export function useVerification() {
           requestSeq,
           sessionRef.current.requestSeq,
           sessionRef.current.screenActive,
+          userKey,
+          sessionRef.current.userKey,
         )
       ) {
         setIsLoading(false);
       }
     }
-  }, [session]);
+  }, [session, userKey]);
 
   const requestSpainIdentity = useCallback(async () => {
     const started = beginSpainIdentitySubmit(sessionRef.current);

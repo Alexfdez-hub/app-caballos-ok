@@ -89,7 +89,11 @@ function isManagementRow(value: unknown): value is Record<string, unknown> {
     isOwnershipStatus(row.status) &&
     typeof row.is_currently_effective === 'boolean' &&
     typeof row.valid_from === 'string' &&
-    isOwnershipLifecycleConsistent(row.status, row.valid_until)
+    (
+      (row.status === 'ACTIVE' &&
+        (row.valid_until === null || typeof row.valid_until === 'string')) ||
+      (row.status === 'ENDED' && typeof row.valid_until === 'string')
+    )
   );
 }
 
