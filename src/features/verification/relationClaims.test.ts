@@ -8,6 +8,7 @@ import type {
 import { relationStatusLabel } from './presentation.ts';
 import {
   CLAIM_RECORDED_NOTICE,
+  CLAIM_RECONCILE_ERROR,
   claimRequestLabel,
   managementClaimPayload,
   ownershipClaimPayload,
@@ -16,12 +17,14 @@ import {
   type OwnershipClaimRecord,
 } from './relationClaims.ts';
 import {
+  attemptRelationClaimSubmit,
   beginRelationClaimModelRefresh,
   beginRelationClaimModelSubmit,
   blurRelationClaimModel,
   createRelationClaimModel,
   finishRelationClaimModelRefresh,
   focusRelationClaimModel,
+  reconcileRelationClaimSnapshot,
   relationClaimModelFlight,
   relationClaimModelSection,
   settleRelationClaimModelFailure,
@@ -46,7 +49,7 @@ import {
   shouldApplyVerificationResult,
   createVerificationSession,
 } from './verificationSession.ts';
-import { userFacingVerificationMessage } from './verificationErrors.ts';
+import { userFacingVerificationMessage, VerificationResponseError } from './verificationErrors.ts';
 import type { VerificationStatusRow } from './types.ts';
 
 const EQUINE = '11111111-1111-4111-8111-111111111111';
@@ -810,6 +813,212 @@ describe('relation claim return coordination', () => {
     };
     const next = beginRelationClaimModelSubmit(ready, 'OWNERSHIP', 'user-a', OTHER_EQUINE);
     assert.ok(next);
+  });
+});
+
+function readyClaimModel(): RelationClaimModel {
+  const open = focusRelationClaimModel(createRelationClaimModel('user-a', EQUINE));
+  return { ...open, visible: claimSnapshot(false) };
+}
+
+async function driveClaimSubmit(
+  initial: RelationClaimModel,
+  mutate: (box: { model: RelationClaimModel }) => Promise<void>,
+  loadSnapshot: () => Promise<RelationClaimSnapshot>,
+) {
+  const box = { model: initial };
+  const result = await attemptRelationClaimSubmit({
+    model: box.model,
+    kind: 'OWNERSHIP',
+    userKey: box.model.session.userKey,
+    equineId: box.model.session.equineId ?? EQUINE,
+    notice: CLAIM_RECORDED_NOTICE,
+    readModel: () => box.model,
+    writeModel: (next) => {
+      box.model = next;
+    },
+    mutate: () => mutate(box),
+    loadSnapshot,
+  });
+  return { ...result, model: box.model };
+}
+
+describe('relation claim mutation and snapshot read', () => {
+  it('keeps a focused submit blocked when the first snapshot read fails', async () => {
+    let calls = 0;
+    const first = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        calls += 1;
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(first.sent, true);
+    assert.equal(first.confirmed, true);
+    assert.equal(first.model.session.screenActive, true);
+    assert.equal(first.model.session.inFlight, false);
+    assert.equal(first.model.confirmed.OWNERSHIP, true);
+    assert.equal(first.model.session.notice, CLAIM_RECORDED_NOTICE);
+    assert.equal(first.model.session.errorMessage, CLAIM_RECONCILE_ERROR);
+    assert.equal(
+      presentRelationClaims({ equineId: EQUINE, ...claimSnapshot(false) }).ownership.canSubmit,
+      true,
+    );
+    assert.equal(relationClaimModelSection(first.model, EQUINE)?.ownership.canSubmit, false);
+    const second = await driveClaimSubmit(
+      first.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(second.sent, false);
+    assert.equal(calls, 1);
+  });
+
+  it('keeps the block across blur and focus and reconciles on a later read', async () => {
+    let calls = 0;
+    const first = await driveClaimSubmit(
+      readyClaimModel(),
+      async (box) => {
+        calls += 1;
+        box.model = blurRelationClaimModel(box.model);
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(first.model.session.screenActive, false);
+    assert.equal(first.model.confirmed.OWNERSHIP, true);
+    assert.equal(first.model.session.notice, CLAIM_RECORDED_NOTICE);
+    const returned = focusRelationClaimModel(first.model);
+    assert.equal(relationClaimModelSection(returned, EQUINE)?.ownership.canSubmit, false);
+    const second = await driveClaimSubmit(
+      returned,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(second.sent, false);
+    const reconciled = reconcileRelationClaimSnapshot(
+      returned,
+      {
+        requestSeq: returned.session.requestSeq,
+        userKey: returned.session.userKey,
+        equineId: EQUINE,
+      },
+      { ok: true, snapshot: claimSnapshot(true) },
+    );
+    const section = relationClaimModelSection(reconciled.model, EQUINE);
+    assert.equal(section?.ownership.statusLabel, 'Solicitud pendiente');
+    assert.equal(section?.ownership.canSubmit, false);
+    assert.equal(reconciled.model.confirmed.OWNERSHIP, false);
+    assert.equal(reconciled.model.confirmed.MANAGEMENT, false);
+    assert.equal(
+      beginRelationClaimModelSubmit(reconciled.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+    assert.equal(calls, 1);
+  });
+
+  it('shows the open claim and drops only the redundant provisional block', async () => {
+    const failed = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => undefined,
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(failed.model.confirmed.OWNERSHIP, true);
+    const reconciled = reconcileRelationClaimSnapshot(
+      failed.model,
+      {
+        requestSeq: failed.model.session.requestSeq,
+        userKey: failed.model.session.userKey,
+        equineId: EQUINE,
+      },
+      { ok: true, snapshot: claimSnapshot(true) },
+    );
+    assert.equal(
+      relationClaimModelSection(reconciled.model, EQUINE)?.ownership.statusLabel,
+      'Solicitud pendiente',
+    );
+    assert.equal(reconciled.model.confirmed.OWNERSHIP, false);
+    assert.equal(
+      beginRelationClaimModelSubmit(reconciled.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('allows exactly one retry when the mutation fails before confirmation', async () => {
+    let calls = 0;
+    const failed = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        calls += 1;
+        throw new Error('Network request failed');
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(failed.confirmed, false);
+    assert.equal(failed.model.confirmed.OWNERSHIP, false);
+    assert.equal(failed.model.session.inFlight, false);
+    assert.equal(
+      failed.model.session.errorMessage,
+      'No se pudo completar la verificación. Inténtalo de nuevo.',
+    );
+    const retry = await driveClaimSubmit(
+      failed.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(retry.sent, true);
+    assert.equal(calls, 2);
+    assert.equal(
+      relationClaimModelSection(retry.model, EQUINE)?.ownership.statusLabel,
+      'Solicitud pendiente',
+    );
+    const extra = await driveClaimSubmit(
+      retry.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(extra.sent, false);
+    assert.equal(calls, 2);
+  });
+
+  it('fails closed when the mutation response cannot be read', async () => {
+    let calls = 0;
+    const ambiguous = await driveClaimSubmit(
+      readyClaimModel(),
+      async () => {
+        calls += 1;
+        throw new VerificationResponseError();
+      },
+      async () => {
+        throw new Error('timeout');
+      },
+    );
+    assert.equal(ambiguous.confirmed, true);
+    assert.equal(ambiguous.model.confirmed.OWNERSHIP, true);
+    assert.equal(ambiguous.model.session.notice, CLAIM_RECORDED_NOTICE);
+    assert.notEqual(ambiguous.model.session.errorMessage, null);
+    const second = await driveClaimSubmit(
+      ambiguous.model,
+      async () => {
+        calls += 1;
+      },
+      async () => claimSnapshot(true),
+    );
+    assert.equal(second.sent, false);
+    assert.equal(calls, 1);
   });
 });
 

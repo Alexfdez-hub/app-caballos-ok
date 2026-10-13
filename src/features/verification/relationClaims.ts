@@ -21,6 +21,9 @@ export const SPAIN_MARKET = 'ES';
 export const CLAIM_RECORDED_NOTICE =
   'Solicitud registrada. Esta reclamación no verifica la relación ni transfiere el equino, y no abre publicación, reservas ni pagos.';
 
+export const CLAIM_RECONCILE_ERROR =
+  'No se ha podido actualizar el estado de la reclamación.';
+
 const CLAIM_REQUEST_LABELS = {
   SUBMITTED: 'Solicitud pendiente',
   RESUBMITTED: 'Solicitud pendiente',

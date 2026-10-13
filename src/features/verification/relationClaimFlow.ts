@@ -1,4 +1,5 @@
 import {
+  CLAIM_RECONCILE_ERROR,
   presentRelationClaims,
   type RelationClaimSection,
 } from './relationClaims.ts';
@@ -12,12 +13,17 @@ import {
   markRelationClaimsFocused,
   relationClaimFlight,
   settleRelationClaimSubmit,
+  shouldSettleRelationClaimResult,
   switchRelationClaimContext,
   type RelationClaimFlight,
   type RelationClaimRefresh,
   type RelationClaimRequest,
   type RelationClaimSession,
 } from './relationClaimSession.ts';
+import {
+  userFacingVerificationMessage,
+  VerificationResponseError,
+} from './verificationErrors.ts';
 
 export type RelationClaimKind = 'OWNERSHIP' | 'MANAGEMENT';
 
@@ -238,21 +244,9 @@ export function finishRelationClaimModelRefresh(
   }
 
   const equineId = finished.session.equineId;
-  let confirmed = model.confirmed;
-  if (equineId) {
-    const section = presentRelationClaims({
-      equineId,
-      ownerships: result.snapshot.ownerships,
-      assignments: result.snapshot.assignments,
-      ownershipClaims: result.snapshot.ownershipClaims,
-      managementClaims: result.snapshot.managementClaims,
-      trustRows: result.snapshot.trustRows,
-    });
-    confirmed = {
-      OWNERSHIP: model.confirmed.OWNERSHIP && section.ownership.canSubmit,
-      MANAGEMENT: model.confirmed.MANAGEMENT && section.management.canSubmit,
-    };
-  }
+  const confirmed = equineId
+    ? confirmedAfterSnapshot(model.confirmed, equineId, result.snapshot)
+    : model.confirmed;
 
   return {
     paint: true,
@@ -263,4 +257,191 @@ export function finishRelationClaimModelRefresh(
       confirmed,
     },
   };
+}
+
+function confirmedAfterSnapshot(
+  confirmed: ConfirmedRelationClaims,
+  equineId: string,
+  snapshot: RelationClaimSnapshot,
+): ConfirmedRelationClaims {
+  const section = presentRelationClaims({
+    equineId,
+    ownerships: snapshot.ownerships,
+    assignments: snapshot.assignments,
+    ownershipClaims: snapshot.ownershipClaims,
+    managementClaims: snapshot.managementClaims,
+    trustRows: snapshot.trustRows,
+  });
+  return {
+    OWNERSHIP: confirmed.OWNERSHIP && section.ownership.canSubmit,
+    MANAGEMENT: confirmed.MANAGEMENT && section.management.canSubmit,
+  };
+}
+
+/**
+ * The mutation RPC has already succeeded, or its body could not be read after
+ * a possible commit. The kind is blocked before any later snapshot read.
+ */
+export function acceptRelationClaimMutation(
+  model: RelationClaimModel,
+  request: RelationClaimRequest,
+  kind: RelationClaimKind,
+  notice: string,
+): { model: RelationClaimModel; apply: boolean; settled: boolean } {
+  const settled = settleRelationClaimSubmit(model.session, request, { ok: true, notice });
+  if (settled.session === model.session) return { model, apply: false, settled: false };
+  const held = model.held ?? model.visible;
+  return {
+    settled: true,
+    apply: settled.apply,
+    model: {
+      session: settled.session,
+      held,
+      visible: settled.apply ? held : model.visible,
+      confirmed: { ...model.confirmed, [kind]: true },
+    },
+  };
+}
+
+/** The snapshot read that follows a confirmed mutation. It never reopens that kind. */
+export function reconcileRelationClaimSnapshot(
+  model: RelationClaimModel,
+  request: RelationClaimRequest,
+  result:
+    | { ok: true; snapshot: RelationClaimSnapshot }
+    | { ok: false; errorMessage?: string },
+): { model: RelationClaimModel; apply: boolean; settled: boolean } {
+  if (!shouldSettleRelationClaimResult(request, model.session)) {
+    return { model, apply: false, settled: false };
+  }
+
+  const apply = model.session.screenActive;
+  if (!result.ok) {
+    const held = model.held ?? model.visible;
+    return {
+      settled: true,
+      apply,
+      model: {
+        session: {
+          ...model.session,
+          inFlight: false,
+          notice: model.session.notice,
+          errorMessage: result.errorMessage ?? CLAIM_RECONCILE_ERROR,
+        },
+        held,
+        visible: apply ? held : model.visible,
+        confirmed: model.confirmed,
+      },
+    };
+  }
+
+  const equineId = model.session.equineId;
+  const confirmed = equineId
+    ? confirmedAfterSnapshot(model.confirmed, equineId, result.snapshot)
+    : model.confirmed;
+  return {
+    settled: true,
+    apply,
+    model: {
+      session: {
+        ...model.session,
+        inFlight: false,
+        notice: model.session.notice,
+        errorMessage: null,
+      },
+      held: result.snapshot,
+      visible: apply ? result.snapshot : model.visible,
+      confirmed,
+    },
+  };
+}
+
+export class RelationClaimUnavailable extends Error {
+  constructor() {
+    super('No se ha podido registrar la reclamación.');
+    this.name = 'RelationClaimUnavailable';
+  }
+}
+
+/**
+ * Confirms the mutation before reading the snapshot. A failed read keeps the
+ * kind blocked. Only a rejection before confirmation releases a retry.
+ */
+export async function attemptRelationClaimSubmit(input: {
+  model: RelationClaimModel;
+  kind: RelationClaimKind;
+  userKey: string | null;
+  equineId: string;
+  notice: string;
+  mutate: () => Promise<void>;
+  loadSnapshot: () => Promise<RelationClaimSnapshot>;
+  readModel?: () => RelationClaimModel;
+  writeModel?: (model: RelationClaimModel) => void;
+}): Promise<{ model: RelationClaimModel; sent: boolean; confirmed: boolean }> {
+  let current = input.readModel ? input.readModel() : input.model;
+  const read = input.readModel ?? (() => current);
+  const started = beginRelationClaimModelSubmit(
+    current,
+    input.kind,
+    input.userKey,
+    input.equineId,
+  );
+  if (!started) return { model: current, sent: false, confirmed: false };
+
+  current = started.model;
+  input.writeModel?.(current);
+
+  let ambiguous = false;
+  try {
+    await input.mutate();
+  } catch (error) {
+    current = read();
+    if (!(error instanceof VerificationResponseError)) {
+      const message =
+        error instanceof RelationClaimUnavailable
+          ? error.message
+          : userFacingVerificationMessage(error);
+      const failed = settleRelationClaimModelFailure(current, started.request, message);
+      input.writeModel?.(failed.model);
+      return { model: failed.model, sent: true, confirmed: false };
+    }
+    ambiguous = true;
+  }
+
+  current = read();
+  const accepted = acceptRelationClaimMutation(
+    current,
+    started.request,
+    input.kind,
+    input.notice,
+  );
+  if (!accepted.settled) {
+    input.writeModel?.(accepted.model);
+    return { model: accepted.model, sent: true, confirmed: false };
+  }
+  current = accepted.model;
+  input.writeModel?.(current);
+
+  try {
+    const snapshot = await input.loadSnapshot();
+    current = read();
+    const reconciled = reconcileRelationClaimSnapshot(current, started.request, {
+      ok: true,
+      snapshot,
+    });
+    input.writeModel?.(reconciled.model);
+    return { model: reconciled.model, sent: true, confirmed: true };
+  } catch {
+    current = read();
+    const reconciled = reconcileRelationClaimSnapshot(current, started.request, {
+      ok: false,
+      errorMessage: CLAIM_RECONCILE_ERROR,
+    });
+    input.writeModel?.(reconciled.model);
+    return {
+      model: reconciled.model,
+      sent: true,
+      confirmed: ambiguous || accepted.settled,
+    };
+  }
 }

@@ -10,15 +10,14 @@ import {
   type RelationClaimSnapshot,
 } from './relationClaimService';
 import {
+  attemptRelationClaimSubmit,
   beginRelationClaimModelRefresh,
-  beginRelationClaimModelSubmit,
   blurRelationClaimModel,
   finishRelationClaimModelRefresh,
   focusRelationClaimModel,
+  RelationClaimUnavailable,
   relationClaimModelFlight,
   relationClaimModelSection,
-  settleRelationClaimModelFailure,
-  settleRelationClaimModelSuccess,
   switchRelationClaimModel,
   type ConfirmedRelationClaims,
   type RelationClaimKind,
@@ -141,53 +140,31 @@ export function useRelationClaims(equineId: string) {
     async (kind: RelationClaimKind) => {
       if (!userKey) return;
 
-      const started = beginRelationClaimModelSubmit(
-        modelRef.current,
+      await attemptRelationClaimSubmit({
+        model: modelRef.current,
         kind,
         userKey,
         equineId,
-      );
-      if (!started) return;
-
-      modelRef.current = started.model;
-      setFlight({ inFlight: true, notice: null, errorMessage: null });
-
-      const current = relationClaimModelSection(started.model, equineId);
-      const ownershipPayload = current?.ownership.ownershipPayload ?? null;
-      const managementPayload = current?.management.managementPayload ?? null;
-      if (kind === 'OWNERSHIP' ? !ownershipPayload : !managementPayload) {
-        const failed = settleRelationClaimModelFailure(
-          modelRef.current,
-          started.request,
-          'No se ha podido registrar la reclamación.',
-        );
-        modelRef.current = failed.model;
-        if (failed.apply) setFlight(relationClaimFlight(failed.model.session));
-        return;
-      }
-
-      try {
-        if (kind === 'OWNERSHIP') await submitOwnershipClaim(ownershipPayload!);
-        else await submitManagementClaim(managementPayload!);
-        const next = await loadRelationClaimSnapshot();
-        const settled = settleRelationClaimModelSuccess(
-          modelRef.current,
-          started.request,
-          next,
-          CLAIM_RECORDED_NOTICE,
-          kind,
-        );
-        modelRef.current = settled.model;
-        if (settled.apply) paint(settled.model);
-      } catch (error) {
-        const settled = settleRelationClaimModelFailure(
-          modelRef.current,
-          started.request,
-          userFacingVerificationMessage(error),
-        );
-        modelRef.current = settled.model;
-        if (settled.apply) paint(settled.model);
-      }
+        notice: CLAIM_RECORDED_NOTICE,
+        readModel: () => modelRef.current,
+        writeModel: (next) => {
+          modelRef.current = next;
+          if (next.session.screenActive) paint(next);
+        },
+        mutate: async () => {
+          const current = relationClaimModelSection(modelRef.current, equineId);
+          const ownershipPayload = current?.ownership.ownershipPayload ?? null;
+          const managementPayload = current?.management.managementPayload ?? null;
+          if (kind === 'OWNERSHIP') {
+            if (!ownershipPayload) throw new RelationClaimUnavailable();
+            await submitOwnershipClaim(ownershipPayload);
+            return;
+          }
+          if (!managementPayload) throw new RelationClaimUnavailable();
+          await submitManagementClaim(managementPayload);
+        },
+        loadSnapshot: () => loadRelationClaimSnapshot(),
+      });
     },
     [equineId, paint, userKey],
   );
