@@ -152,7 +152,11 @@ export default function EquineDetailScreen({ route }: EquineDetailScreenProps) {
               <RelationClaimBlock
                 action={claims.section.ownership}
                 buttonLabel="Presentar reclamación de propiedad"
-                disabled={claims.isSubmitting || !claims.section.ownership.canSubmit}
+                disabled={
+                  claims.isLoading ||
+                  claims.isSubmitting ||
+                  !claims.section.ownership.canSubmit
+                }
                 onPress={() => {
                   void claims.submitOwnership();
                 }}
@@ -160,7 +164,11 @@ export default function EquineDetailScreen({ route }: EquineDetailScreenProps) {
               <RelationClaimBlock
                 action={claims.section.management}
                 buttonLabel="Presentar reclamación de responsabilidad"
-                disabled={claims.isSubmitting || !claims.section.management.canSubmit}
+                disabled={
+                  claims.isLoading ||
+                  claims.isSubmitting ||
+                  !claims.section.management.canSubmit
+                }
                 onPress={() => {
                   void claims.submitManagement();
                 }}

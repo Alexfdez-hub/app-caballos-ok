@@ -16,6 +16,21 @@ import {
   type OwnershipClaimRecord,
 } from './relationClaims.ts';
 import {
+  beginRelationClaimModelRefresh,
+  beginRelationClaimModelSubmit,
+  blurRelationClaimModel,
+  createRelationClaimModel,
+  finishRelationClaimModelRefresh,
+  focusRelationClaimModel,
+  relationClaimModelFlight,
+  relationClaimModelSection,
+  settleRelationClaimModelFailure,
+  settleRelationClaimModelSuccess,
+  switchRelationClaimModel,
+  type RelationClaimModel,
+} from './relationClaimFlow.ts';
+import type { RelationClaimSnapshot } from './relationClaimService.ts';
+import {
   beginRelationClaimRefresh,
   beginRelationClaimSubmit,
   createRelationClaimSession,
@@ -593,6 +608,208 @@ describe('relation claim submit session', () => {
     assert.equal(late.session.inFlight, true);
     assert.equal(late.session.equineId, OTHER_EQUINE);
     assert.equal(beginRelationClaimSubmit(late.session, 'user-a', OTHER_EQUINE), null);
+  });
+});
+
+function claimSnapshot(withOpenClaim: boolean): RelationClaimSnapshot {
+  return {
+    ownerships: [ownership()],
+    assignments: [],
+    ownershipClaims: withOpenClaim
+      ? [
+          {
+            claimId: CLAIM_ID,
+            equineId: EQUINE,
+            state: 'SUBMITTED',
+            marketCountryCode: 'ES',
+            ownerType: 'PERSON',
+            ownershipPercentage: 60,
+            decidedAt: null,
+          },
+        ]
+      : [],
+    managementClaims: [],
+    trustRows: [trust('OWNERSHIP', OWNERSHIP_ID, 'NOT_VERIFIED')],
+  };
+}
+
+function confirmedBlurredSubmit(): RelationClaimModel {
+  const open = focusRelationClaimModel(createRelationClaimModel('user-a', EQUINE));
+  const ready = { ...open, visible: claimSnapshot(false) };
+  const started = beginRelationClaimModelSubmit(ready, 'OWNERSHIP', 'user-a', EQUINE);
+  assert.ok(started);
+  const blurred = blurRelationClaimModel(started.model);
+  const settled = settleRelationClaimModelSuccess(
+    blurred,
+    started.request,
+    claimSnapshot(true),
+    CLAIM_RECORDED_NOTICE,
+    'OWNERSHIP',
+  );
+  assert.equal(settled.apply, false);
+  return focusRelationClaimModel(settled.model);
+}
+
+describe('relation claim return coordination', () => {
+  it('blocks a second submit on return before refresh finishes', () => {
+    let calls = 0;
+    const returned = confirmedBlurredSubmit();
+    calls += 1;
+    const section = relationClaimModelSection(returned, EQUINE);
+    assert.equal(returned.visible, returned.held);
+    assert.equal(section?.ownership.statusLabel, 'Solicitud pendiente');
+    assert.equal(section?.ownership.canSubmit, false);
+    assert.equal(relationClaimModelFlight(returned).inFlight, false);
+    assert.equal(relationClaimModelFlight(returned).notice, CLAIM_RECORDED_NOTICE);
+    assert.equal(
+      beginRelationClaimModelSubmit(returned, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+    assert.equal(calls, 1);
+  });
+
+  it('keeps the claim closed after the return refresh succeeds', () => {
+    const returned = confirmedBlurredSubmit();
+    const started = beginRelationClaimModelRefresh(returned);
+    assert.ok(started);
+    const finished = finishRelationClaimModelRefresh(started.model, started.refresh, {
+      ok: true,
+      snapshot: claimSnapshot(true),
+    });
+    assert.equal(finished.paint, true);
+    const section = relationClaimModelSection(finished.model, EQUINE);
+    assert.equal(section?.ownership.statusLabel, 'Solicitud pendiente');
+    assert.equal(section?.ownership.canSubmit, false);
+    assert.equal(
+      beginRelationClaimModelSubmit(finished.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('does not reopen a confirmed submit when the return refresh fails', () => {
+    const returned = confirmedBlurredSubmit();
+    const started = beginRelationClaimModelRefresh(returned);
+    assert.ok(started);
+    const finished = finishRelationClaimModelRefresh(started.model, started.refresh, {
+      ok: false,
+      errorMessage: 'No se pudo completar la verificación. Inténtalo de nuevo.',
+    });
+    assert.equal(finished.paint, true);
+    assert.equal(finished.model.visible, returned.held);
+    assert.notEqual(finished.model.visible, null);
+    assert.equal(relationClaimModelFlight(finished.model).notice, CLAIM_RECORDED_NOTICE);
+    assert.equal(relationClaimModelSection(finished.model, EQUINE)?.ownership.canSubmit, false);
+    assert.equal(
+      beginRelationClaimModelSubmit(finished.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('stays blocked when a later refresh still offers another submit', () => {
+    const returned = confirmedBlurredSubmit();
+    const lagging = claimSnapshot(false);
+    assert.equal(
+      presentRelationClaims({ equineId: EQUINE, ...lagging }).ownership.canSubmit,
+      true,
+    );
+    const started = beginRelationClaimModelRefresh(returned);
+    assert.ok(started);
+    const finished = finishRelationClaimModelRefresh(started.model, started.refresh, {
+      ok: true,
+      snapshot: lagging,
+    });
+    assert.equal(relationClaimModelSection(finished.model, EQUINE)?.ownership.canSubmit, false);
+    assert.equal(
+      beginRelationClaimModelSubmit(finished.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+  });
+
+  it('sends exactly one retry after a recoverable failure that settled while blurred', () => {
+    let calls = 0;
+    const open = focusRelationClaimModel(createRelationClaimModel('user-a', EQUINE));
+    const ready = { ...open, visible: claimSnapshot(false) };
+    const started = beginRelationClaimModelSubmit(ready, 'OWNERSHIP', 'user-a', EQUINE);
+    assert.ok(started);
+    calls += 1;
+    const settled = settleRelationClaimModelFailure(
+      blurRelationClaimModel(started.model),
+      started.request,
+      'No se pudo completar la verificación. Inténtalo de nuevo.',
+    );
+    assert.equal(settled.apply, false);
+    const returned = focusRelationClaimModel(settled.model);
+    calls = 0;
+    const retry = beginRelationClaimModelSubmit(returned, 'OWNERSHIP', 'user-a', EQUINE);
+    assert.ok(retry);
+    calls += 1;
+    assert.equal(
+      beginRelationClaimModelSubmit(retry.model, 'OWNERSHIP', 'user-a', EQUINE),
+      null,
+    );
+    assert.equal(calls, 1);
+  });
+
+  it('does not let account A leave a confirmed snapshot on account B', () => {
+    const open = focusRelationClaimModel(createRelationClaimModel('user-a', EQUINE));
+    const started = beginRelationClaimModelSubmit(
+      { ...open, visible: claimSnapshot(false) },
+      'OWNERSHIP',
+      'user-a',
+      EQUINE,
+    );
+    assert.ok(started);
+    const accountB = focusRelationClaimModel(
+      switchRelationClaimModel(started.model, 'user-b', EQUINE),
+    );
+    const late = settleRelationClaimModelSuccess(
+      accountB,
+      started.request,
+      claimSnapshot(true),
+      CLAIM_RECORDED_NOTICE,
+      'OWNERSHIP',
+    );
+    assert.equal(late.apply, false);
+    assert.equal(late.model, accountB);
+    assert.equal(late.model.held, null);
+    assert.equal(late.model.confirmed.OWNERSHIP, false);
+    const ready = { ...late.model, visible: claimSnapshot(false) };
+    const next = beginRelationClaimModelSubmit(ready, 'OWNERSHIP', 'user-b', EQUINE);
+    assert.ok(next);
+    assert.equal(next.model.session.inFlight, true);
+  });
+
+  it('does not let equine A leave a confirmed snapshot on equine B', () => {
+    const open = focusRelationClaimModel(createRelationClaimModel('user-a', EQUINE));
+    const started = beginRelationClaimModelSubmit(
+      { ...open, visible: claimSnapshot(false) },
+      'OWNERSHIP',
+      'user-a',
+      EQUINE,
+    );
+    assert.ok(started);
+    const equineB = focusRelationClaimModel(
+      switchRelationClaimModel(started.model, 'user-a', OTHER_EQUINE),
+    );
+    const late = settleRelationClaimModelSuccess(
+      equineB,
+      started.request,
+      claimSnapshot(true),
+      CLAIM_RECORDED_NOTICE,
+      'OWNERSHIP',
+    );
+    assert.equal(late.model.held, null);
+    assert.equal(late.model.session.equineId, OTHER_EQUINE);
+    assert.equal(late.model.session.inFlight, false);
+    const ready = {
+      ...late.model,
+      visible: {
+        ...claimSnapshot(false),
+        ownerships: [ownership({ equineId: OTHER_EQUINE })],
+      },
+    };
+    const next = beginRelationClaimModelSubmit(ready, 'OWNERSHIP', 'user-a', OTHER_EQUINE);
+    assert.ok(next);
   });
 });
 

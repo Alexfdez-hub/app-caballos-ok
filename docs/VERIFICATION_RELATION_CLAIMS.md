@@ -21,7 +21,7 @@ An open request shows `Solicitud pendiente` or `En revisión`. `No disponible` m
 
 Any open claim from this account for the same equine and Spain blocks another submit, whether its owner or manager type is `PERSON` or `CENTER`. The server uniqueness rule is the account, the equine, and the market. A finished `CENTER` claim does not block a new `PERSON` claim.
 
-Leaving the equine screen settles the in-flight request in the session even though the result is not painted until the screen is focused again. Refresh uses its own counter, so returning does not retire that request or leave the button and the session disagreeing.
+Leaving the equine screen settles the in-flight request in the session even though the result is not painted until the screen is focused again. A successful submit keeps that post-submit snapshot with the account, the equine, and the request token. Returning applies it before another action, and the submit function rejects the same kind until a refresh shows the server no longer accepts it. A failed refresh keeps that confirmed snapshot. Refresh uses its own counter, so returning does not retire that request or leave the button and the session disagreeing.
 
 ## Smoke for the requester
 

@@ -2,11 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useAuth } from '../auth/useAuth';
-import {
-  CLAIM_RECORDED_NOTICE,
-  presentRelationClaims,
-  type RelationClaimSection,
-} from './relationClaims';
+import { CLAIM_RECORDED_NOTICE, type RelationClaimSection } from './relationClaims';
 import {
   loadRelationClaimSnapshot,
   submitManagementClaim,
@@ -14,18 +10,27 @@ import {
   type RelationClaimSnapshot,
 } from './relationClaimService';
 import {
-  beginRelationClaimRefresh,
-  beginRelationClaimSubmit,
-  createRelationClaimSession,
-  finishRelationClaimRefresh,
-  markRelationClaimsBlurred,
-  markRelationClaimsFocused,
-  relationClaimFlight,
-  settleRelationClaimSubmit,
-  shouldResetRelationClaims,
-  switchRelationClaimContext,
-} from './relationClaimSession';
+  beginRelationClaimModelRefresh,
+  beginRelationClaimModelSubmit,
+  blurRelationClaimModel,
+  finishRelationClaimModelRefresh,
+  focusRelationClaimModel,
+  relationClaimModelFlight,
+  relationClaimModelSection,
+  settleRelationClaimModelFailure,
+  settleRelationClaimModelSuccess,
+  switchRelationClaimModel,
+  type ConfirmedRelationClaims,
+  type RelationClaimKind,
+  type RelationClaimModel,
+} from './relationClaimFlow';
+import { createRelationClaimSession, relationClaimFlight, shouldResetRelationClaims } from './relationClaimSession';
 import { userFacingVerificationMessage } from './verificationErrors';
+
+const EMPTY_CONFIRMED: ConfirmedRelationClaims = {
+  OWNERSHIP: false,
+  MANAGEMENT: false,
+};
 
 const EMPTY_FLIGHT = {
   inFlight: false,
@@ -33,152 +38,181 @@ const EMPTY_FLIGHT = {
   errorMessage: null as string | null,
 };
 
+function emptyModel(userKey: string | null): RelationClaimModel {
+  return {
+    session: createRelationClaimSession(userKey),
+    held: null,
+    visible: null,
+    confirmed: EMPTY_CONFIRMED,
+  };
+}
+
 export function useRelationClaims(equineId: string) {
   const { session } = useAuth();
   const userKey = session?.user.id ?? null;
-  const sessionRef = useRef(createRelationClaimSession(userKey));
+  const modelRef = useRef<RelationClaimModel>(emptyModel(userKey));
   const [snapshot, setSnapshot] = useState<RelationClaimSnapshot | null>(null);
+  const [confirmed, setConfirmed] = useState<ConfirmedRelationClaims>(EMPTY_CONFIRMED);
   const [isLoading, setIsLoading] = useState(Boolean(userKey));
   const [flight, setFlight] = useState(EMPTY_FLIGHT);
 
-  if (shouldResetRelationClaims(sessionRef.current, userKey, equineId)) {
-    sessionRef.current = switchRelationClaimContext(
-      sessionRef.current,
-      userKey,
-      equineId,
-    );
+  if (shouldResetRelationClaims(modelRef.current.session, userKey, equineId)) {
+    modelRef.current = switchRelationClaimModel(modelRef.current, userKey, equineId);
     setSnapshot(null);
+    setConfirmed(EMPTY_CONFIRMED);
     setFlight(EMPTY_FLIGHT);
     setIsLoading(Boolean(userKey));
   }
 
+  const paint = useCallback((model: RelationClaimModel) => {
+    modelRef.current = model;
+    setSnapshot(model.visible);
+    setConfirmed(model.confirmed);
+    setFlight(relationClaimFlight(model.session));
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!userKey) {
-      setSnapshot(null);
-      setFlight(EMPTY_FLIGHT);
+      const cleared = {
+        ...modelRef.current,
+        held: null,
+        visible: null,
+        confirmed: EMPTY_CONFIRMED,
+      };
+      paint(cleared);
       setIsLoading(false);
       return;
     }
 
-    const started = beginRelationClaimRefresh(sessionRef.current);
+    const started = beginRelationClaimModelRefresh(modelRef.current);
     if (!started) {
-      setSnapshot(null);
-      setFlight(EMPTY_FLIGHT);
+      paint({
+        ...modelRef.current,
+        held: null,
+        visible: null,
+        confirmed: EMPTY_CONFIRMED,
+      });
       setIsLoading(false);
       return;
     }
 
-    sessionRef.current = started.session;
-    const refresh = started.refresh;
+    modelRef.current = started.model;
+    const refreshToken = started.refresh;
     setIsLoading(true);
 
     try {
       const next = await loadRelationClaimSnapshot();
-      const finished = finishRelationClaimRefresh(sessionRef.current, refresh, {
+      const finished = finishRelationClaimModelRefresh(modelRef.current, refreshToken, {
         ok: true,
+        snapshot: next,
       });
-      sessionRef.current = finished.session;
-      if (!finished.paint) {
-        return;
+      if (!finished.paint) return;
+      modelRef.current = finished.model;
+      if (!finished.model.session.inFlight) {
+        setSnapshot(finished.model.visible);
+        setConfirmed(finished.model.confirmed);
       }
-      setSnapshot(next);
-      setFlight(relationClaimFlight(finished.session));
+      setFlight(relationClaimModelFlight(finished.model));
     } catch (error) {
-      const finished = finishRelationClaimRefresh(sessionRef.current, refresh, {
+      const finished = finishRelationClaimModelRefresh(modelRef.current, refreshToken, {
         ok: false,
         errorMessage: userFacingVerificationMessage(error),
       });
-      sessionRef.current = finished.session;
-      if (!finished.paint) {
-        return;
+      if (!finished.paint) return;
+      modelRef.current = finished.model;
+      if (!finished.model.session.inFlight) {
+        setSnapshot(finished.model.visible);
+        setConfirmed(finished.model.confirmed);
       }
-      if (!finished.session.inFlight) {
-        setSnapshot(null);
-      }
-      setFlight(relationClaimFlight(finished.session));
+      setFlight(relationClaimModelFlight(finished.model));
     } finally {
       if (
-        refresh.refreshSeq === sessionRef.current.refreshSeq &&
-        refresh.userKey === sessionRef.current.userKey &&
-        refresh.equineId === sessionRef.current.equineId &&
-        sessionRef.current.screenActive
+        refreshToken.refreshSeq === modelRef.current.session.refreshSeq &&
+        refreshToken.userKey === modelRef.current.session.userKey &&
+        refreshToken.equineId === modelRef.current.session.equineId &&
+        modelRef.current.session.screenActive
       ) {
         setIsLoading(false);
       }
     }
-  }, [equineId, userKey]);
+  }, [equineId, paint, userKey]);
 
   const submit = useCallback(
-    async (kind: 'OWNERSHIP' | 'MANAGEMENT') => {
-      if (!snapshot || !userKey) {
-        return;
-      }
+    async (kind: RelationClaimKind) => {
+      if (!userKey) return;
 
-      const section = presentRelationClaims({ equineId, ...snapshot });
-      const payload =
-        kind === 'OWNERSHIP'
-          ? section.ownership.ownershipPayload
-          : section.management.managementPayload;
-      if (!payload) {
-        return;
-      }
-
-      const started = beginRelationClaimSubmit(
-        sessionRef.current,
+      const started = beginRelationClaimModelSubmit(
+        modelRef.current,
+        kind,
         userKey,
         equineId,
       );
-      if (!started) {
+      if (!started) return;
+
+      modelRef.current = started.model;
+      setFlight({ inFlight: true, notice: null, errorMessage: null });
+
+      const current = relationClaimModelSection(started.model, equineId);
+      const ownershipPayload = current?.ownership.ownershipPayload ?? null;
+      const managementPayload = current?.management.managementPayload ?? null;
+      if (kind === 'OWNERSHIP' ? !ownershipPayload : !managementPayload) {
+        const failed = settleRelationClaimModelFailure(
+          modelRef.current,
+          started.request,
+          'No se ha podido registrar la reclamación.',
+        );
+        modelRef.current = failed.model;
+        if (failed.apply) setFlight(relationClaimFlight(failed.model.session));
         return;
       }
 
-      sessionRef.current = started.session;
-      setFlight({ inFlight: true, notice: null, errorMessage: null });
-
       try {
-        if (kind === 'OWNERSHIP' && started.session) {
-          await submitOwnershipClaim(section.ownership.ownershipPayload!);
-        } else {
-          await submitManagementClaim(section.management.managementPayload!);
-        }
+        if (kind === 'OWNERSHIP') await submitOwnershipClaim(ownershipPayload!);
+        else await submitManagementClaim(managementPayload!);
         const next = await loadRelationClaimSnapshot();
-        const settled = settleRelationClaimSubmit(sessionRef.current, started.request, {
-          ok: true,
-          notice: CLAIM_RECORDED_NOTICE,
-        });
-        sessionRef.current = settled.session;
-        if (settled.apply) {
-          setSnapshot(next);
-          setFlight(relationClaimFlight(settled.session));
-        }
+        const settled = settleRelationClaimModelSuccess(
+          modelRef.current,
+          started.request,
+          next,
+          CLAIM_RECORDED_NOTICE,
+          kind,
+        );
+        modelRef.current = settled.model;
+        if (settled.apply) paint(settled.model);
       } catch (error) {
-        const message = userFacingVerificationMessage(error);
-        const settled = settleRelationClaimSubmit(sessionRef.current, started.request, {
-          ok: false,
-          errorMessage: message,
-        });
-        sessionRef.current = settled.session;
-        if (settled.apply) {
-          setFlight(relationClaimFlight(settled.session));
-        }
+        const settled = settleRelationClaimModelFailure(
+          modelRef.current,
+          started.request,
+          userFacingVerificationMessage(error),
+        );
+        modelRef.current = settled.model;
+        if (settled.apply) paint(settled.model);
       }
     },
-    [equineId, snapshot, userKey],
+    [equineId, paint, userKey],
   );
 
   useFocusEffect(
     useCallback(() => {
-      sessionRef.current = markRelationClaimsFocused(sessionRef.current);
-      setFlight(relationClaimFlight(sessionRef.current));
+      const focused = focusRelationClaimModel(modelRef.current);
+      paint(focused);
       void refresh();
       return () => {
-        sessionRef.current = markRelationClaimsBlurred(sessionRef.current);
+        modelRef.current = blurRelationClaimModel(modelRef.current);
       };
-    }, [refresh]),
+    }, [paint, refresh]),
   );
 
   const section: RelationClaimSection | null = snapshot
-    ? presentRelationClaims({ equineId, ...snapshot })
+    ? relationClaimModelSection(
+        {
+          session: modelRef.current.session,
+          held: snapshot,
+          visible: snapshot,
+          confirmed,
+        },
+        equineId,
+      )
     : null;
 
   return {
