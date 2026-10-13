@@ -11,7 +11,7 @@
 
 No hace falta una migración `042` para acercar el MVP depurable al siguiente paso mínimo. Las migraciones `036`–`041` ya contienen la cohorte cerrada, el grant `MARKET` / `ES` enlazado a esa cohorte, la cola y el detalle aislados, y la suspensión y el cierre del grant. Expo ya envía las reclamaciones y ya muestra la revisión en solo lectura.
 
-La migración `042` sí quedaría justificada antes de exponer `ACCEPTED` o `REJECTED` en Expo. Hoy `review_*` puede escribir esos estados sin evidencia suficiente. Esa UI no es el siguiente slice.
+La migración `042` no es el siguiente slice. Si un tren posterior la autoriza, su límite nuevo es `ACCEPTED`: falla cerrado mientras no se cumpla la evidencia mínima; para la identidad, además, el futuro resultado KYC autorizado; y no acepta una asignación con `valid_until` futuro hasta resolver esa incoherencia. `042` no exige evidencia suficiente para `REJECTED`. La falta, la insuficiencia, la invalidez o la contradicción de la evidencia pueden ser un motivo legítimo de rechazo. Este tren no autoriza botones de rechazo, ni un catálogo estable de `reason_code`, ni el procedimiento operativo.
 
 ## ARCHITECTURE_CONFLICT
 
@@ -50,7 +50,7 @@ Las funciones de lectura de `040` que `041` sustituye quedan reemplazadas. `get_
 | `review_equine_ownership_claim(uuid, text, text)` | igual, sobre la reclamación | `claim_id`, `state`, `outcome`, `reason_code`, `decided_at` | Igual. |
 | `review_equine_management_claim(uuid, text, text)` | igual | igual | Igual. `ACCEPTED` exige `valid_until` nulo. |
 
-`ACCEPTED` y `REJECTED` también pasan por el trigger `enforce_verification_decision_cohort`. Ese trigger solo deja el cambio si `verification_cohort_authorizes` es verdadero para el `auth.uid()` y el par `(tipo, id)`. Un grant sin cohorte, suspendido o cerrado no autoriza la decisión. El rechazo observable es `42501`.
+`ACCEPTED` y `REJECTED` pasan por el trigger `enforce_verification_decision_cohort`. Ese trigger solo deja el cambio si `verification_cohort_authorizes` es verdadero para el `auth.uid()` y el par `(tipo, id)`. Un grant sin cohorte, suspendido o cerrado no autoriza la decisión. El resultado observable es `42501`. El trigger comprueba la cohorte. No exige evidencia suficiente para `ACCEPTED` ni para `REJECTED`. El límite de evidencia de `ACCEPTED` es el contrato futuro del apartado C, no este trigger.
 
 Composición y bootstrap, solo `postgres`:
 
@@ -96,38 +96,52 @@ No hace falta otro RPC de lectura ni otro botón de envío para ese piloto.
 
 ## C. Qué carencia justificaría la migración `042`
 
-No la justifica el piloto de solo lectura.
+No la justifica el piloto de solo lectura, ni un rechazo por evidencia ausente o insuficiente.
 
-La justificaría el slice de decisión. `review_identity_case`, `review_equine_ownership_claim` y `review_equine_management_claim` no consultan `verification_case_evidence_is_sufficient`. Un revisor autenticado, con grant de cohorte y sin conflicto, puede dejar `ACCEPTED` con cero evidencia. Para la identidad, el predicado de `038` convertiría esa aceptación en `IDENTITY_VERIFIED`. El servidor dejaría de ser el límite que la pantalla ya anuncia.
+La justificaría abrir `ACCEPTED` en el servidor. `review_identity_case`, `review_equine_ownership_claim` y `review_equine_management_claim` no consultan `verification_case_evidence_is_sufficient`. Un revisor autenticado, con grant de cohorte y sin conflicto, puede dejar `ACCEPTED` con cero evidencia. Para la identidad, el predicado de `038` convertiría esa aceptación en `IDENTITY_VERIFIED`.
 
-El contrato mínimo de esa migración, si un tren posterior la autoriza, sería:
+El contrato de esa migración, si un tren posterior la autoriza, queda limitado a `ACCEPTED`:
 
-- `ACCEPTED` falla cerrado cuando la evidencia mínima no está completa. La regla de España ya está en `verification_case_evidence_is_sufficient`: referencia del proveedor para la identidad; referencia del equino más artefacto para propiedad y para responsabilidad.
-- La misma función debe seguir exigiendo la cohorte antes de devolver una fila.
-- Si el producto quiere aceptar asignaciones con `valid_until` futuro, `042` tiene que alinear la aceptación y `verification_management_is_verified` con la regla de vigencia de `041`. Hasta esa decisión, no se aceptan esas filas.
+- `ACCEPTED` falla cerrado mientras no se cumpla la evidencia mínima. La regla de España ya está en `verification_case_evidence_is_sufficient`: referencia del proveedor para la identidad; referencia del equino más artefacto para propiedad y para responsabilidad.
+- Para la identidad, `ACCEPTED` también falla cerrado mientras no exista el futuro resultado KYC autorizado. `042` no elige el proveedor ni cierra `DECISION_REQUIRED` `KYC-PROVIDER`.
+- La misma función sigue exigiendo la cohorte antes de devolver una fila.
+- Antes de aceptar una asignación con `valid_until` futuro, `042` alinea `review_equine_management_claim` y `verification_management_is_verified` con la vigencia de `041`. Hasta ese alineamiento, esas filas no se aceptan.
 
-KYC, URLs firmadas y un catálogo legal de documentos no caben en ese arreglo mínimo. Siguen siendo trenes posteriores. `DECISION_REQUIRED` `KYC-PROVIDER` y `RETENTION-AND-EXPIRY` continúan abiertos en `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`.
+`042` no bloquea `REJECTED` por falta de evidencia. Registrar un rechazo puede ser válido precisamente porque la evidencia falta, no alcanza, es inválida o se contradice. La UI de rechazo, el catálogo estable de `reason_code` y el procedimiento operativo no forman parte de `042` ni de este tren: exigen un tren posterior y autorización expresa.
+
+Las URLs firmadas y el catálogo legal de documentos siguen fuera de ese arreglo. `DECISION_REQUIRED` `RETENTION-AND-EXPIRY` continúa abierto en `docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`.
 
 ## D. ¿Pueden exponerse `ACCEPTED` y `REJECTED` en Expo?
 
-No, no en este tren.
+No en este tren, y no por la misma razón.
 
-- No hay evidencia válida en el flujo de reclamaciones fusionado. El smoke no inserta `verification_evidence`. `evidence_sufficient` permanece falso. La pantalla ya distingue «todavía no es suficiente» de «hay categorías mínimas y aun así la decisión sigue bloqueada».
-- No hay proveedor KYC. La identidad verificada no puede presentarse como resultado de una aceptación manual sin cerrar esa decisión de producto.
-- No hay URLs firmadas, y no deben añadirse. `get_my_review_case` no devuelve `storage_path`, bucket ni documento. La evidencia de identidad, además, exige `storage_path` nulo: solo una referencia de proveedor.
-- La cola no devuelve nombres. El detalle autorizado sí devuelve el nombre mínimo y el nombre del equino. Eso ya es el contrato de lectura de `040`/`041`, no una decisión. Exponer botones de aceptación o rechazo no es necesario para ese dato y sí escribiría confianza sin evidencia.
-- En el lado solicitante, `Aceptada` solo puede seguir el predicado `VERIFIED`. Mostrar `ACCEPTED` o `REJECTED` desde la fila histórica atribuiría una decisión a la relación vigente sin probar el id efectivo. La PR #65 ya retiró esa asociación.
+### `ACCEPTED`
 
-`REJECTED` tampoco se expone. El texto actual bloquea las dos acciones hasta que una revisión posterior compruebe la evidencia. Un botón que llamara a la RPC existente saltaría ese límite.
+No. Tiene que fallar cerrado en el servidor mientras no se cumpla la evidencia mínima. Para la identidad, además, tiene que cumplirse el futuro resultado KYC autorizado.
+
+- El flujo de reclamaciones fusionado no inserta `verification_evidence`. `evidence_sufficient` permanece falso. La pantalla ya dice que la evidencia no es suficiente y que la lectura no autoriza una aceptación.
+- No hay proveedor KYC. Una aceptación de identidad no puede presentarse como `IDENTITY_VERIFIED` sin ese resultado.
+- No hay URLs firmadas, y no deben añadirse para decidir. `get_my_review_case` no devuelve `storage_path`, bucket ni documento. La evidencia de identidad exige `storage_path` nulo: solo una referencia de proveedor.
+- La cola no devuelve nombres. El detalle autorizado sí devuelve el nombre mínimo y el nombre del equino. Eso es el contrato de lectura de `040`/`041`. Un botón de aceptación no hace falta para ese dato y escribiría confianza sin evidencia.
+- En el lado solicitante, `Aceptada` solo sigue el predicado `VERIFIED` del id efectivo. Una aceptación histórica no se atribuye a la fila vigente. La PR #65 ya retiró esa asociación.
+
+### `REJECTED`
+
+Tampoco se implementa ahora. La razón no es la falta de evidencia.
+
+- `REJECTED` no exige evidencia suficiente. Que la evidencia falte, no alcance, sea inválida o se contradiga puede ser exactamente el motivo del rechazo.
+- No se añaden botones de rechazo. La UI, el catálogo estable de `reason_code` y el procedimiento operativo quedan para un tren posterior, con autorización expresa.
+- La pantalla actual bloquea las dos acciones en la misma frase. Ese texto no convierte la insuficiencia de evidencia en un requisito de `REJECTED`, ni autoriza llamar a `review_*` para rechazar.
+- Un rechazo histórico tampoco se presenta como la decisión de la relación vigente si no puede probarse el id efectivo.
 
 ## E. Siguiente slice
 
 Recomendación: **1. Ejecución controlada del piloto de solo lectura.**
 
-No recomiendo la UI de decisión, la evidencia privada ni la integración KYC como paso inmediato. Las dos primeras necesitan el límite de servidor del apartado C. KYC sigue sin proveedor, sin base jurídica cerrada y sin ser necesaria para comprobar que A y B quedan aislados.
+No recomiendo la UI de aceptación, la UI de rechazo, la evidencia privada ni la integración KYC como paso inmediato. La aceptación necesita el límite de servidor del apartado C, incluida la ventana de gestión. El rechazo no necesita evidencia suficiente, pero su UI, su catálogo de `reason_code` y su procedimiento no están autorizados. KYC sigue sin proveedor y sin ser necesario para comprobar que A y B quedan aislados.
 
 El Stage siguiente, exacto, todavía no ejecuta el piloto:
 
-**Stage 0.1 — runbook de solo lectura alineado con `041`.** Documental. Sustituye el procedimiento obsoleto de `4B4` por el orden cohorte abierta, alta solo de los expedientes de A, cierre de composición, bootstrap con persona y código, lectura en Expo, suspensión y cierre. No crea `042`. No añade botones. No ejecuta bootstrap ni SQL remoto. No toca la PR #62. Bugbot sigue manual y Autofix apagado.
+**Stage 0.1 — runbook de solo lectura alineado con `041`.** Documental. Sustituye el procedimiento obsoleto de `4B4` por el orden cohorte abierta, alta solo de los expedientes de A, cierre de composición, bootstrap con persona y código, lectura en Expo, suspensión y cierre. No crea `042`. No llama a `review_*`. No añade botones de aceptación ni de rechazo. No ejecuta bootstrap ni SQL remoto. No toca la PR #62. Bugbot sigue manual y Autofix apagado.
 
 Solo después de revisar ese runbook, y con una autorización distinta de este turno, el Stage 1 ejecuta la opción 1.
