@@ -1,5 +1,7 @@
 # Pilot submission from Expo — Stage 0
 
+**Superseded for execution.** This file records the submission design before the `041` cohort was the live boundary. Its statements that the queue is every open Spain dossier, and that bootstrap does not take a cohort, are not the current SQL. Claim screens now exist on the equine detail. Use `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md` for the pilot procedure and `docs/VERIFICATION_RELATION_CLAIMS.md` for the claim screen. Do not execute bootstrap or a cohort from this file. A future `valid_until` is not treated as verified here.
+
 **Status:** design only. No screen change, no migration, no grant, no case, no remote SQL, no deploy.
 **Date:** 2026-10-12
 **Revision:** cohort covers capabilities, queue, detail, and accept/reject; composition is postgres-only, validated, append-only, and frozen while a grant is `ACTIVE` or `SUSPENDED`; bootstrap links a composition-closed cohort in one transaction; claim screens wait until `041` is deployed.

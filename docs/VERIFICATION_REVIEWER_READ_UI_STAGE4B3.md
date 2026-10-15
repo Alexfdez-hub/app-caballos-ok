@@ -1,5 +1,7 @@
 # Verification reviewer read UI — Stage 4B.3
 
+**Superseded for execution.** This file records Stage 4B.3. The Android procedure it names, `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`, is not the live procedure. Queue and detail authority is the closed cohort in migration `041`. Use `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. Do not execute a smoke from this file.
+
 **Status:** migration `040` is on `main` after PR #59. The Stage 4B.4 starting state records remote version `040`, still with no bootstrap, no reviewer account, and no grant. The Android smoke procedure is `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. It does not execute that smoke.
 **Date:** 2026-10-09
 **Base:** `origin/main` `eeb6d9c121a3aec2406bec215b3c297d95dfe4e5`.

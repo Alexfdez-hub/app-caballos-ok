@@ -373,13 +373,13 @@ Report files changed, dependencies, TypeScript config, env config, auth changes,
 
 Product Owner decide reglas, alcance y aceptación. Arquitectura define modelo, datos, permisos e invariantes. Cursor implementa; no redefine.
 
-**Siguiente fase (live 2026-10-10, Stage 4B.4):** `main` is
-`0df9baddc9eb8bf72938a584f5f2bfeab723aca4` and includes migrations `036`
-through `040`. The recorded remote history is exact version `040`, with
-0 grants, 0 grant events, and no bootstrap. This branch adds the
-fictional pilot smoke runbook only. It does not decide, sign evidence,
-execute the bootstrap, create accounts, or add migration `041`, and it
-does not open publication, services, bookings or payments. Existing
-ownership and management rows remain the effective relationships. A
-private self-created equine stays declared. Do not enable public listing,
-services, real bookings, or payments.
+**Siguiente fase (live 2026-10-15, Stage 0.1):** the procedure base is
+`origin/main` `5ed38a93f712069e8be45bd8573d6a5762b57b6a` and includes
+migrations `036` through `041`. The live procedure is
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. It does not decide,
+sign evidence, execute the bootstrap, create a cohort, create accounts,
+or add migration `042`, and it does not open publication, services,
+bookings or payments. The Stage 4B.4 runbook remains a historical
+handoff. Existing ownership and management rows remain the effective
+relationships. A private self-created equine stays declared. Do not
+enable public listing, services, real bookings, or payments.

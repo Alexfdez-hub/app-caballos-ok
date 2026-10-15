@@ -1,15 +1,16 @@
 # MIGRATION STATUS
 
-**Live note (2026-10-10, Stage 4B.4):** repository `main` is
-`0df9baddc9eb8bf72938a584f5f2bfeab723aca4`. Migrations `036` through
-`040` are on `main`. The recorded remote state for project
-`efkauegdlmfkonzwyyiv` is exact version `040`, with 0 grants, 0 grant
-events, and 0 `verification_review_opened` rows. The bootstrap has not
-been executed and no reviewer account exists. This branch adds the
-pilot smoke runbook only. It does not decide a case, open a document,
-or open publication, services, bookings, or payments.
-Existing null countries are not assigned `ES`. The Phase 14B record below
-is historical.
+**Live note (2026-10-15, Stage 0.1):** the procedure base is `origin/main`
+`5ed38a93f712069e8be45bd8573d6a5762b57b6a`. Migrations `036` through
+`041` are on that `main`. The last authorized remote record, not
+re-queried in this stage, is project `efkauegdlmfkonzwyyiv` with
+migration `041` deployed. This stage does not assert a current grant,
+cohort, or audit count. The live procedure is
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. It does not execute
+the pilot, decide a case, open a document, or open publication,
+services, bookings, or payments. The version `040` counts in older
+notes are historical. Existing null countries are not assigned `ES`.
+The Phase 14B record below is historical.
 
 PHASE: 14B — Consolidated P0 security gate
 STATUS: MERGED AND DEPLOYED — migrations 027–029 deployed; no migration 030 on main
@@ -65,12 +66,12 @@ See `docs/REMOTE_DEPLOYMENT_027_029.md` for the deployment record.
 1. Issue #47 and migration `035_identity_market_capture` are merged,
    deployed as exact version `035`, and covered by the approved Android
    smoke. See `docs/PHASE_IDENTITY_MARKET_CAPTURE_REPORT.md`.
-2. Migrations `036` through `040` are on `main`. The recorded remote
-   history is exact version `040`, with 0 grants, 0 grant events, and
-   no bootstrap. The next document is the fictional Android smoke
-   runbook, `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. That
-   runbook does not itself authorize the bootstrap, a grant, or
-   migration `041`. No KYC vendor and no calendar change.
+2. Migrations `036` through `041` are on `main`. The live read-only
+   pilot procedure is `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`.
+   It describes a later preflight and a later cohort, bootstrap,
+   suspension, and close. It does not authorize executing them, and it
+   does not start migration `042`. The Stage 4B.4 runbook is not the
+   procedure. No KYC vendor and no calendar change.
 3. Open `DECISION_REQUIRED` items still block publication, services, real
    bookings, payments, and provider integration.
 4. Keep private declared-equine and private-photo functionality working.

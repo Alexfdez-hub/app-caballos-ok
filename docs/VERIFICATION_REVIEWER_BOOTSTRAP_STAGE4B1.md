@@ -1,5 +1,7 @@
 # Reviewer bootstrap and grant administration — Stage 4B.1
 
+**Superseded for execution.** This file records the Stage 4B.1 design, before migration `039` and before the `041` cohort. It is not the live bootstrap. The current function is `bootstrap_verification_review_grant(uuid, text)`. Use `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. Do not execute a grant from this file.
+
 **Status:** design only. No screen, no grant row, no migration, no Edge Function, no script, no deploy.
 **Date:** 2026-10-08
 **Base:** `origin/main` `1b42764446ea7cdae223172ceed6a3aa7151e233` (Stage 4B documentation, PR #56).
