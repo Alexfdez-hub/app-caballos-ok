@@ -1,5 +1,7 @@
 # Verification reviewer UI — Stage 4B inventory
 
+**Superseded for execution.** This file is the Stage 4B inventory. It is not the live procedure and it does not describe the `041` cohort boundary. Acceptance without minimum evidence, identity acceptance without a future authorized KYC result, and a future `valid_until` treated as verified are not resolved here. Use `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md` and the current SQL. Do not implement `Aceptar` or `Rechazar` from this handoff.
+
 **Status:** stopped after Stage 0. No screen, no hook, no migration `039`, no grant seed, no Edge Function, no deploy.
 **Date:** 2026-10-08
 **Base:** `origin/main` `901a320cdef648c5fdebb28945c2001a8b2041c1` (Stage 4A, PR #55).

@@ -1,5 +1,7 @@
 # Siguiente tren de verificación — inventario Stage 0
 
+**Sustituido como procedimiento.** Este archivo es el inventario Stage 0. El runbook de solo lectura alineado con `041` está en `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. La contradicción 1 explica por qué no se ejecuta `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. La contradicción 2, `valid_until`, sigue abierta. Este inventario no ejecuta el piloto y no inicia el Stage 1.
+
 **Estado:** solo documentación. No crea la migración `042`, no escribe código ejecutable y no ejecuta SQL remoto.
 **Base:** `origin/main` `8cea048ecd6fe6f031977bc2d65ef623ec7c6181` (merge de la PR #65).
 **Remoto, según el estado autorizado de este turno y sin nueva consulta:** proyecto `efkauegdlmfkonzwyyiv`, migración `041` integrada y desplegada. El smoke Android de las reclamaciones de propiedad y de responsabilidad ya pasó. No hay autorización para crear cohortes, conceder grants, decidir expedientes ni ejecutar SQL remoto.

@@ -208,3 +208,79 @@ reviewed retirement accounts for those case ids, another Spain reviewer
 grant is forbidden. This correction invents no `DELETE`, `UPDATE`,
 rejection, decision, or artificial case close. See
 `docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`.
+
+## 2026-10-15 — Read-only pilot runbook aligned with migration 041
+
+Does not execute the pilot. Does not close a pending decision.
+
+### Already approved
+
+The entries above stay as written. They record the slices they name.
+They do not become the live procedure. The 2026-10-10 and 2026-10-11
+entries describe the Stage 4B.4 handoff: remote version `040`,
+`bootstrap_verification_review_grant` with the person only, and cases
+remaining visible to a later `MARKET` / `ES` reviewer after that grant
+closes. That description is superseded for execution by this entry.
+The old entries are not rewritten.
+
+### Behavior that already exists
+
+Migrations `036`–`041` are on `origin/main`
+`5ed38a93f712069e8be45bd8573d6a5762b57b6a`. The last authorized remote
+record, from `docs/VERIFICATION_NEXT_TRAIN_STAGE0.md` and not re-queried
+here, is project `efkauegdlmfkonzwyyiv` with `041` deployed. This entry
+does not state a current grant count or cohort count.
+
+`041` drops `bootstrap_verification_review_grant(uuid)`. The current
+function is `bootstrap_verification_review_grant(uuid, text)` and inserts
+an `ACTIVE` `MARKET` / `ES` grant already linked to a `CLOSED` Spain
+cohort. Queue, detail, and accept/reject authorization follow that
+cohort. Closing a grant isolates that reviewer. It does not publish the
+dossiers to a grant whose closed cohort does not contain them. Expo
+already submits identity, ownership, and management claims, and
+`ReviewPilotScreen` already reads capabilities, queue, and detail. It
+does not render `Aceptar` or `Rechazar` and it does not call `review_*`.
+
+### Operations still not authorized
+
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md` describes, and does not
+authorize, the later order: read-only preflight, create an `OPEN` `ES`
+cohort, add only the identified dossiers, verify the composition, close
+it, bootstrap B with the person id and the cohort code, read the queue
+and detail in Expo, prove an outside dossier fails closed, suspend,
+observe the revocation, close, and confirm that the closed row is not
+reactivated. None of those steps is executed by this entry.
+
+### Still open
+
+`DECISION_REQUIRED`: the items named in
+`docs/MANUAL_VERIFICATION_MVP0_DESIGN.md`, including `KYC-PROVIDER` and
+`RETENTION-AND-EXPIRY`. Also the runbook's own open items: a missing
+identity submission, a null effective ownership or assignment id, an
+identified set that is not one open Spain dossier of each type, and the
+authenticated channel for the outside-cohort read. This entry chooses
+none of them.
+
+`ARCHITECTURE_CONFLICT`: the contracts are not aligned. This entry does
+not choose a resolution and does not start migration `042`.
+`submit_my_equine_management_claim` in `041` can accept an `ACTIVE`
+assignment whose `valid_until` is null or future, when called with a row
+that meets its conditions. `list_my_equine_management_assignments` marks
+`is_currently_effective` only when `valid_until` is null; that is the
+read the app uses. `managementClaimPayload` builds the claim only when
+that row arrives marked current, so the current UI does not allow
+claiming an assignment with a future `valid_until`.
+`review_equine_management_claim` refuses `ACCEPTED` when `valid_until`
+is not null, and `verification_management_is_verified` also requires it
+null. The runbook still stops before section B when
+`management_claim_valid_until_is_null` is false.
+
+`LEGAL_AND_INSURANCE_REVIEW_REQUIRED` remains open before real paid
+bookings.
+
+`ACCEPTED` is not evidence-gated by migrations `036`–`041`. A future
+`042`, if separately authorized, is the limit described in the Stage 0
+inventory: fail closed until minimum evidence exists and, for identity,
+until the future authorized KYC result exists. `REJECTED` is not
+conditioned on sufficient evidence. Rejection UI, a stable `reason_code`
+catalog, and a rejection procedure stay unauthorized.

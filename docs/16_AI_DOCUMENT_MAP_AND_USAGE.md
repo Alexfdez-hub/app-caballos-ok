@@ -321,17 +321,17 @@ Live repository phase reports that implement Architecture 2.1 live under
 `REMOTE_DEPLOYMENT_027_029.md`). GitHub live state wins over stale
 planning documents.
 
-**Live status (recorded 2026-10-10, Stage 4B.4):** repository `main` is
-`0df9baddc9eb8bf72938a584f5f2bfeab723aca4`, the merge of PR #59.
-Migrations `036` through `040` are on `main`. The recorded remote state
-for project `efkauegdlmfkonzwyyiv` is exact version `040`, with 0 grants,
-0 grant events, and 0 `verification_review_opened` rows. The bootstrap
-has not been executed and no reviewer account exists. This branch adds
-`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md` only. It does not
-create accounts, execute the bootstrap, insert cases, decide a case,
-open private evidence, or open publication, services, bookings, or
-payments. Identity completion still requires an explicit selectable
-country.
+**Live status (recorded 2026-10-15, Stage 0.1):** the procedure base is
+`origin/main` `5ed38a93f712069e8be45bd8573d6a5762b57b6a`. Migrations
+`036` through `041` are on that `main`. The last authorized remote
+record, in `docs/VERIFICATION_NEXT_TRAIN_STAGE0.md` and not re-queried
+here, is project `efkauegdlmfkonzwyyiv` with migration `041` deployed.
+This stage does not re-count grants, cohort rows, or audit rows, and it
+does not execute the pilot. The live read-only procedure is
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. The Stage 4B.4 smoke
+runbook is a historical handoff and is not the procedure. Identity
+completion still requires an explicit selectable country. Publication,
+services, real bookings, and payments stay closed.
 
 The Level 1–3 handoff documents named above are maintained outside this
 repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
@@ -347,11 +347,32 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`,
 `docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`,
 `docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`,
-`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`, and
-`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`. The decision log is append-only. It records
+`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`,
+`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`,
+`docs/VERIFICATION_COHORT_MIGRATION_041.md`,
+`docs/VERIFICATION_PILOT_SUBMIT_STAGE0.md`,
+`docs/VERIFICATION_RELATION_CLAIMS.md`,
+`docs/VERIFICATION_NEXT_TRAIN_STAGE0.md`, and
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`.
+
+For the Spain review pilot, signatures and permissions come from
+migrations `036`–`041`. The live procedure is the `041` runbook above.
+`docs/PILOT_RUNBOOK.md` is the local fictitious-market journey, not that
+pilot. These stage handoffs keep their original text and carry a
+supersession warning: `docs/VERIFICATION_REVIEWER_UI_STAGE4B.md`,
+`docs/VERIFICATION_REVIEWER_BOOTSTRAP_STAGE4B1.md`,
+`docs/VERIFICATION_GRANT_LIFECYCLE_STAGE4B2.md`,
+`docs/VERIFICATION_REVIEWER_READ_UI_STAGE4B3.md`,
+`docs/VERIFICATION_REVIEWER_PILOT_SMOKE_STAGE4B4.md`,
+`docs/VERIFICATION_PILOT_SUBMIT_STAGE0.md`,
+`docs/VERIFICATION_COHORT_MIGRATION_041.md`, and
+`docs/VERIFICATION_NEXT_TRAIN_STAGE0.md`. Do not execute a bootstrap,
+a cohort, a grant, or a smoke from those files. The decision log is append-only. It records
 closed product direction separately from open legal, privacy and insurance
-reviews. A later entry can authorize one named slice. It does not authorize
-work beyond that slice. Authentication,
+reviews, from `DECISION_REQUIRED`, from `ARCHITECTURE_CONFLICT`, and from
+`LEGAL_AND_INSURANCE_REVIEW_REQUIRED`. A later entry can authorize one named slice. It does not authorize
+work beyond that slice. An entry that records existing behavior does not
+authorize an operation that has not been executed. Authentication,
 civil-identity verification, declared ownership, verified ownership and
 verified management authority are distinct. A privately declared equine
 may be completed and photographed, but publication, service enablement,

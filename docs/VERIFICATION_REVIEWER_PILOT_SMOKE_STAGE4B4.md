@@ -1,5 +1,7 @@
 # Pilot reviewer smoke runbook — Stage 4B.4
 
+**Superseded for execution.** This file is the Stage 4B.4 handoff. It is not the live Spain verification procedure. The live procedure is `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`, which follows migrations `036`–`041`. Do not execute bootstrap, cohort, grant, or smoke steps from this file. Do not call `bootstrap_verification_review_grant(uuid)`. A `MARKET` / `ES` grant does not authorize every open Spain dossier. Closing a grant does not publish those dossiers to a later reviewer. Signatures and permissions come from the current SQL, not from this handoff.
+
 **Status:** documentation only. This pull request does not create accounts, execute the bootstrap, insert grants, cases, or evidence, run remote SQL, or change Supabase.
 **Date:** 2026-10-10
 **Base:** `origin/main` `0df9baddc9eb8bf72938a584f5f2bfeab723aca4` (merge of PR #59).

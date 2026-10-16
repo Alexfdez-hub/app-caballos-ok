@@ -1,5 +1,7 @@
 # Verification grant lifecycle — Stage 4B.2
 
+**Superseded for execution.** This file records Stage 4B.2. It is not the live procedure. `bootstrap_verification_review_grant(uuid)` in this handoff was replaced by `bootstrap_verification_review_grant(uuid, text)` in migration `041`. Use `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. Do not execute a grant from this file.
+
 **Status:** migration `039` is on `main` and deployed. The bootstrap has not been executed. The Stage 4B.4 starting state still records 0 grants and 0 grant events after remote version `040`.
 **Date:** 2026-10-08
 **Base:** `origin/main` `78e9a699559f6be4409a25c39c109cc12d8167f4`.

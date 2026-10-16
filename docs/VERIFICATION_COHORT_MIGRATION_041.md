@@ -1,5 +1,7 @@
 # Verification cohort migration 041
 
+**Superseded for current status.** This file records the migration pull request. It is not the pilot procedure. The sentence below that claim screens stay disabled, and the status line that says the migration is only local, belong to that pull request. The live procedure is `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. The claim screen is `docs/VERIFICATION_RELATION_CLAIMS.md`. Do not execute a cohort or a grant from this file.
+
 **Status:** local migration and tests. No remote SQL, no grant, no pilot dossier, no claim screen.
 **Base:** `origin/main` `5e9b313adcd48da1699831e20add8b687907d6e8`.
 
