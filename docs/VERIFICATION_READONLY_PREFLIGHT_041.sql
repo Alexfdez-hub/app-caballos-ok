@@ -54,31 +54,41 @@ account_gate as (
     ) as ok
   from resolved
 ),
+-- person_id and account_id are uuid. PostgreSQL 15–17 have no max(uuid).
+-- array_agg(...)[1] runs only after account_gate.ok proved a single row.
+-- A failed gate leaves every chosen value null. array_agg does not
+-- replace a null country_code with another country.
 chosen as (
   select
     case
-      when (select ok from account_gate)
-        then max(person_id) filter (where party = 'A')
+      when (select ok from account_gate) then (
+        array_agg(person_id) filter (where party = 'A')
+      )[1]
     end as person_a,
     case
-      when (select ok from account_gate)
-        then max(account_id) filter (where party = 'A')
+      when (select ok from account_gate) then (
+        array_agg(account_id) filter (where party = 'A')
+      )[1]
     end as account_a,
     case
-      when (select ok from account_gate)
-        then max(country_code) filter (where party = 'A')
+      when (select ok from account_gate) then (
+        array_agg(country_code) filter (where party = 'A')
+      )[1]
     end as country_a,
     case
-      when (select ok from account_gate)
-        then max(person_id) filter (where party = 'B')
+      when (select ok from account_gate) then (
+        array_agg(person_id) filter (where party = 'B')
+      )[1]
     end as person_b,
     case
-      when (select ok from account_gate)
-        then max(account_id) filter (where party = 'B')
+      when (select ok from account_gate) then (
+        array_agg(account_id) filter (where party = 'B')
+      )[1]
     end as account_b,
     case
-      when (select ok from account_gate)
-        then max(country_code) filter (where party = 'B')
+      when (select ok from account_gate) then (
+        array_agg(country_code) filter (where party = 'B')
+      )[1]
     end as country_b
   from resolved
 ),
@@ -107,7 +117,14 @@ version_gate as (
 signature_gate as (
   select
     count(*) = 1
-    and bool_and(pg_get_function_identity_arguments(p.oid) = 'uuid, text') is true as ok
+    and bool_and(
+      regexp_replace(
+        pg_get_function_identity_arguments(p.oid),
+        '[A-Za-z_][A-Za-z0-9_]* ',
+        '',
+        'g'
+      ) = 'uuid, text'
+    ) is true as ok
   from pg_proc as p
   join pg_namespace as n
     on n.oid = p.pronamespace

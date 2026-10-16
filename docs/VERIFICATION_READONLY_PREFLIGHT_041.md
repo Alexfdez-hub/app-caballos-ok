@@ -25,6 +25,8 @@ El runbook integrado en este `main` sigue coincidiendo con el SQL de `036`–`04
 Dos lecturas se añaden sin cambiar el SQL ni cerrar una decisión:
 
 - El mercado de identidad es `persons.country_code`, elegido en el perfil. A.3 del runbook no lo leía. Este guion exige `ES` en A y en B. Un nulo no se rellena.
+- `person_id` y `account_id` son UUID. El PostgreSQL que usa Supabase no tiene `max(uuid)`. La CTE `chosen` extrae cada valor con `(array_agg(...) filter (...))[1]` solo cuando `account_gate.ok` es verdadero. Esa puerta ya demostró una sola fila, así que el índice no elige entre duplicados. Si la unicidad falla, los seis valores quedan nulos y el preflight se detiene. `array_agg` no sustituye un país nulo por otro.
+- En PostgreSQL 17, `pg_get_function_identity_arguments` incluye el nombre del parámetro. La puerta de firma compara los tipos resultantes con `uuid, text` y sigue exigiendo una sola función.
 - `identity_verification_decisions` y `equine_relationship_decisions` se cuentan. El runbook no las usa como parada de arranque limpio. La parada sigue siendo cualquiera de los cinco conteos de cohorte o de grant distinto de cero. `opened_audits` se anota y tampoco es esa parada.
 
 El conjunto que abre la sección B, si una autorización posterior existiera, sigue siendo un expediente abierto de cada tipo. Abierto significa `SUBMITTED`, `IN_REVIEW` o `RESUBMITTED`. El detalle `submitted=` solo informa cuántos de esos están en `SUBMITTED`. No se elige un expediente entre varios.
@@ -34,6 +36,8 @@ El conjunto que abre la sección B, si una autorización posterior existiera, si
 Todavía no hay autorización para el proyecto remoto. Hasta entonces el archivo SQL no se ejecuta allí.
 
 Cuando la haya, se ejecuta el archivo entero en una sesión `postgres`, como un solo guion. Empieza en `begin read only` y termina en `rollback`. No hay `commit`. Las dos primeras sentencias solo aceptan las direcciones en memoria de la transacción y devuelven un booleano, no la dirección. Si el cliente confirma cada sentencia por separado, la dirección se pierde y la consulta siguiente falla cerrada.
+
+La prueba local `npm run test:verification-preflight` hace eso contra la base creada por las migraciones `001`–`041`. Sustituye solo los dos placeholders por direcciones ficticias del fixture, comprueba que la transacción es `READ ONLY`, que termina en `ROLLBACK` y que no queda ningún cambio. No usa el proyecto remoto. Cubre cuentas válidas, una cuenta ausente, país nulo, país distinto de `ES`, una cohorte previa, un grant previo, un expediente ausente y expedientes de más. `auth.users.email` sigue siendo único, así que el fixture no fabrica dos filas con la misma dirección.
 
 Sustituir las direcciones solo en esa sesión. No guardarlas en Git, en la PR, en CI ni en el chat. El resultado publicado de la última consulta no incluye UUID, nombres ni correos.
 

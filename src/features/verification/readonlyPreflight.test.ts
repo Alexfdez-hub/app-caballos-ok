@@ -55,6 +55,11 @@ test('readonly preflight keeps placeholders and hides identifiers', () => {
   assert.equal(sql.includes("'MANAGEMENT_CLAIM'"), true);
   assert.equal(sql.includes('IDENTITY_PROVIDER_REFERENCE'), false);
   assert.equal(sql.includes('storage_path'), false);
+  assert.equal(/\bmax\s*\(\s*person_id\s*\)/i.test(sql), false);
+  assert.equal(/\bmax\s*\(\s*account_id\s*\)/i.test(sql), false);
+  assert.equal(sql.includes('array_agg(person_id)'), true);
+  assert.equal(sql.includes('array_agg(account_id)'), true);
+  assert.equal(sql.includes('array_agg(country_code)'), true);
 });
 
 test('readonly preflight emits only the three verdicts', () => {
