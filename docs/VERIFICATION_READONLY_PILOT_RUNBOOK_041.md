@@ -106,7 +106,7 @@ select
     where event_type = 'verification_review_opened') as opened_audits;
 ```
 
-Abortar el arranque limpio, con `OPERATOR_ESCALATION_REQUIRED`, si `cohorts`, `cohort_cases`, `cohort_events`, `grants` o `grant_events` no son cero. Este runbook no adopta una cohorte ni un grant ya existentes. El conteo de `opened_audits` se anota y no se usa como prueba de cero: el registro histórico de la versión `040` no es una lectura de este tren, y esta consulta no selecciona metadatos.
+Abortar el arranque limpio, con `OPERATOR_ESCALATION_REQUIRED`, si `cohorts`, `cohort_cases`, `cohort_events`, `grants` o `grant_events` no son cero. Cualquiera de esos cinco conteos distinto de cero detiene el intento: no se adopta, no se completa, no se cierra y no se reutiliza ninguna cohorte existente, y no se crea un grant. Una cohorte encontrada en A.2 no pertenece al intento actual, aunque esté vacía, `OPEN` o coincida con el cuaderno. El conteo de `opened_audits` se anota y no se usa como prueba de cero: el registro histórico de la versión `040` no es una lectura de este tren, y esta consulta no selecciona metadatos.
 
 ### A.3. A y B son dos personas y dos cuentas distintas y activas
 
@@ -350,17 +350,35 @@ select
        or evidence.management_claim_id = '<management-claim-id>'::uuid
   ) as evidence_rows;
 
+select
+  public.verification_case_evidence_is_sufficient(
+    'IDENTITY_CASE',
+    '<identity-case-id>'::uuid
+  ) as identity_evidence_sufficient,
+  public.verification_case_evidence_is_sufficient(
+    'OWNERSHIP_CLAIM',
+    '<ownership-claim-id>'::uuid
+  ) as ownership_evidence_sufficient,
+  public.verification_case_evidence_is_sufficient(
+    'MANAGEMENT_CLAIM',
+    '<management-claim-id>'::uuid
+  ) as management_evidence_sufficient;
+
 rollback;
 ```
 
-No seleccionar `storage_path`, bucket, referencia de proveedor ni cuerpo. El conteo solo prepara la copia que la pantalla ya tiene: cero filas acompañan a `La evidencia todavía no es suficiente para continuar.`; una fila o más acompañan a `Hay evidencia de las categorías mínimas, pero la decisión sigue bloqueada.` Ninguna de las dos frases es un botón. `verification_case_evidence_is_sufficient` no acepta el expediente. Para la identidad exige `IDENTITY_PROVIDER_REFERENCE`. Para la propiedad exige `EQUINE_IDENTIFIER_REFERENCE` y `OWNERSHIP_ARTIFACT`. Para la responsabilidad exige `EQUINE_IDENTIFIER_REFERENCE` y `MANAGEMENT_DELEGATION_ARTIFACT`.
+No seleccionar `storage_path`, bucket, referencia de proveedor ni cuerpo. No insertar filas de evidencia. `evidence_rows` solo dice si hay filas. No elige la frase de la pantalla. Una fila, o una categoría cualquiera, no es evidencia suficiente.
+
+La frase sale del booleano que el detalle ya usa, `verification_case_evidence_is_sufficient`, el mismo contrato que `get_my_review_case` devuelve como `evidence_sufficient`. Falso acompaña a `La evidencia todavía no es suficiente para continuar.` Verdadero acompaña a `Hay evidencia de las categorías mínimas, pero la decisión sigue bloqueada.` Ninguna de las dos frases es un botón. El predicado no acepta el expediente.
+
+Cada booleano se lee con su tipo de padre: `IDENTITY_CASE`, `OWNERSHIP_CLAIM` o `MANAGEMENT_CLAIM`. La identidad exige `IDENTITY_PROVIDER_REFERENCE`. La propiedad exige `EQUINE_IDENTIFIER_REFERENCE` y `OWNERSHIP_ARTIFACT`. La gestión exige `EQUINE_IDENTIFIER_REFERENCE` y `MANAGEMENT_DELEGATION_ARTIFACT`. El humo usa el booleano de ese expediente, no `evidence_rows`.
 
 ### A.8. Resultados que obligan a abortar
 
 | Resultado | Marca | Qué no se hace |
 | --- | --- | --- |
 | Principal distinto de `postgres`, versión distinta de `041`, versión `042`, o firma distinta de `uuid, text` | Abortar | No crear cohorte ni grant. |
-| Ya existe cohorte, membresía, evento de cohorte, grant o evento de grant | `OPERATOR_ESCALATION_REQUIRED` | No adoptar esa fila y no crear otra. |
+| Cualquiera de los cinco conteos de A.2 distinto de cero: cohortes, membresías, eventos de cohorte, grants o eventos de grant | `OPERATOR_ESCALATION_REQUIRED` | No adoptar, completar, cerrar ni reutilizar esa cohorte. No crear un grant. Una fila vista en A.2 no es de este intento. |
 | A o B no resueltos, no activos, o no distintos | Abortar | No crear cuentas. |
 | El conjunto de A no es un expediente de cada tipo | `DECISION_REQUIRED` | No enviar identidad ni elegir un expediente. |
 | Id efectivo nulo | `DECISION_REQUIRED` | No decidir si entra en la cohorte. |
@@ -370,9 +388,14 @@ No seleccionar `storage_path`, bucket, referencia de proveedor ni cuerpo. El con
 
 ## ARCHITECTURE_CONFLICT
 
-`041` y la pantalla de reclamación tratan como vigente una asignación `ACTIVE` cuyo `valid_until` es nulo o futuro. `submit_my_equine_management_claim` copia esa ventana. `review_equine_management_claim`, de `037` y no sustituida por `041`, rechaza `ACCEPTED` si `valid_until` no es nulo. `verification_management_is_verified`, de `038`, también exige `valid_until` nulo. Una aceptación de una ventana con fin futuro, si llegara a escribirse, no produciría `MANAGEMENT_AUTHORITY_VERIFIED`.
+Los contratos no están alineados. Este runbook no elige cómo resolverlos y no inicia la migración `042`.
 
-`create_my_equine` inserta `PRIMARY_MANAGER` con `valid_until` nulo. Esa fila concreta no choca con `037` ni con `038`. El choque aparece en cualquier asignación con fin futuro que la UI ya permite reclamar.
+1. Alta de `041`. `submit_my_equine_management_claim` puede aceptar una asignación `ACTIVE` cuyo `valid_until` sea nulo o futuro, si se llama con una fila que cumple sus condiciones. Copia esa ventana en la reclamación.
+2. Lectura que usa la app. `list_my_equine_management_assignments` marca `is_currently_effective` únicamente cuando `valid_until` es nulo.
+3. Frontend. `managementClaimPayload` solo construye la reclamación cuando la fila llega marcada como vigente. La UI actual no permite reclamar una asignación con `valid_until` futuro.
+4. Revisión y confianza. `review_equine_management_claim`, de `037` y no sustituida por `041`, rechaza `ACCEPTED` si `valid_until` no es nulo. `verification_management_is_verified`, de `038`, también exige `valid_until` nulo. Una aceptación de una ventana con fin futuro, si llegara a escribirse, no produciría `MANAGEMENT_AUTHORITY_VERIFIED`.
+
+`create_my_equine` inserta `PRIMARY_MANAGER` con `valid_until` nulo. Esa fila concreta no choca con `037` ni con `038`. El conflicto permanece porque el alta de `041` admite una ventana que la revisión y el predicado de confianza no aceptan, y porque la UI no admite hoy ese fin futuro.
 
 Este runbook no elige si esa reclamación entra en la cohorte, si se excluye, ni si se cambia `037` o `038`. Si el preflight encuentra `management_claim_valid_until_is_null` falso, se detiene antes de la sección B.
 
@@ -556,43 +579,46 @@ No ejecutarlo en este tren. Empieza solo después del paso 6, y se repite la par
 Las tres solicitudes de A se comprueban en las pantallas que ya existen:
 
 1. Iniciar sesión como A hasta llegar a Perfil. La dirección visible en Perfil sirve para reconocer la cuenta en el dispositivo. No se copia a Git.
-2. Perfil → Verificación. En `Verificación de identidad`, el estado de una solicitud abierta es `Solicitud pendiente` para `SUBMITTED`, `IN_REVIEW` y `RESUBMITTED`. No pulsar `Solicitar verificación`.
+2. En Perfil, abrir la fila `Verificación`. Esa fila abre la pantalla de identidad. En `Verificación de identidad`, el estado de una solicitud abierta es `Solicitud pendiente` para `SUBMITTED`, `IN_REVIEW` y `RESUBMITTED`. No pulsar `Solicitar verificación`. `Perfil → Verificación` es solo ese camino. No sirve para buscar `Revisión piloto`.
 3. Abrir el equino de las dos reclamaciones identificadas. En `Verificación de relación`, la propiedad y la responsabilidad muestran su confianza y, si la solicitud está abierta, `Solicitud pendiente` o `En revisión`. La confianza esperada de un expediente aún no verificado es `No verificada`. No pulsar `Presentar reclamación de propiedad`, `Presentar reclamación de responsabilidad` ni `Añadir foto`.
-4. En Perfil, la fila `Revisión piloto` no está. A no es el revisor.
+4. En Perfil, sección `Verificación`, la fila `Revisión piloto` está junto a la fila `Verificación` y no se muestra. A no es el revisor. No está dentro de la pantalla `Verificación de identidad`.
 5. Perfil → `Cerrar sesión`. La sesión de `supabase.auth.signOut()` desaparece y queda la pantalla con el botón `Iniciar sesión`. Perfil ya no está. No iniciar la sesión de B encima de una sesión que siga activa.
-6. Iniciar sesión como B. Confirmar en Perfil que la cuenta no es la de A. Antes del paso 6 de la sección B, `Revisión piloto` no está.
+6. Iniciar sesión como B. Confirmar en Perfil que la cuenta no es la de A. Antes del paso 6 de la sección B, en Perfil, sección `Verificación`, la fila `Revisión piloto` que está junto a `Verificación` no se muestra. `pilotReviewIsVisible` no recibe exactamente una capacidad `MARKET` / `ES`. No abrir la pantalla de identidad para comprobarlo.
 
 Con el grant activo del paso 6:
 
-- Perfil → Verificación muestra `Revisión piloto` solo cuando `get_my_review_capabilities()` devuelve exactamente una fila `MARKET` / `ES`. Esa es la condición de `pilotReviewIsVisible`.
-- Abrir `Revisión piloto`. El título es `Revisión piloto`. El subtítulo es `Lectura autorizada para España. No decide ni abre documentos.`
+- En Perfil, sección `Verificación`, la fila `Revisión piloto` aparece junto a la fila `Verificación` solo cuando `pilotReviewIsVisible` recibe exactamente una capacidad `MARKET` / `ES`. Esa capacidad es la única fila que devuelve `get_my_review_capabilities()`. La fila no está dentro de la pantalla `Verificación de identidad`. `Perfil → Verificación` abre esa pantalla y no muestra `Revisión piloto`.
+- Abrir `Revisión piloto` desde esa fila de Perfil. El título es `Revisión piloto`. El subtítulo es `Lectura autorizada para España. No decide ni abre documentos.`
 - La bandeja no muestra nombres, direcciones, rutas, buckets ni documentos. Cada fila muestra el tipo (`Identidad`, `Propiedad` o `Gestión`), el estado (`Enviada`, `En revisión` o `Reenviada`), `España`, la fecha de actualización, y o `Sin categorías de evidencia` o los nombres de categoría. Como máximo hay 50 filas. Para este piloto tienen que ser las tres, y ninguna más.
 - Abrir solo esas tres. El detalle muestra `Sujeto:` con el nombre mínimo, y en propiedad o responsabilidad `Equino:` con el nombre del equino y el tipo y el rol de la relación. La evidencia, si existe, es categoría y país del documento. No hay ruta, bucket, documento ni URL firmada.
-- El detalle muestra la copia de evidencia incompleta o la de evidencia presente, según el conteo del preflight, y siempre `La decisión queda bloqueada. Esta lectura no autoriza una aceptación ni un rechazo. Esa acción llegará solo cuando una revisión posterior compruebe la evidencia.`
+- El detalle muestra la copia de evidencia incompleta cuando el booleano de suficiencia de ese expediente es falso, y la de evidencia presente cuando es verdadero. El booleano es el de A.7 para `IDENTITY_CASE`, `OWNERSHIP_CLAIM` o `MANAGEMENT_CLAIM`, no `evidence_rows`. Una fila o una categoría cualquiera no cambian esa frase. Siempre se muestra también `La decisión queda bloqueada. Esta lectura no autoriza una aceptación ni un rechazo. Esa acción llegará solo cuando una revisión posterior compruebe la evidencia.`
 - No existen botones `Aceptar` ni `Rechazar`. No pulsar `Actualizar` como si decidiera. `Actualizar` solo vuelve a leer.
 
 Después de la suspensión, y otra vez después del cierre, con B:
 
-- Volver a Perfil. `Revisión piloto` no está.
+- Volver a Perfil, sección `Verificación`. La fila `Revisión piloto`, la que está junto a la fila `Verificación`, no se muestra. No buscarla en la pantalla `Verificación de identidad`. Sin exactamente una capacidad `MARKET` / `ES`, `pilotReviewIsVisible` la oculta. La suspensión y el cierre se comprueban los dos en ese mismo sitio de Perfil.
 - Si la pantalla de revisión seguía abierta y la carga anterior había tenido acceso, el estado es `Acceso cerrado`: `La autorización ya no está vigente. Los expedientes de esta sesión se han retirado.` No queda la bandeja ni el detalle.
 - La pantalla no distingue `SUSPENDED` de `ENDED`. Esa diferencia se lee solo en el grant.
 - No aparecen botones de decisión, rutas, buckets, documentos ni URLs firmadas, porque el detalle ya no está.
 
-Después del cierre, iniciar sesión otra vez como A. Las tres solicitudes siguen en el mismo estado visible de antes. `Revisión piloto` sigue ausente. No enviar, no decidir y no fotografiar.
+Después del cierre, iniciar sesión otra vez como A. Las tres solicitudes siguen en el mismo estado visible de antes. En Perfil, sección `Verificación`, la fila `Revisión piloto` que está junto a `Verificación` sigue ausente. No está en la pantalla de identidad. No enviar, no decidir y no fotografiar.
 
 ## D. Rollback y manejo de incidentes
 
 No hay `DELETE`, ni reescritura de `audit_events`, ni reescritura de eventos de grant o de cohorte, ni `UPDATE` de una cohorte cerrada, ni reactivación de un grant `ENDED`. Si el esquema no ofrece una recuperación que deje la composición correcta y el revisor correcto, la marca es `OPERATOR_ESCALATION_REQUIRED`.
 
+**Mismo intento.** Un intento es una sola ejecución continua de la sección B. Empieza solo después de que A.2 haya devuelto a cero los cinco conteos de cohortes, membresías, eventos de cohorte, grants y eventos de grant. No se abandona y no se reinicia. Una fila pertenece a ese intento solo mientras esa ejecución sigue abierta y la fila es el resultado directo de una llamada de esa ejecución: la cohorte devuelta por el paso 1, o esa misma cohorte cerrada por el paso 4 después de un paso 3 verificado. No demuestran pertenencia el reloj, un nombre, un código, un id del cuaderno, que la composición coincida, que la cohorte esté vacía ni que esté `OPEN`. Una cohorte encontrada en A.2 nunca es de este intento. Si este documento no puede demostrar la pertenencia, se detiene con `OPERATOR_ESCALATION_REQUIRED`.
+
 | Situación | Qué permite el esquema | Qué no se inventa |
 | --- | --- | --- |
-| Abortar antes de crear la cohorte | Ninguna escritura de este procedimiento. Anotar el check que falló. | No crear la cohorte para inspeccionar el fallo. |
-| Cohorte `OPEN` incompleta, sin expedientes ajenos | Seguir en el paso 2: añadir solo los expedientes identificados que aún no estén, y repetir el paso 3 antes de cerrar. | No cerrar una composición incompleta. No borrar la cohorte. |
+| Abortar antes de crear la cohorte, o cualquiera de los cinco conteos de A.2 distinto de cero | Ninguna escritura de este procedimiento. Anotar el check que falló. No hay intento que pueda reclamar una cohorte encontrada en A.2. | No crear la cohorte para inspeccionar el fallo. No adoptar, completar, cerrar ni reutilizar esa cohorte. No crear un grant. |
+| Cohorte `OPEN` incompleta, sin expedientes ajenos, y es el resultado directo del paso 1 de este mismo intento | Seguir en el paso 2: añadir solo los expedientes identificados que aún no estén, y repetir el paso 3 antes de cerrar. | No cerrar una composición incompleta. No borrar la cohorte. No aplicar esta fila a una cohorte vista en A.2. |
 | Cohorte `OPEN` con un expediente que no es uno de los tres | Parar. La membresía no se actualiza ni se borra. Ese par `(case_type, case_id)` no puede pasar a otra cohorte. | `OPERATOR_ESCALATION_REQUIRED`. No cerrar y no hacer bootstrap. |
-| Cohorte `CLOSED` sin grant, composición igual al cuaderno | Es el estado esperado entre los pasos 4 y 5. El paso 5 sigue disponible si la autorización de ese paso existe. | No reabrir. No añadir. |
+| Cohorte `CLOSED` sin grant, composición verificada en el paso 3, y es la cohorte que este mismo intento acaba de cerrar en el paso 4 | Es el estado esperado entre los pasos 4 y 5. El paso 5 sigue disponible si la autorización de ese paso existe. | No reabrir. No añadir. No hacer bootstrap de una cohorte `CLOSED` que este intento no acaba de cerrar. |
+| Cohorte o grant cuya pertenencia a este intento no se puede demostrar | Parar. | `OPERATOR_ESCALATION_REQUIRED`. No adoptar, completar, cerrar, reutilizar ni conceder. |
 | Cohorte `CLOSED` sin grant, composición distinta | Parar. Cerrar no se revierte. | `OPERATOR_ESCALATION_REQUIRED`. No hacer bootstrap sobre una composición incorrecta. |
-| Grant creado para una persona que no es B | Si sigue `ACTIVE`, suspenderlo y después cerrarlo. Si ya está `SUSPENDED`, cerrarlo. Comprobar que los eventos permanecen. La cohorte sigue `CLOSED` y el `cohort_code` de esa fila no se vacía. | No borrar el grant. No hacer en el mismo incidente otro bootstrap, ni siquiera para B. Sustituir al revisor es `OPERATOR_ESCALATION_REQUIRED`. |
-| Grant `ACTIVE` con composición incorrecta | La membresía no cambia mientras el grant está `ACTIVE` o `SUSPENDED`, y cerrar el grant no reabre la cohorte. Contención: suspender y cerrar, para que la cola deje de ver ese conjunto. Los expedientes permanecen en esa cohorte. | `OPERATOR_ESCALATION_REQUIRED`. No enlazar a otra persona a esa cohorte. |
+| Grant creado en el paso 5 de este mismo intento para una persona que no es B | Si sigue `ACTIVE`, suspenderlo y después cerrarlo. Si ya está `SUSPENDED`, cerrarlo. Comprobar que los eventos permanecen. La cohorte sigue `CLOSED` y el `cohort_code` de esa fila no se vacía. | No borrar el grant. No hacer en el mismo incidente otro bootstrap, ni siquiera para B. Sustituir al revisor es `OPERATOR_ESCALATION_REQUIRED`. Un grant visto en A.2 no se suspende ni se cierra desde aquí. |
+| Grant `ACTIVE` creado en el paso 5 de este mismo intento, con composición incorrecta | La membresía no cambia mientras el grant está `ACTIVE` o `SUSPENDED`, y cerrar el grant no reabre la cohorte. Contención: suspender y cerrar, para que la cola deje de ver ese conjunto. Los expedientes permanecen en esa cohorte. | `OPERATOR_ESCALATION_REQUIRED`. No enlazar a otra persona a esa cohorte. Un grant visto en A.2 no se usa para esta contención. |
 | Suspensión | Es el paso 9 cuando el humo activo ya terminó. Si ocurre antes de terminar ese humo, el grant no vuelve a `ACTIVE`. Otro bootstrap de la misma persona, mientras exista un grant `SUSPENDED`, responde `42501`. | `OPERATOR_ESCALATION_REQUIRED` para recuperar el acceso. No cerrar como sustituto de una reactivación. |
 | Cierre definitivo | La fila queda `ENDED`. Suspenderla o cerrarla otra vez responde `42501`. El historial de grant, el de cohorte y las auditorías de apertura permanecen. | No reactivar. No insertar la fila nueva que `039` distingue de una reactivación. No borrar expedientes. |
 

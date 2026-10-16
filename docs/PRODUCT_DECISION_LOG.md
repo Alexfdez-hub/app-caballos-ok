@@ -261,12 +261,19 @@ identified set that is not one open Spain dossier of each type, and the
 authenticated channel for the outside-cohort read. This entry chooses
 none of them.
 
-`ARCHITECTURE_CONFLICT`: an `ACTIVE` management assignment with a future
-`valid_until` is current for the `041` claim and for the claim screen.
+`ARCHITECTURE_CONFLICT`: the contracts are not aligned. This entry does
+not choose a resolution and does not start migration `042`.
+`submit_my_equine_management_claim` in `041` can accept an `ACTIVE`
+assignment whose `valid_until` is null or future, when called with a row
+that meets its conditions. `list_my_equine_management_assignments` marks
+`is_currently_effective` only when `valid_until` is null; that is the
+read the app uses. `managementClaimPayload` builds the claim only when
+that row arrives marked current, so the current UI does not allow
+claiming an assignment with a future `valid_until`.
 `review_equine_management_claim` refuses `ACCEPTED` when `valid_until`
-is not null, and `verification_management_is_verified` requires
-`valid_until` null. This entry does not align those contracts and does
-not start migration `042`.
+is not null, and `verification_management_is_verified` also requires it
+null. The runbook still stops before section B when
+`management_claim_valid_until_is_null` is false.
 
 `LEGAL_AND_INSURANCE_REVIEW_REQUIRED` remains open before real paid
 bookings.
