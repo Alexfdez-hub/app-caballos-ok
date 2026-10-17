@@ -1,5 +1,17 @@
 # MIGRATION STATUS
 
+**Live note (2026-10-17):** `042_bookable_offers.sql` is in the repository
+and is not deployed. The last recorded remote schema remains the
+previously authorized `041` deploy. `042` is not applied to that project
+by this train. Exploration, request, and the confirm queue require an
+ACTIVE account, an ACTIVE person, and an ACTIVE subject of an OPEN
+administered pilot. `request_bookable_slot` does not replay a committed
+key after the subject ends or the pilot closes, and it does not insert
+another booking. `get_my_booking_request` remains a read-only
+reconciliation of the caller's own key after that closure. The
+marketplace stays closed. Payments, KYC, and insurance review stay
+open. The local vertical procedure is `docs/VERTICAL_MVP_SMOKE.md`.
+
 **Live note (2026-10-15, Stage 0.1):** the procedure base is `origin/main`
 `5ed38a93f712069e8be45bd8573d6a5762b57b6a`. Migrations `036` through
 `041` are on that `main`. The last authorized remote record, not

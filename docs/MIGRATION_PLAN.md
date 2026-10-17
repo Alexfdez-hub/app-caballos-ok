@@ -383,3 +383,15 @@ bookings or payments. The Stage 4B.4 runbook remains a historical
 handoff. Existing ownership and management rows remain the effective
 relationships. A private self-created equine stays declared. Do not
 enable public listing, services, real bookings, or payments.
+
+**Live note (2026-10-17):** migration `042_bookable_offers.sql` is in the
+repository and is not deployed. It reads derived bookable slots and
+requests a booking through `create_booking_request`, only for an ACTIVE
+account and person and only for an ACTIVE subject of an OPEN
+administered pilot. Replay of an existing key uses that same gate and
+does not insert another booking after the subject ends or the pilot
+closes. `get_my_booking_request` is the read-only reconciliation of the
+caller's own key and stays available after that closure. A real PUBLIC
+row is not bookable without that membership. It does not open the
+marketplace, deploy fixtures, take payment, or close
+`LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.

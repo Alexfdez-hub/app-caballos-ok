@@ -349,7 +349,7 @@ select pg_temp.preflight_prepare('valid');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory PASS
@@ -372,7 +372,7 @@ select pg_temp.preflight_prepare('missing_a');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory PASS
@@ -394,7 +394,7 @@ select pg_temp.preflight_prepare('null_country');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory PASS
@@ -415,7 +415,7 @@ select pg_temp.preflight_prepare('other_country');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory PASS
@@ -436,7 +436,7 @@ select pg_temp.preflight_prepare('prior_cohort');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory OPERATOR_ESCALATION_REQUIRED
@@ -457,7 +457,7 @@ select pg_temp.preflight_prepare('prior_grant');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory OPERATOR_ESCALATION_REQUIRED
@@ -478,7 +478,7 @@ select pg_temp.preflight_prepare('missing_dossier');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory PASS
@@ -500,7 +500,7 @@ select pg_temp.preflight_prepare('multiple_dossiers');
 select pg_temp.preflight_mark();
 -- EXPECT technical_principal PASS
 -- EXPECT transaction_is_read_only PASS
--- EXPECT schema_exact_041 PASS
+-- EXPECT schema_exact_041 STOP
 -- EXPECT bootstrap_signature PASS
 -- EXPECT bootstrap_not_client_executable PASS
 -- EXPECT clean_start_inventory PASS

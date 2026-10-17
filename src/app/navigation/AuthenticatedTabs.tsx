@@ -7,6 +7,7 @@ import ActivityScreen from '../../screens/ActivityScreen';
 import EditIdentityScreen from '../../screens/EditIdentityScreen';
 import EditRiderProfileScreen from '../../screens/EditRiderProfileScreen';
 import EquestrianPassportScreen from '../../screens/EquestrianPassportScreen';
+import BookableOfferScreen from '../../screens/BookableOfferScreen';
 import ExploreScreen from '../../screens/ExploreScreen';
 import GuardianRelationshipsScreen from '../../screens/GuardianRelationshipsScreen';
 import HomeScreen from '../../screens/HomeScreen';
@@ -58,6 +59,16 @@ function ExploreStack() {
         name="Explore"
         component={ExploreScreen}
         options={{ headerShown: false }}
+      />
+      <ExploreStackNavigator.Screen
+        name="BookableOffer"
+        component={BookableOfferScreen}
+        options={{
+          title: 'Franja',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
+        }}
       />
     </ExploreStackNavigator.Navigator>
   );

@@ -69,13 +69,14 @@ describe('activity buckets', () => {
     );
   });
 
-  it('does not surface cancelled or rejected rows', () => {
+  it('keeps cancelled and rejected rows in the closed bucket', () => {
     const grouped = groupActivity(
       [
         row({ bookingId: 'open', bookingStatus: 'REQUESTED' }),
         row({ bookingId: 'next', bookingStatus: 'CONFIRMED' }),
         row({ bookingId: 'done', bookingStatus: 'COMPLETED' }),
         row({ bookingId: 'gone', bookingStatus: 'CANCELLED' }),
+        row({ bookingId: 'no', bookingStatus: 'REJECTED' }),
       ],
       now,
     );
@@ -90,6 +91,10 @@ describe('activity buckets', () => {
     assert.deepEqual(
       grouped.history.map((item) => item.bookingId),
       ['done'],
+    );
+    assert.deepEqual(
+      grouped.closed.map((item) => item.bookingId),
+      ['gone', 'no'],
     );
   });
 

@@ -330,8 +330,12 @@ This stage does not re-count grants, cohort rows, or audit rows, and it
 does not execute the pilot. The live read-only procedure is
 `docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`. The Stage 4B.4 smoke
 runbook is a historical handoff and is not the procedure. Identity
-completion still requires an explicit selectable country. Publication,
-services, real bookings, and payments stay closed.
+completion still requires an explicit selectable country. Migration
+`042` adds a local derived-slot read and booking request limited to an
+OPEN administered pilot. After that pilot closes, only the caller's own
+request key remains readable, and that read does not write. It does not
+open the marketplace and it is not a remote deploy. Payments, KYC, and
+insurance review stay closed.
 
 The Level 1–3 handoff documents named above are maintained outside this
 repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
@@ -353,8 +357,9 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/VERIFICATION_PILOT_SUBMIT_STAGE0.md`,
 `docs/VERIFICATION_RELATION_CLAIMS.md`,
 `docs/VERIFICATION_NEXT_TRAIN_STAGE0.md`,
-`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`, and
-`docs/VERIFICATION_READONLY_PREFLIGHT_041.md`.
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`,
+`docs/VERIFICATION_READONLY_PREFLIGHT_041.md`, and
+`docs/VERTICAL_MVP_SMOKE.md`.
 
 The consolidated read-only preflight script is
 `docs/VERIFICATION_READONLY_PREFLIGHT_041.sql`. It is not authorized to
