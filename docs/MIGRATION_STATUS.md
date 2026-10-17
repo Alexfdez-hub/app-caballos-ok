@@ -3,8 +3,11 @@
 **Live note (2026-10-17):** `042_bookable_offers.sql` is in the repository
 and is not deployed. The last recorded remote schema remains the
 previously authorized `041` deploy. `042` is not applied to that project
-by this train. Payments, KYC, and insurance review stay open. The local
-vertical procedure is `docs/VERTICAL_MVP_SMOKE.md`.
+by this train. Its read, request, reconciliation, and confirm queue
+require an ACTIVE account, an ACTIVE person, and an OPEN administered
+pilot. The marketplace stays closed. Payments, KYC, and insurance
+review stay open. The local vertical procedure is
+`docs/VERTICAL_MVP_SMOKE.md`.
 
 **Live note (2026-10-15, Stage 0.1):** the procedure base is `origin/main`
 `5ed38a93f712069e8be45bd8573d6a5762b57b6a`. Migrations `036` through

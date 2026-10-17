@@ -43,6 +43,10 @@ describe('booking mutation', () => {
       classifyBookingTransport({ code: '42501', message: 'Bookable offer is not available' }),
       'rejected',
     );
+    assert.equal(
+      classifyBookingTransport({ message: 'Bookable request is not available' }),
+      'rejected',
+    );
   });
 });
 

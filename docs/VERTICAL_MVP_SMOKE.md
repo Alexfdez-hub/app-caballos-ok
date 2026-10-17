@@ -11,10 +11,13 @@ there during this train.
 
 ## What the path does
 
-1. An authenticated person opens Explorar and sees derived slots for
-   PUBLIC, ACTIVE equines with an ACTIVE center assignment, an enabled
-   service, and a stored availability window.
-2. PRIVATE equines are absent, including by direct UUID.
+1. An authenticated person with an ACTIVE account and an ACTIVE person
+   opens Explorar and sees derived slots for equines that are also an
+   ACTIVE subject of an OPEN administered pilot, PUBLIC, ACTIVE, with
+   an ACTIVE center assignment, an enabled service, and a stored
+   availability window.
+2. PRIVATE equines are absent, including by direct UUID. A PUBLIC equine
+   outside the open pilot is also absent, including by direct UUID.
 3. The person requests one slot. The server rechecks the slot, writes a
    REQUESTED-family booking, and does not confirm it.
 4. A center ADMIN or MANAGER with effective `MANAGE_BOOKINGS` sees that
@@ -50,12 +53,21 @@ select public.vertical_fixture_retire();
 commit;
 ```
 
-`vertical_fixture_retire` deactivates the TEST_ONLY windows, cancels
-fixture occupancy, and deletes only open fixture requests. It does not
-delete `audit_events`, `auth.users`, or persons. Availability rules
+`vertical_fixture_install` enrolls only `TEST_ONLY Equine` at that
+center by calling `open_bookable_pilot('VERTICAL_MVP_042')` and
+`add_bookable_pilot_subject`. Those ids live in the fixture function.
+The list, exact read, request, and confirm queue do not contain them
+and do not match the TEST_ONLY name. A real PUBLIC row stays unbookable.
+
+`vertical_fixture_retire` ends that pilot subject, deactivates the
+TEST_ONLY windows, cancels fixture occupancy, and deletes only open
+fixture requests. It does not delete `audit_events`,
+`bookable_pilot_events`, `auth.users`, or persons. Availability rules
 cannot be deleted, so the marked center and equine rows remain inactive
 until `vertical_fixture_install` is called again. A second install is
-idempotent.
+idempotent and admits the same pair again. Closing a pilot is a
+separate postgres call and does not reopen it. Do not run this fixture
+on a hosted project.
 
 The stored window is `2026-12-02 09:00:00+00` through `12:00:00+00`,
 in three 60-minute slots, at `TEST_ONLY Vertical Center` /

@@ -386,5 +386,8 @@ enable public listing, services, real bookings, or payments.
 
 **Live note (2026-10-17):** migration `042_bookable_offers.sql` is in the
 repository and is not deployed. It reads derived bookable slots and
-requests a booking through `create_booking_request`. It does not deploy
-fixtures, take payment, or close `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.
+requests a booking through `create_booking_request`, only for an ACTIVE
+account and person and only for an ACTIVE subject of an OPEN
+administered pilot. A real PUBLIC row is not bookable without that
+membership. It does not open the marketplace, deploy fixtures, take
+payment, or close `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.

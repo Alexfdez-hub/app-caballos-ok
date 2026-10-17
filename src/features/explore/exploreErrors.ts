@@ -10,6 +10,10 @@ export function userFacingExploreMessage(error: unknown): string {
     return 'Inicia sesión para continuar.';
   }
 
+  if (message.includes('Bookable request is not available')) {
+    return 'Tu cuenta no puede usar las reservas en este momento.';
+  }
+
   if (message.includes('Identity could not be resolved')) {
     return 'No se pudo resolver tu identidad. Completa tus datos básicos e inténtalo de nuevo.';
   }

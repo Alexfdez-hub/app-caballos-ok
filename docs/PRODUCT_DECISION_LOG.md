@@ -331,3 +331,13 @@ the TEST_ONLY fixture is not run on the hosted project.
 DECISION_REQUIRED: an approved numeric welfare maximum, opening hours,
 exterior pickup and return, and a no-payment booking state. None of
 those values is invented here.
+
+The same migration keeps the marketplace closed. `list_bookable_offers`,
+`get_bookable_offer`, `request_bookable_slot`, and
+`list_bookings_i_can_confirm` require an ACTIVE account, an ACTIVE
+person, and an ACTIVE subject of an OPEN administered pilot. Postgres
+writes that membership. The product predicates do not match a name and
+do not contain a fixture id. A stored PUBLIC equine stays unbookable
+until that membership exists. Closing the pilot does not reopen it.
+Pilot history is append-only. This does not close the welfare, hours,
+pickup, payment, KYC, insurance, or legal items above.

@@ -79,6 +79,36 @@ begin
     'public',
     'public.assert_bookable_reader()',
     'EXECUTE'
+  )
+  or has_function_privilege(
+    'authenticated',
+    'public.open_bookable_pilot(text)',
+    'EXECUTE'
+  )
+  or has_function_privilege(
+    'service_role',
+    'public.open_bookable_pilot(text)',
+    'EXECUTE'
+  )
+  or has_function_privilege(
+    'authenticated',
+    'public.add_bookable_pilot_subject(uuid, uuid, uuid)',
+    'EXECUTE'
+  )
+  or has_function_privilege(
+    'authenticated',
+    'public.end_bookable_pilot_subject(uuid, uuid, uuid)',
+    'EXECUTE'
+  )
+  or has_function_privilege(
+    'authenticated',
+    'public.close_bookable_pilot(uuid)',
+    'EXECUTE'
+  )
+  or has_function_privilege(
+    'anon',
+    'public.equine_center_is_in_open_bookable_pilot(uuid, uuid)',
+    'EXECUTE'
   ) then
     raise exception 'bookable execute grants are wider than authenticated reads';
   end if;
@@ -114,6 +144,78 @@ begin
   ) <> 1 then
     raise exception 'fixture install was not idempotent';
   end if;
+
+  if (
+    select count(*)
+      from public.bookable_pilot_events
+  ) <> 2
+  or (
+    select count(*)
+      from public.bookable_pilot_subjects as subject
+     where subject.equine_id = '04210000-0000-4000-8000-0000000000e1'
+       and subject.center_id = '04210000-0000-4000-8000-0000000000c1'
+       and subject.status = 'ACTIVE'
+  ) <> 1 then
+    raise exception 'pilot enrollment was not audited once';
+  end if;
+
+  insert into public.equines (
+    id, name, equine_type, status, visibility_status
+  ) values (
+    '04210000-0000-4000-8000-0000000000e3',
+    'TEST_ONLY Public Outside Pilot',
+    'HORSE',
+    'ACTIVE',
+    'PUBLIC'
+  );
+
+  insert into public.equine_center_assignments (
+    id, equine_id, center_id, assignment_type
+  ) values (
+    '04210000-0000-4000-8000-0000000000a3',
+    '04210000-0000-4000-8000-0000000000e3',
+    '04210000-0000-4000-8000-0000000000c1',
+    'SCHOOL'
+  );
+
+  insert into public.equine_center_permissions (
+    id, equine_id, center_id, granted_by_person_id, permission_code
+  )
+  select
+    permission.id,
+    '04210000-0000-4000-8000-0000000000e3',
+    '04210000-0000-4000-8000-0000000000c1',
+    account.person_id,
+    permission.permission_code
+  from public.user_accounts as account
+  cross join (
+    values
+      ('04210000-0000-4000-8000-0000000000d6'::uuid, 'MANAGE_REQUIREMENTS'),
+      ('04210000-0000-4000-8000-0000000000d7'::uuid, 'MANAGE_AVAILABILITY')
+  ) as permission (id, permission_code)
+  where account.auth_user_id = staff_auth;
+
+  insert into public.service_equines (
+    service_id, equine_id, enabled, status
+  ) values (
+    '04210000-0000-4000-8000-0000000000f1',
+    '04210000-0000-4000-8000-0000000000e3',
+    true,
+    'ACTIVE'
+  );
+
+  insert into public.equine_availability_rules (
+    id, equine_id, center_id, starts_at, ends_at, created_by_account_id
+  )
+  select
+    '04210000-0000-4000-8000-0000000000f6',
+    '04210000-0000-4000-8000-0000000000e3',
+    '04210000-0000-4000-8000-0000000000c1',
+    timestamptz '2026-12-02 09:00:00+00',
+    timestamptz '2026-12-02 12:00:00+00',
+    account.id
+  from public.user_accounts as account
+  where account.auth_user_id = staff_auth;
 
   update public.persons
      set first_name = 'TEST_ONLY',
@@ -232,6 +334,34 @@ begin
     raise exception 'unknown equine uuid returned a row';
   end if;
 
+  if exists (
+    select 1
+      from public.list_bookable_offers(
+        timestamptz '2026-12-02 09:00:00+00',
+        timestamptz '2026-12-02 12:00:00+00'
+      ) as offer
+     where offer.equine_id = '04210000-0000-4000-8000-0000000000e3'
+  ) or exists (
+    select 1
+      from public.get_bookable_offer(
+        '04210000-0000-4000-8000-0000000000e3',
+        '04210000-0000-4000-8000-0000000000c1',
+        '04210000-0000-4000-8000-0000000000f1',
+        timestamptz '2026-12-02 09:00:00+00',
+        timestamptz '2026-12-02 10:00:00+00'
+      )
+  ) then
+    raise exception 'a public equine outside the pilot was bookable';
+  end if;
+
+  begin
+    perform public.open_bookable_pilot('VERTICAL_MVP_042');
+    raise exception 'authenticated opened a pilot';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
   begin
     perform public.list_bookable_offers(
       timestamptz '2026-12-02 09:00:00+00',
@@ -246,6 +376,177 @@ end;
 $$;
 
 reset role;
+
+do $$
+declare
+  probe_id uuid;
+begin
+  probe_id := public.open_bookable_pilot('PILOT_CLOSED_PROBE');
+  perform public.add_bookable_pilot_subject(
+    probe_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e3'
+  );
+  perform public.add_bookable_pilot_subject(
+    probe_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e3'
+  );
+  if (
+    select count(*)
+      from public.bookable_pilot_events
+     where event_type = 'SUBJECT_ADDED'
+       and equine_id = '04210000-0000-4000-8000-0000000000e3'
+  ) <> 1 then
+    raise exception 'adding an active subject wrote another event';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  outside_count integer;
+begin
+  select count(*)
+    into outside_count
+    from public.list_bookable_offers(
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    ) as offer
+   where offer.equine_id = '04210000-0000-4000-8000-0000000000e3';
+  if outside_count <> 3 then
+    raise exception 'an admitted public equine stayed hidden, got %', outside_count;
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  probe_id uuid;
+  vertical_id uuid;
+begin
+  select id
+    into probe_id
+    from public.bookable_pilots
+   where pilot_code = 'PILOT_CLOSED_PROBE';
+
+  perform public.close_bookable_pilot(probe_id);
+
+  begin
+    perform public.open_bookable_pilot('PILOT_CLOSED_PROBE');
+    raise exception 'a closed pilot was reopened';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+
+  select id
+    into vertical_id
+    from public.bookable_pilots
+   where pilot_code = 'VERTICAL_MVP_042';
+
+  perform public.end_bookable_pilot_subject(
+    vertical_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  offer_count integer;
+  outside_count integer;
+begin
+  select count(*)
+    into outside_count
+    from public.list_bookable_offers(
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    ) as offer
+   where offer.equine_id = '04210000-0000-4000-8000-0000000000e3';
+  if outside_count <> 0 then
+    raise exception 'a closed pilot still published a public equine';
+  end if;
+
+  select count(*)
+    into offer_count
+    from public.list_bookable_offers(
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+  if offer_count <> 0 then
+    raise exception 'ending the pilot subject still published slots';
+  end if;
+
+  begin
+    perform public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c6',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 10:00:00+00'
+    );
+    raise exception 'request succeeded outside the pilot';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable offer is not available' then
+        raise;
+      end if;
+  end;
+
+  if exists (
+    select 1
+      from public.get_bookable_offer(
+        '04210000-0000-4000-8000-0000000000e1',
+        '04210000-0000-4000-8000-0000000000c1',
+        '04210000-0000-4000-8000-0000000000f1',
+        timestamptz '2026-12-02 09:00:00+00',
+        timestamptz '2026-12-02 10:00:00+00'
+      )
+  ) then
+    raise exception 'exact uuid bypassed the pilot gate';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  vertical_id uuid;
+begin
+  select id
+    into vertical_id
+    from public.bookable_pilots
+   where pilot_code = 'VERTICAL_MVP_042';
+
+  perform public.add_bookable_pilot_subject(
+    vertical_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+end;
+$$;
 
 do $$
 declare
@@ -595,6 +896,65 @@ $$;
 
 reset role;
 
+reset role;
+
+do $$
+declare
+  vertical_id uuid;
+begin
+  select id
+    into vertical_id
+    from public.bookable_pilots
+   where pilot_code = 'VERTICAL_MVP_042';
+
+  perform public.end_bookable_pilot_subject(
+    vertical_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a2', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a2","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  confirm_count integer;
+begin
+  select count(*)
+    into confirm_count
+    from public.list_bookings_i_can_confirm();
+  if confirm_count <> 0 then
+    raise exception 'ended pilot subject stayed in the confirm queue';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  vertical_id uuid;
+begin
+  select id
+    into vertical_id
+    from public.bookable_pilots
+   where pilot_code = 'VERTICAL_MVP_042';
+
+  perform public.add_bookable_pilot_subject(
+    vertical_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+end;
+$$;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a2', true);
 select set_config(
@@ -702,6 +1062,7 @@ declare
   offer_count integer;
 begin
   select count(*) into audit_before from public.audit_events;
+  select count(*) into offer_count from public.bookable_pilot_events;
 
   perform set_config('app.vertical_fixture_local', '1', true);
   perform public.vertical_fixture_retire();
@@ -710,6 +1071,22 @@ begin
   if audit_after < audit_before then
     raise exception 'fixture retire deleted audit';
   end if;
+
+  if (
+    select count(*)
+      from public.bookable_pilot_events
+  ) < offer_count then
+    raise exception 'fixture retire deleted pilot history';
+  end if;
+
+  begin
+    update public.bookable_pilot_events
+       set event_type = 'PILOT_CLOSED';
+    raise exception 'pilot history was updated';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
 
   if not exists (
     select 1
@@ -907,6 +1284,258 @@ begin
   exception
     when sqlstate 'P0001' then
       null;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.user_accounts
+   set status = 'SUSPENDED'
+ where auth_user_id = '04220000-0000-4000-8000-0000000000a1';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.list_bookable_offers(
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+    raise exception 'suspended account listed offers';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.get_bookable_offer(
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 11:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+    raise exception 'suspended account read an offer';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c7',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 11:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+    raise exception 'suspended account requested a slot';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c5'
+    );
+    raise exception 'suspended account reconciled a request';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.list_bookings_i_can_confirm();
+    raise exception 'suspended account listed the confirm queue';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.user_accounts
+   set status = 'ACTIVE'
+ where auth_user_id = '04220000-0000-4000-8000-0000000000a1';
+
+update public.persons
+   set status = 'SUSPENDED'
+ where id = (
+   select person_id
+     from public.user_accounts
+    where auth_user_id = '04220000-0000-4000-8000-0000000000a1'
+ );
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.list_bookable_offers(
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+    raise exception 'suspended person listed offers';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.get_bookable_offer(
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 11:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+    raise exception 'suspended person read an offer';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c8',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 11:00:00+00',
+      timestamptz '2026-12-02 12:00:00+00'
+    );
+    raise exception 'suspended person requested a slot';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c5'
+    );
+    raise exception 'suspended person reconciled a request';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.list_bookings_i_can_confirm();
+    raise exception 'suspended person listed the confirm queue';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.persons
+   set status = 'ACTIVE'
+ where id = (
+   select person_id
+     from public.user_accounts
+    where auth_user_id = '04220000-0000-4000-8000-0000000000a1'
+ );
+
+update public.user_accounts
+   set status = 'SUSPENDED'
+ where auth_user_id = '04220000-0000-4000-8000-0000000000a2';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a2', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a2","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.list_bookings_i_can_confirm();
+    raise exception 'suspended staff listed the confirm queue';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.persons
+   set status = 'SUSPENDED'
+ where id = (
+   select person_id
+     from public.user_accounts
+    where auth_user_id = '04220000-0000-4000-8000-0000000000a2'
+ );
+
+update public.user_accounts
+   set status = 'ACTIVE'
+ where auth_user_id = '04220000-0000-4000-8000-0000000000a2';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a2', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a2","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.list_bookings_i_can_confirm();
+    raise exception 'suspended staff person listed the confirm queue';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
   end;
 end;
 $$;

@@ -75,7 +75,7 @@ export function classifyBookingTransport(error: unknown): 'ambiguous' | 'rejecte
         : '';
 
   if (
-    /Authentication required|Identity could not be resolved|Bookable offer is not available|client_request_id already used|Booking request outcome is ambiguous|invalid input/i.test(
+    /Authentication required|Bookable request is not available|Identity could not be resolved|Bookable offer is not available|client_request_id already used|Booking request outcome is ambiguous|invalid input/i.test(
       message,
     )
   ) {
