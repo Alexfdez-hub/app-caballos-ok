@@ -352,8 +352,14 @@ repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,
 `docs/VERIFICATION_COHORT_MIGRATION_041.md`,
 `docs/VERIFICATION_PILOT_SUBMIT_STAGE0.md`,
 `docs/VERIFICATION_RELATION_CLAIMS.md`,
-`docs/VERIFICATION_NEXT_TRAIN_STAGE0.md`, and
-`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`.
+`docs/VERIFICATION_NEXT_TRAIN_STAGE0.md`,
+`docs/VERIFICATION_READONLY_PILOT_RUNBOOK_041.md`, and
+`docs/VERIFICATION_READONLY_PREFLIGHT_041.md`.
+
+The consolidated read-only preflight script is
+`docs/VERIFICATION_READONLY_PREFLIGHT_041.sql`. It is not authorized to
+run on the remote project, and it does not authorize section B of the
+runbook.
 
 For the Spain review pilot, signatures and permissions come from
 migrations `036`–`041`. The live procedure is the `041` runbook above.

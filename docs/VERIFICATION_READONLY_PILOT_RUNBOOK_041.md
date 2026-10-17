@@ -64,7 +64,7 @@ La transición de estado del grant, en `039`, permite `ACTIVE` → `SUSPENDED`, 
 
 Todavía no autorizado. Cuando lo esté, se ejecuta entero antes de cualquier mutación y como `current_user` `postgres`. Si un resultado obliga a abortar, no se crea la cohorte para completar la información que falte.
 
-Los bloques A.1 a A.7 son una sola transacción. Empieza en `begin` y termina en `rollback`. No usa `commit`. Un `set_config` con el tercer argumento `true` dura solo esa transacción; si cada bloque se confirma por separado, la dirección y los id se pierden antes de la consulta siguiente. `rollback` no borra filas que este preflight no ha escrito.
+Los bloques A.1 a A.7 son una sola transacción. Empieza en `begin` y termina en `rollback`. No usa `commit`. El guion consolidado de esa transacción, con la tabla de veredictos, está en `docs/VERIFICATION_READONLY_PREFLIGHT_041.md`. No está autorizado para el remoto, no sustituye la sección B y no la autoriza. Un `set_config` con el tercer argumento `true` dura solo esa transacción; si cada bloque se confirma por separado, la dirección y los id se pierden antes de la consulta siguiente. `rollback` no borra filas que este preflight no ha escrito.
 
 Las consultas de este apartado solo leen. Los resultados que salgan de la sesión privada se reducen a booleanos y conteos. Los identificadores se quedan en el cuaderno privado.
 

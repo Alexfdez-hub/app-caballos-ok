@@ -284,3 +284,25 @@ inventory: fail closed until minimum evidence exists and, for identity,
 until the future authorized KYC result exists. `REJECTED` is not
 conditioned on sufficient evidence. Rejection UI, a stable `reason_code`
 catalog, and a rejection procedure stay unauthorized.
+
+## 2026-10-16 — Read-only preflight script for the 041 pilot
+
+Does not execute the preflight. Does not close a pending decision.
+Does not start migration `042`.
+
+`docs/VERIFICATION_READONLY_PREFLIGHT_041.sql` consolidates runbook
+sections A.1 through A.7 into one `begin read only` / `rollback`
+script. It returns `PASS`, `STOP`, or `OPERATOR_ESCALATION_REQUIRED`.
+`DECISION_REQUIRED` and `ARCHITECTURE_CONFLICT` stay open in
+`runbook_mark`. A non-null management `valid_until` still stops before
+section B, and this entry does not choose how to align that contract.
+`persons.country_code` must already be `ES` for both people; a null
+country is not filled. UUID columns are read with `array_agg(...)[1]`
+only after `account_gate` has proved one row, because this PostgreSQL
+has no `max(uuid)`. A failed uniqueness gate leaves those values null.
+PostgreSQL 17 includes parameter names in
+`pg_get_function_identity_arguments`; the signature gate compares the
+resulting types with `uuid, text`. Prior identity and relationship decision rows
+are counted and do not, by themselves, become the clean-start stop.
+The five cohort and grant counts remain that stop. Section B stays
+unauthorized even if the earlier rows pass.
