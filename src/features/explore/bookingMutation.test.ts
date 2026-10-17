@@ -51,10 +51,14 @@ describe('booking mutation', () => {
     assert.equal(classifyBookingTransport(new TypeError('Network request failed')), 'ambiguous');
     assert.equal(
       classifyBookingTransport({ code: '42501', message: 'Bookable offer is not available' }),
-      'rejected',
+      'closed',
     );
     assert.equal(
       classifyBookingTransport({ message: 'Bookable request is not available' }),
+      'closed',
+    );
+    assert.equal(
+      classifyBookingTransport({ code: '22023', message: 'client_request_id already used' }),
       'rejected',
     );
   });
@@ -199,6 +203,117 @@ describe('ambiguous P0001 booking request', () => {
     assert.equal(attempt.phase, 'ambiguous');
     assert.equal(attempt.clientRequestId, 'client-request-1');
     assert.equal(canSubmitBooking(attempt.phase), false);
+  });
+});
+
+describe('terminal mutation denial', () => {
+  const offer = {
+    equineId: 'equine-1',
+    centerId: 'center-1',
+    serviceId: 'service-1',
+    startsAt: '2026-12-02T09:00:00.000Z',
+    endsAt: '2026-12-02T10:00:00.000Z',
+  };
+
+  function afterMutation(error: unknown): BookingAttempt {
+    const launched = launchBookingAttempt(
+      { phase: 'idle', clientRequestId: null, resultStatus: null },
+      'client-request-9',
+    );
+    return acceptBookingResult(launched.attempt, classifyBookingTransport(error), null);
+  }
+
+  it('closes a direct 42501 and the defined terminal messages', () => {
+    const denied = afterMutation({
+      code: '42501',
+      message: 'Bookable offer is not available',
+    });
+    assert.equal(denied.phase, 'closed');
+    assert.equal(denied.clientRequestId, 'client-request-9');
+    assert.equal(canSubmitBooking(denied.phase), false);
+    assert.equal(showsReconcileAction(denied.phase), false);
+
+    for (const message of [
+      'Authentication required',
+      'Bookable request is not available',
+      'Identity could not be resolved',
+      'Bookable offer is not available',
+    ]) {
+      const closed = afterMutation({ message });
+      assert.equal(closed.phase, 'closed');
+      assert.equal(closed.clientRequestId, 'client-request-9');
+    }
+  });
+
+  it('does not launch another mutation from repeated taps', () => {
+    const denied = afterMutation({ code: '42501', message: 'Authentication required' });
+    const second = launchBookingAttempt(denied, 'client-request-10');
+    const third = launchBookingAttempt(second.attempt, 'client-request-11');
+    assert.equal(second.launched, false);
+    assert.equal(third.launched, false);
+    assert.equal(third.attempt.phase, 'closed');
+    assert.equal(third.attempt.clientRequestId, 'client-request-9');
+  });
+
+  it('does not let another account, offer, or late response reopen a closed attempt', () => {
+    const denied = afterMutation({ code: '42501', message: 'Bookable request is not available' });
+    const keyA = bookingAttemptKey({ userId: 'user-a', ...offer });
+    const keyB = bookingAttemptKey({ userId: 'user-b', ...offer });
+    const otherOffer = bookingAttemptKey({ ...offer, userId: 'user-a', equineId: 'equine-2' });
+    writeBookingAttempt(keyA, denied);
+
+    assert.equal(readBookingAttempt(keyB).phase, 'idle');
+    assert.equal(readBookingAttempt(otherOffer).clientRequestId, null);
+    assert.equal(readBookingAttempt(keyA).phase, 'closed');
+
+    const otherAccount = acceptBookingResultForSession(
+      denied,
+      { userId: 'user-a', offerKey: keyA },
+      { userId: 'user-b', offerKey: keyA, outcome: 'ok', bookingStatus: 'APPROVED' },
+    );
+    const lateSameSession = acceptBookingResultForSession(
+      denied,
+      { userId: 'user-a', offerKey: keyA },
+      { userId: 'user-a', offerKey: keyA, outcome: 'ok', bookingStatus: 'APPROVED' },
+    );
+    assert.equal(otherAccount.phase, 'closed');
+    assert.equal(otherAccount.clientRequestId, 'client-request-9');
+    assert.equal(lateSameSession.phase, 'closed');
+    assert.equal(lateSameSession.resultStatus, null);
+    assert.equal(shouldApplyAccountResult(4, 4, true, 'user-a', 'user-b'), false);
+  });
+
+  it('keeps P0001 ambiguous and network or 5xx ambiguous', () => {
+    const ambiguous = afterMutation({
+      code: 'P0001',
+      message: 'Booking request outcome is ambiguous',
+    });
+    assert.equal(ambiguous.phase, 'ambiguous');
+    assert.equal(ambiguous.clientRequestId, 'client-request-9');
+    assert.equal(showsReconcileAction(ambiguous.phase), true);
+
+    const network = afterMutation(new TypeError('Network request failed'));
+    assert.equal(network.phase, 'ambiguous');
+    const upstream = afterMutation({ code: '503', message: 'upstream unavailable' });
+    assert.equal(upstream.phase, 'ambiguous');
+    assert.equal(showsReconcileAction(upstream.phase), true);
+    assert.equal(
+      applyReconcileFailure('ambiguous', { code: '503', message: 'upstream unavailable' }),
+      'ambiguous',
+    );
+  });
+
+  it('keeps an already-used key and invalid input recoverable', () => {
+    const reused = afterMutation({ code: '22023', message: 'client_request_id already used' });
+    assert.equal(reused.phase, 'failed');
+    assert.equal(reused.clientRequestId, 'client-request-9');
+    assert.equal(canSubmitBooking(reused.phase), true);
+    assert.equal(showsReconcileAction(reused.phase), false);
+    assert.equal(launchBookingAttempt(reused, 'client-request-12').launched, true);
+
+    const invalid = afterMutation({ message: 'invalid input syntax for type uuid' });
+    assert.equal(invalid.phase, 'failed');
+    assert.equal(canSubmitBooking(invalid.phase), true);
   });
 });
 

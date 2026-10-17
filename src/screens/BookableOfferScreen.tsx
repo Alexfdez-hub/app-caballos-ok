@@ -183,7 +183,7 @@ export default function BookableOfferScreen({ route }: BookableOfferScreenProps)
         if (capturedKey !== attemptKeyRef.current || requestedUserId !== userIdRef.current) {
           return;
         }
-        setErrorMessage(outcome === 'rejected' ? userFacingExploreMessage(error) : null);
+        setErrorMessage(outcome === 'ambiguous' ? null : userFacingExploreMessage(error));
       });
   };
 

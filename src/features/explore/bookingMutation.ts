@@ -77,7 +77,7 @@ export function startBookingMutation(
 
 export function settleBookingMutation(
   phase: BookingMutationPhase,
-  outcome: 'ok' | 'ambiguous' | 'rejected',
+  outcome: 'ok' | 'ambiguous' | 'rejected' | 'closed',
 ): BookingMutationPhase {
   if (phase !== 'pending') {
     return phase;
@@ -89,6 +89,10 @@ export function settleBookingMutation(
 
   if (outcome === 'ambiguous') {
     return 'ambiguous';
+  }
+
+  if (outcome === 'closed') {
+    return 'closed';
   }
 
   return 'failed';
@@ -131,7 +135,14 @@ function errorParts(error: unknown): { code: string; message: string } {
   return { code, message };
 }
 
-export function classifyBookingTransport(error: unknown): 'ambiguous' | 'rejected' {
+const terminalDenial =
+  /Authentication required|Bookable request is not available|Identity could not be resolved|Bookable offer is not available/i;
+
+function isTerminalBookingDenial(code: string, message: string): boolean {
+  return code === '42501' || terminalDenial.test(message);
+}
+
+export function classifyBookingTransport(error: unknown): 'ambiguous' | 'rejected' | 'closed' {
   if (!error || typeof error !== 'object') {
     return 'ambiguous';
   }
@@ -141,15 +152,19 @@ export function classifyBookingTransport(error: unknown): 'ambiguous' | 'rejecte
     return 'ambiguous';
   }
 
+  if (isTerminalBookingDenial(code, message)) {
+    return 'closed';
+  }
+
+  if (/^5\d\d$/.test(code)) {
+    return 'ambiguous';
+  }
+
   if (code.length > 0) {
     return 'rejected';
   }
 
-  if (
-    /Authentication required|Bookable request is not available|Identity could not be resolved|Bookable offer is not available|client_request_id already used|invalid input/i.test(
-      message,
-    )
-  ) {
+  if (/client_request_id already used|invalid input/i.test(message)) {
     return 'rejected';
   }
 
@@ -176,7 +191,7 @@ export function launchBookingAttempt(
 
 export function acceptBookingResult(
   attempt: BookingAttempt,
-  outcome: 'ok' | 'ambiguous' | 'rejected',
+  outcome: 'ok' | 'ambiguous' | 'rejected' | 'closed',
   bookingStatus: string | null,
 ): BookingAttempt {
   const phase = settleBookingMutation(attempt.phase, outcome);
@@ -193,7 +208,7 @@ export function acceptBookingResultForSession(
   incoming: {
     userId: string | null;
     offerKey: string;
-    outcome: 'ok' | 'ambiguous' | 'rejected';
+    outcome: 'ok' | 'ambiguous' | 'rejected' | 'closed';
     bookingStatus: string | null;
   },
 ): BookingAttempt {
@@ -246,12 +261,7 @@ export function applyReconcileFailure(
   }
 
   const { code, message } = errorParts(error);
-  if (
-    code === '42501' ||
-    /Authentication required|Bookable request is not available|Identity could not be resolved/i.test(
-      message,
-    )
-  ) {
+  if (isTerminalBookingDenial(code, message)) {
     return 'closed';
   }
 
