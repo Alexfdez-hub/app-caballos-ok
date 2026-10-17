@@ -14,6 +14,11 @@ import {
   bookingStatusLabel,
   callerRelationLabel,
 } from '../features/activity/labels';
+import {
+  sessionActionForRow,
+  sessionPressPlan,
+  sessionPressResult,
+} from '../features/activity/sessionActions';
 import { useMyActivity } from '../features/activity/useMyActivity';
 import type { ActivityBooking } from '../features/activity/types';
 import { useAuth } from '../features/auth/useAuth';
@@ -30,37 +35,42 @@ import { useConfirmQueue } from '../features/explore/useConfirmQueue';
 function ActivityRows({
   rows,
   onChanged,
+  sessionActions,
 }: {
   rows: ActivityBooking[];
   onChanged: () => void;
+  sessionActions: boolean;
 }) {
   return (
     <>
-      {rows.map((row) => (
-        <SectionCard key={row.bookingId} title={bookingStatusLabel(row.bookingStatus)}>
-          <Text style={styles.when}>
-            {formatActivityRange(row.startsAt, row.endsAt)}
-          </Text>
-          <Text style={styles.relation}>{callerRelationLabel(row.callerRelation)}</Text>
-          {row.sessionStatus ? (
-            <Text style={styles.session}>Sesión: {row.sessionStatus}</Text>
-          ) : null}
-          {row.bookingStatus === 'CONFIRMED' && !row.sessionId ? (
-            <SessionButton
-              label="Iniciar actividad"
-              onPress={() => startBookedSession(row.bookingId)}
-              onChanged={onChanged}
-            />
-          ) : null}
-          {row.sessionStatus === 'ACTIVE' && row.sessionId ? (
-            <SessionButton
-              label="Finalizar actividad"
-              onPress={() => endBookedSession(row.sessionId as string)}
-              onChanged={onChanged}
-            />
-          ) : null}
-        </SectionCard>
-      ))}
+      {rows.map((row) => {
+        const action = sessionActions ? sessionActionForRow(row) : null;
+        return (
+          <SectionCard key={row.bookingId} title={bookingStatusLabel(row.bookingStatus)}>
+            <Text style={styles.when}>
+              {formatActivityRange(row.startsAt, row.endsAt)}
+            </Text>
+            <Text style={styles.relation}>{callerRelationLabel(row.callerRelation)}</Text>
+            {row.sessionStatus ? (
+              <Text style={styles.session}>Sesión: {row.sessionStatus}</Text>
+            ) : null}
+            {action === 'start' ? (
+              <SessionButton
+                label="Iniciar actividad"
+                onPress={() => startBookedSession(row.bookingId)}
+                onChanged={onChanged}
+              />
+            ) : null}
+            {action === 'end' ? (
+              <SessionButton
+                label="Finalizar actividad"
+                onPress={() => endBookedSession(row.sessionId as string)}
+                onChanged={onChanged}
+              />
+            ) : null}
+          </SectionCard>
+        );
+      })}
     </>
   );
 }
@@ -88,17 +98,21 @@ function SessionButton({
         accessibilityRole="button"
         disabled={pending}
         onPress={() => {
-          if (pending) {
+          if (sessionPressPlan(pending) === 'ignore') {
             return;
           }
           setPending(true);
           setMessage(null);
           void onPress()
             .then(() => {
-              onChanged();
+              if (sessionPressResult(true) === 'refresh') {
+                onChanged();
+              }
             })
             .catch((error: unknown) => {
-              setMessage(userFacingExploreMessage(error));
+              if (sessionPressResult(false) === 'message') {
+                setMessage(userFacingExploreMessage(error));
+              }
             })
             .finally(() => {
               setPending(false);
@@ -158,7 +172,11 @@ export default function ActivityScreen() {
             description="Cuando una reserva quede confirmada, aparecerá aquí."
           />
         ) : (
-          <ActivityRows rows={grouped.upcoming} onChanged={() => void refresh()} />
+          <ActivityRows
+            rows={grouped.upcoming}
+            sessionActions
+            onChanged={() => void refresh()}
+          />
         )}
       </SectionCard>
 
@@ -198,7 +216,11 @@ export default function ActivityScreen() {
             description="Las peticiones de reserva pendientes de confirmación se mostrarán en esta lista."
           />
         ) : (
-          <ActivityRows rows={grouped.openRequests} onChanged={() => void refresh()} />
+          <ActivityRows
+            rows={grouped.openRequests}
+            sessionActions={false}
+            onChanged={() => void refresh()}
+          />
         )}
       </SectionCard>
 
@@ -213,7 +235,11 @@ export default function ActivityScreen() {
             description="La agenda muestra solo las reservas confirmadas o en curso de tu cuenta."
           />
         ) : (
-          <ActivityRows rows={grouped.upcoming} onChanged={() => void refresh()} />
+          <ActivityRows
+            rows={grouped.upcoming}
+            sessionActions={false}
+            onChanged={() => void refresh()}
+          />
         )}
       </SectionCard>
 
@@ -224,7 +250,11 @@ export default function ActivityScreen() {
             description="Las canceladas, rechazadas, caducadas o en disputa aparecen aquí."
           />
         ) : (
-          <ActivityRows rows={grouped.closed} onChanged={() => void refresh()} />
+          <ActivityRows
+            rows={grouped.closed}
+            sessionActions={false}
+            onChanged={() => void refresh()}
+          />
         )}
       </SectionCard>
 
@@ -235,7 +265,11 @@ export default function ActivityScreen() {
             description="Las sesiones que completes aparecerán aquí."
           />
         ) : (
-          <ActivityRows rows={grouped.history} onChanged={() => void refresh()} />
+          <ActivityRows
+            rows={grouped.history}
+            sessionActions={false}
+            onChanged={() => void refresh()}
+          />
         )}
         <Text style={styles.note}>
           Sesión Cero no aparece en esta lista. No hay una lectura limitada al

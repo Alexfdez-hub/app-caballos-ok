@@ -354,6 +354,45 @@ describe('offer presentation', () => {
     );
   });
 
+  it('keeps a same-day range on one date after the zone conversion', () => {
+    const formatted = formatOfferRange(
+      '2026-12-02T23:30:00.000Z',
+      '2026-12-03T00:30:00.000Z',
+      'Europe/Madrid',
+    );
+    assert.equal(formatted, '2026-12-03 00:30–01:30 Europe/Madrid');
+    assert.equal(formatted.split('2026-12-03').length - 1, 1);
+  });
+
+  it('prints the end date when the zoned dates differ', () => {
+    assert.equal(
+      formatOfferRange(
+        '2026-12-02T22:30:00.000Z',
+        '2026-12-02T23:30:00.000Z',
+        'Europe/Madrid',
+      ),
+      '2026-12-02 23:30–2026-12-03 00:30 Europe/Madrid',
+    );
+  });
+
+  it('makes a midnight week window unambiguous', () => {
+    assert.equal(
+      formatOfferRange('2026-10-16T00:00:00.000Z', '2026-10-23T00:00:00.000Z', 'UTC'),
+      '2026-10-16 00:00–2026-10-23 00:00 UTC',
+    );
+  });
+
+  it('formats an invalid zone in UTC, including a cross-day range', () => {
+    assert.equal(
+      formatOfferRange('2026-12-02T23:00:00.000Z', '2026-12-03T01:00:00.000Z', 'Not/AZone'),
+      '2026-12-02 23:00–2026-12-03 01:00 UTC',
+    );
+    assert.equal(
+      formatOfferRange('2026-12-02T23:00:00.000Z', '2026-12-03T01:00:00.000Z', null),
+      '2026-12-02 23:00–2026-12-03 01:00 UTC',
+    );
+  });
+
   it('keeps a null duration limit null', () => {
     const offer = parseBookableOffer({
       center_id: 'center',

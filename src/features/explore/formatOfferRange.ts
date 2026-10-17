@@ -12,7 +12,11 @@ export function formatOfferRange(
   const zone = usableTimeZone(timeZone);
   const startParts = zonedParts(start, zone);
   const endParts = zonedParts(end, zone);
-  return `${startParts.date} ${startParts.time}–${endParts.time} ${zone}`;
+  const endLabel =
+    startParts.date === endParts.date
+      ? endParts.time
+      : `${endParts.date} ${endParts.time}`;
+  return `${startParts.date} ${startParts.time}–${endLabel} ${zone}`;
 }
 
 function usableTimeZone(timeZone: string | null): string {
