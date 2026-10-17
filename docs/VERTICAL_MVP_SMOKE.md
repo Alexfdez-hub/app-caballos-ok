@@ -19,10 +19,15 @@ there during this train.
 2. PRIVATE equines are absent, including by direct UUID. A PUBLIC equine
    outside the open pilot is also absent, including by direct UUID.
 3. The person requests one slot. The server rechecks the slot, writes a
-   REQUESTED-family booking, and does not confirm it.
+   REQUESTED-family booking, and does not confirm it. Repeating the same
+   key returns that booking only while the pilot stays OPEN and the
+   subject stays ACTIVE. Ending the subject or closing the pilot rejects
+   the request, including a key that already points at a confirmed
+   booking, and does not insert another booking.
 4. A center ADMIN or MANAGER with effective `MANAGE_BOOKINGS` sees that
    APPROVED request under Actividad → Puedes confirmar and calls
-   `confirm_booking`.
+   `confirm_booking`. After the subject ends or the pilot closes, that
+   queue is empty.
 5. The participant sees the booking in Actividad. Iniciar actividad and
    Finalizar actividad call `start_session` and `end_session`.
 6. Photos stay pending. The app does not open Storage.
@@ -30,6 +35,14 @@ there during this train.
 A request can remain `PENDING_REQUIREMENTS` or `PENDING_APPROVAL` when
 the existing eligibility rules are not met. That is not a failed write
 and it is not a confirmation.
+
+`get_my_booking_request` is the read-only reconciliation of the caller's
+own key. It still returns `COMMITTED` or `AMBIGUOUS` after the subject
+ends or the pilot closes, so an ambiguous mutation can be resolved. It
+does not write, does not confirm, and does not make the pair bookable.
+It requires the caller's ACTIVE account and ACTIVE person. Another
+account's key returns no row. A suspended account or person cannot
+reconcile.
 
 ## Local fixture
 

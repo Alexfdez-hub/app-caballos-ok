@@ -388,6 +388,10 @@ enable public listing, services, real bookings, or payments.
 repository and is not deployed. It reads derived bookable slots and
 requests a booking through `create_booking_request`, only for an ACTIVE
 account and person and only for an ACTIVE subject of an OPEN
-administered pilot. A real PUBLIC row is not bookable without that
-membership. It does not open the marketplace, deploy fixtures, take
-payment, or close `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.
+administered pilot. Replay of an existing key uses that same gate and
+does not insert another booking after the subject ends or the pilot
+closes. `get_my_booking_request` is the read-only reconciliation of the
+caller's own key and stays available after that closure. A real PUBLIC
+row is not bookable without that membership. It does not open the
+marketplace, deploy fixtures, take payment, or close
+`LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.

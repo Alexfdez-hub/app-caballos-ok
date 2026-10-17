@@ -341,3 +341,10 @@ do not contain a fixture id. A stored PUBLIC equine stays unbookable
 until that membership exists. Closing the pilot does not reopen it.
 Pilot history is append-only. This does not close the welfare, hours,
 pickup, payment, KYC, insurance, or legal items above.
+
+`request_bookable_slot` applies that same open-subject gate before
+`CREATED` and before `REPLAYED`. A key that already points at a booking
+does not skip it and does not create a second booking. After the subject
+ends or the pilot closes, the only remaining read of that request is
+`get_my_booking_request`: the caller's own key, ACTIVE account, ACTIVE
+person, no write, and no row for another account.

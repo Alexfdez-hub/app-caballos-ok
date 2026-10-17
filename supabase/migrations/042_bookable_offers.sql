@@ -27,6 +27,13 @@
 -- person. Pilot membership is written only by the local postgres role
 -- and is appended to bookable_pilot_events. Product reads do not match
 -- names and do not embed fixture ids.
+--
+-- request_bookable_slot returns CREATED or REPLAYED only while the
+-- center and equine are an ACTIVE subject of an OPEN pilot. A committed
+-- key does not skip that check and does not insert another booking.
+-- get_my_booking_request is the only historical reconciliation: a
+-- read of the caller's own key after the subject ends or the pilot
+-- closes. That read does not write and does not reopen the marketplace.
 
 create table public.booking_request_keys (
   account_id uuid not null references public.user_accounts (id),
@@ -822,6 +829,15 @@ begin
       message = 'client_request_id already used';
   end if;
 
+  if not public.equine_center_is_in_open_bookable_pilot(
+    key_row.center_id,
+    key_row.equine_id
+  ) then
+    raise exception using
+      errcode = '42501',
+      message = 'Bookable offer is not available';
+  end if;
+
   if key_row.booking_id is not null then
     select booking.status
       into created_status
@@ -869,6 +885,15 @@ begin
    for update;
 
   if existing_booking is not null then
+    if not public.equine_center_is_in_open_bookable_pilot(
+      key_row.center_id,
+      key_row.equine_id
+    ) then
+      raise exception using
+        errcode = '42501',
+        message = 'Bookable offer is not available';
+    end if;
+
     update public.booking_request_keys as key
        set booking_id = existing_booking
      where key.account_id = caller_account
@@ -884,6 +909,15 @@ begin
     outcome := 'REPLAYED';
     return next;
     return;
+  end if;
+
+  if not public.equine_center_is_in_open_bookable_pilot(
+    key_row.center_id,
+    key_row.equine_id
+  ) then
+    raise exception using
+      errcode = '42501',
+      message = 'Bookable offer is not available';
   end if;
 
   begin
@@ -913,6 +947,15 @@ begin
         raise;
       end if;
 
+      if not public.equine_center_is_in_open_bookable_pilot(
+        key_row.center_id,
+        key_row.equine_id
+      ) then
+        raise exception using
+          errcode = '42501',
+          message = 'Bookable offer is not available';
+      end if;
+
       update public.booking_request_keys as key
          set booking_id = existing_booking
        where key.account_id = caller_account
@@ -929,6 +972,15 @@ begin
       return next;
       return;
   end;
+
+  if not public.equine_center_is_in_open_bookable_pilot(
+    key_row.center_id,
+    key_row.equine_id
+  ) then
+    raise exception using
+      errcode = '42501',
+      message = 'Bookable offer is not available';
+  end if;
 
   update public.booking_request_keys as key
      set booking_id = created_booking
@@ -948,7 +1000,7 @@ end;
 $$;
 
 comment on function public.request_bookable_slot(uuid, uuid, uuid, uuid, timestamptz, timestamptz) is
-  'Authenticated request for the ACTIVE caller PERSON. Re-checks the derived slot inside the open pilot, then calls create_booking_request. Never confirms and never writes a payment status. The same client_request_id replays the committed booking. A key with no booking is ambiguous and does not insert another row. There is no no-payment-required status in the schema.';
+  'Authenticated request for the ACTIVE caller PERSON. CREATED and REPLAYED both require the center and equine to remain an ACTIVE subject of an OPEN pilot, including when the key already points at a confirmed booking. Ending the subject or closing the pilot does not return REPLAYED and does not insert another booking. Historical reconciliation of that key is only get_my_booking_request. Re-checks the derived slot, then calls create_booking_request. Never confirms and never writes a payment status. The same client_request_id replays the same booking while the pilot subject stays open. A key with no booking is ambiguous and does not insert another row. There is no no-payment-required status in the schema.';
 
 revoke all on function public.request_bookable_slot(uuid, uuid, uuid, uuid, timestamptz, timestamptz)
   from public, anon, authenticated, service_role;
@@ -1002,7 +1054,7 @@ end;
 $$;
 
 comment on function public.get_my_booking_request(uuid) is
-  'Authenticated read of the ACTIVE caller account request key. Empty means the key was not committed. AMBIGUOUS means the key exists without a booking. A suspended account or person fails closed. Does not insert.';
+  'Read-only exception for the caller''s own request key. It stays available after the pilot subject ends or the pilot closes so the caller can resolve an ambiguous mutation. It does not insert, confirm, or make the pair bookable. It requires an ACTIVE account joined to an ACTIVE person, and the key must belong to that account. Another account''s key returns no row. A suspended account or person fails closed. Empty means this account has no such key. AMBIGUOUS means the key exists without a booking. COMMITTED means the key points at the existing booking.';
 
 revoke all on function public.get_my_booking_request(uuid)
   from public, anon, authenticated, service_role;

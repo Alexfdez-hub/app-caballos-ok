@@ -332,8 +332,10 @@ does not execute the pilot. The live read-only procedure is
 runbook is a historical handoff and is not the procedure. Identity
 completion still requires an explicit selectable country. Migration
 `042` adds a local derived-slot read and booking request limited to an
-OPEN administered pilot. It does not open the marketplace and it is not
-a remote deploy. Payments, KYC, and insurance review stay closed.
+OPEN administered pilot. After that pilot closes, only the caller's own
+request key remains readable, and that read does not write. It does not
+open the marketplace and it is not a remote deploy. Payments, KYC, and
+insurance review stay closed.
 
 The Level 1–3 handoff documents named above are maintained outside this
 repository. GitHub agents must also read `docs/DATA_ARCHITECTURE.md`,

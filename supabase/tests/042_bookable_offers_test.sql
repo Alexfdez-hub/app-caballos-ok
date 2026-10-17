@@ -999,6 +999,448 @@ reset role;
 
 do $$
 declare
+  booking_count integer;
+begin
+  select count(*)
+    into booking_count
+    from public.bookings
+   where equine_id = '04210000-0000-4000-8000-0000000000e1'
+     and center_id = '04210000-0000-4000-8000-0000000000c1'
+     and starts_at = timestamptz '2026-12-02 09:00:00+00';
+
+  perform set_config('app.vertical_slot_booking_count', booking_count::text, true);
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  replay_row record;
+begin
+  select result.booking_id, result.outcome
+    into replay_row
+    from public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 10:00:00+00'
+    ) as result;
+
+  if replay_row.outcome is distinct from 'REPLAYED'
+     or replay_row.booking_id is distinct from current_setting('app.vertical_booking_id')::uuid then
+    raise exception 'open pilot did not replay the confirmed key';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  booking_count integer;
+begin
+  select count(*)
+    into booking_count
+    from public.bookings
+   where equine_id = '04210000-0000-4000-8000-0000000000e1'
+     and center_id = '04210000-0000-4000-8000-0000000000c1'
+     and starts_at = timestamptz '2026-12-02 09:00:00+00';
+  if booking_count::text is distinct from current_setting('app.vertical_slot_booking_count') then
+    raise exception 'open-pilot replay created another booking';
+  end if;
+end;
+$$;
+
+do $$
+declare
+  vertical_id uuid;
+  rider_account uuid;
+begin
+  select id
+    into vertical_id
+    from public.bookable_pilots
+   where pilot_code = 'VERTICAL_MVP_042';
+
+  perform public.end_bookable_pilot_subject(
+    vertical_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+
+  select id
+    into rider_account
+    from public.user_accounts
+   where auth_user_id = '04220000-0000-4000-8000-0000000000a1';
+
+  insert into public.booking_request_keys (
+    account_id, client_request_id, equine_id, center_id, service_id,
+    starts_at, ends_at
+  ) values (
+    rider_account,
+    '04220000-0000-4000-8000-0000000000c9',
+    '04210000-0000-4000-8000-0000000000e1',
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000f1',
+    timestamptz '2026-12-02 09:00:00+00',
+    timestamptz '2026-12-02 10:00:00+00'
+  );
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  committed_id uuid;
+  committed_outcome text;
+  ambiguous_outcome text;
+begin
+  begin
+    perform public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 10:00:00+00'
+    );
+    raise exception 'ended subject replayed a confirmed key';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable offer is not available' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c9',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 10:00:00+00'
+    );
+    raise exception 'ended subject created a booking for an ambiguous key';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable offer is not available' then
+        raise;
+      end if;
+  end;
+
+  select result.booking_id, result.outcome
+    into committed_id, committed_outcome
+    from public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c1'
+    ) as result;
+  if committed_outcome is distinct from 'COMMITTED'
+     or committed_id is distinct from current_setting('app.vertical_booking_id')::uuid then
+    raise exception 'ended subject hid the caller committed key';
+  end if;
+
+  select result.outcome
+    into ambiguous_outcome
+    from public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c9'
+    ) as result;
+  if ambiguous_outcome is distinct from 'AMBIGUOUS' then
+    raise exception 'ended subject hid the caller ambiguous key, got %', ambiguous_outcome;
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  booking_count integer;
+begin
+  select count(*)
+    into booking_count
+    from public.bookings
+   where equine_id = '04210000-0000-4000-8000-0000000000e1'
+     and center_id = '04210000-0000-4000-8000-0000000000c1'
+     and starts_at = timestamptz '2026-12-02 09:00:00+00';
+  if booking_count::text is distinct from current_setting('app.vertical_slot_booking_count') then
+    raise exception 'ended subject created another booking';
+  end if;
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a3', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a3","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  if exists (
+    select 1
+      from public.get_my_booking_request(
+        '04220000-0000-4000-8000-0000000000c1'
+      )
+  ) or exists (
+    select 1
+      from public.get_my_booking_request(
+        '04220000-0000-4000-8000-0000000000c9'
+      )
+  ) then
+    raise exception 'another account reconciled the caller key';
+  end if;
+end;
+$$;
+
+reset role;
+
+update public.user_accounts
+   set status = 'SUSPENDED'
+ where auth_user_id = '04220000-0000-4000-8000-0000000000a1';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c1'
+    );
+    raise exception 'suspended account reconciled a committed key';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.user_accounts
+   set status = 'ACTIVE'
+ where auth_user_id = '04220000-0000-4000-8000-0000000000a1';
+
+update public.persons
+   set status = 'SUSPENDED'
+ where id = (
+   select person_id
+     from public.user_accounts
+    where auth_user_id = '04220000-0000-4000-8000-0000000000a1'
+ );
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  begin
+    perform public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c9'
+    );
+    raise exception 'suspended person reconciled an ambiguous key';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable request is not available' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+update public.persons
+   set status = 'ACTIVE'
+ where id = (
+   select person_id
+     from public.user_accounts
+    where auth_user_id = '04220000-0000-4000-8000-0000000000a1'
+ );
+
+do $$
+declare
+  probe_id uuid;
+begin
+  probe_id := public.open_bookable_pilot('PILOT_REPLAY_CLOSE');
+  perform public.add_bookable_pilot_subject(
+    probe_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+  perform set_config('app.vertical_probe_pilot_id', probe_id::text, true);
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  replay_row record;
+begin
+  select result.booking_id, result.outcome
+    into replay_row
+    from public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 10:00:00+00'
+    ) as result;
+
+  if replay_row.outcome is distinct from 'REPLAYED'
+     or replay_row.booking_id is distinct from current_setting('app.vertical_booking_id')::uuid then
+    raise exception 'reopened subject did not replay the confirmed key';
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  booking_count integer;
+begin
+  select count(*)
+    into booking_count
+    from public.bookings
+   where equine_id = '04210000-0000-4000-8000-0000000000e1'
+     and center_id = '04210000-0000-4000-8000-0000000000c1'
+     and starts_at = timestamptz '2026-12-02 09:00:00+00';
+  if booking_count::text is distinct from current_setting('app.vertical_slot_booking_count') then
+    raise exception 'probe replay created another booking';
+  end if;
+
+  perform public.close_bookable_pilot(
+    current_setting('app.vertical_probe_pilot_id')::uuid
+  );
+end;
+$$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '04220000-0000-4000-8000-0000000000a1', true);
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"04220000-0000-4000-8000-0000000000a1","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  committed_outcome text;
+  ambiguous_outcome text;
+begin
+  begin
+    perform public.request_bookable_slot(
+      '04220000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000e1',
+      '04210000-0000-4000-8000-0000000000c1',
+      '04210000-0000-4000-8000-0000000000f1',
+      timestamptz '2026-12-02 09:00:00+00',
+      timestamptz '2026-12-02 10:00:00+00'
+    );
+    raise exception 'closed pilot replayed a confirmed key';
+  exception
+    when insufficient_privilege then
+      if sqlerrm is distinct from 'Bookable offer is not available' then
+        raise;
+      end if;
+  end;
+
+  select result.outcome
+    into committed_outcome
+    from public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c1'
+    ) as result;
+  if committed_outcome is distinct from 'COMMITTED' then
+    raise exception 'closed pilot hid the caller committed key, got %', committed_outcome;
+  end if;
+
+  select result.outcome
+    into ambiguous_outcome
+    from public.get_my_booking_request(
+      '04220000-0000-4000-8000-0000000000c9'
+    ) as result;
+  if ambiguous_outcome is distinct from 'AMBIGUOUS' then
+    raise exception 'closed pilot hid the caller ambiguous key, got %', ambiguous_outcome;
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+declare
+  vertical_id uuid;
+  booking_count integer;
+begin
+  select count(*)
+    into booking_count
+    from public.bookings
+   where equine_id = '04210000-0000-4000-8000-0000000000e1'
+     and center_id = '04210000-0000-4000-8000-0000000000c1'
+     and starts_at = timestamptz '2026-12-02 09:00:00+00';
+  if booking_count::text is distinct from current_setting('app.vertical_slot_booking_count') then
+    raise exception 'closed pilot created another booking';
+  end if;
+
+  perform public.end_bookable_pilot_subject(
+    current_setting('app.vertical_probe_pilot_id')::uuid,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+
+  select id
+    into vertical_id
+    from public.bookable_pilots
+   where pilot_code = 'VERTICAL_MVP_042';
+
+  perform public.add_bookable_pilot_subject(
+    vertical_id,
+    '04210000-0000-4000-8000-0000000000c1',
+    '04210000-0000-4000-8000-0000000000e1'
+  );
+end;
+$$;
+
+do $$
+declare
   offer_count integer;
 begin
   update public.equine_center_assignments
