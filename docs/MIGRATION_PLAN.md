@@ -383,3 +383,8 @@ bookings or payments. The Stage 4B.4 runbook remains a historical
 handoff. Existing ownership and management rows remain the effective
 relationships. A private self-created equine stays declared. Do not
 enable public listing, services, real bookings, or payments.
+
+**Live note (2026-10-17):** migration `042_bookable_offers.sql` is in the
+repository and is not deployed. It reads derived bookable slots and
+requests a booking through `create_booking_request`. It does not deploy
+fixtures, take payment, or close `LEGAL_AND_INSURANCE_REVIEW_REQUIRED`.

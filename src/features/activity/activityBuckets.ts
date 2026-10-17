@@ -8,10 +8,21 @@ const OPEN_REQUEST_STATUSES = new Set([
   'APPROVED',
 ]);
 
+const CLOSED_STATUSES = new Set([
+  'CANCELLED',
+  'REJECTED',
+  'EXPIRED',
+  'DISPUTED',
+]);
+
 export function activityBucket(
   row: ActivityBooking,
   now: Date,
 ): ActivityBucket | null {
+  if (CLOSED_STATUSES.has(row.bookingStatus)) {
+    return 'closed';
+  }
+
   if (row.bookingStatus === 'COMPLETED' || row.sessionStatus === 'COMPLETED') {
     return 'history';
   }
@@ -38,6 +49,7 @@ export function groupActivity(rows: ActivityBooking[], now: Date) {
   const upcoming: ActivityBooking[] = [];
   const openRequests: ActivityBooking[] = [];
   const history: ActivityBooking[] = [];
+  const closed: ActivityBooking[] = [];
 
   for (const row of rows) {
     const bucket = activityBucket(row, now);
@@ -47,10 +59,12 @@ export function groupActivity(rows: ActivityBooking[], now: Date) {
       openRequests.push(row);
     } else if (bucket === 'history') {
       history.push(row);
+    } else if (bucket === 'closed') {
+      closed.push(row);
     }
   }
 
-  return { upcoming, openRequests, history };
+  return { upcoming, openRequests, history, closed };
 }
 
 export function formatActivityRange(startsAt: string, endsAt: string): string {

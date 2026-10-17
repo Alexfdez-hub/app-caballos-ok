@@ -306,3 +306,28 @@ resulting types with `uuid, text`. Prior identity and relationship decision rows
 are counted and do not, by themselves, become the clean-start stop.
 The five cohort and grant counts remain that stop. Section B stays
 unauthorized even if the earlier rows pass.
+
+## 2026-10-17 — Derived bookable slot read
+
+Connects the existing availability, booking, confirm, and activity
+contracts. Migration `042_bookable_offers.sql` is the next free number.
+The 2026-10-16 note that a future `042` might gate verification evidence
+is not this migration. That evidence gate is still not authorized and
+was not given another number here.
+
+The rider read returns a stored ACTIVE window, sliced only when
+`default_duration_minutes` is already set. A null
+`duration_limit_minutes` is left null. Recurrence text is not expanded.
+There is still no opening-hour table and no exterior handover window, so
+those rules are not applied. There is still no payment status, including
+no “payment not required” token. `create_booking_request` remains the
+request and `confirm_booking` remains the confirm. Session start and end
+stay the existing functions. Storage evidence stays closed.
+
+`LEGAL_AND_INSURANCE_REVIEW_REQUIRED`, KYC, fiscal scope, and the
+management `valid_until` conflict stay open. `042` is not deployed and
+the TEST_ONLY fixture is not run on the hosted project.
+
+DECISION_REQUIRED: an approved numeric welfare maximum, opening hours,
+exterior pickup and return, and a no-payment booking state. None of
+those values is invented here.

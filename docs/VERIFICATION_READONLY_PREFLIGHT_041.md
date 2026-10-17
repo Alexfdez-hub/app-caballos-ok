@@ -65,6 +65,8 @@ La última consulta devuelve `sort_order`, `check_name`, `verdict`, `runbook_mar
 | `evidence_predicate_read` | Se pudo leer el predicado de los tres expedientes únicos. `PASS` no significa que la evidencia sea suficiente. | `STOP` con `DECISION_REQUIRED` si no hay un expediente único que evaluar. |
 | `section_b_remains_unauthorized` | Esta fila no puede pasar. | `STOP` siempre. La sección B sigue sin autorización. |
 
+Con la migración `042` en el repositorio, `schema_exact_041` devuelve `STOP`. El preflight de verificación no autoriza el recorrido de reservas.
+
 `detail` de `clean_start_inventory` incluye `opened_audits`, `identity_decisions` y `relationship_decisions`. Esos tres números no cambian el veredicto. `detail` de `applicant_open_case_set` separa `open` y `submitted`. `detail` de `evidence_predicate_read` trae los tres booleanos y `rows`. `rows` no elige la frase de la pantalla. La frase de evidencia incompleta acompaña a un booleano falso. La de categorías mínimas acompaña a un booleano verdadero.
 
 Una fila `PASS` en `evidence_predicate_read`, con marca `NOT_A_GATE` e `identity=false`, significa que el predicado se leyó y que la evidencia no es suficiente. No autoriza `ACCEPTED` ni `REJECTED`. La frase de la pantalla sigue ese booleano, no el conteo `rows`.

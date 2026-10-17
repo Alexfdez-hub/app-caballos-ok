@@ -31,7 +31,7 @@ export type SessionStatus =
   | 'REQUIRES_REVIEW'
   | 'INVALIDATED';
 export type CallerRelation = 'PARTICIPANT' | 'BOOKER';
-export type ActivityBucket = 'upcoming' | 'open_request' | 'history';
+export type ActivityBucket = 'upcoming' | 'open_request' | 'history' | 'closed';
 
 export type ActivityBooking = {
   bookingId: string;

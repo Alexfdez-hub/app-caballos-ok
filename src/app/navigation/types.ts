@@ -20,6 +20,13 @@ export type HomeStackParamList = {
 
 export type ExploreStackParamList = {
   Explore: undefined;
+  BookableOffer: {
+    equineId: string;
+    centerId: string;
+    serviceId: string;
+    startsAt: string;
+    endsAt: string;
+  };
 };
 
 export type ActivityStackParamList = {
@@ -60,6 +67,11 @@ export type HomeScreenProps = CompositeScreenProps<
 export type ExploreScreenProps = CompositeScreenProps<
   NativeStackScreenProps<ExploreStackParamList, 'Explore'>,
   BottomTabScreenProps<AuthenticatedTabParamList>
+>;
+
+export type BookableOfferScreenProps = NativeStackScreenProps<
+  ExploreStackParamList,
+  'BookableOffer'
 >;
 
 export type ActivityScreenProps = CompositeScreenProps<
