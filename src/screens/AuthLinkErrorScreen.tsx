@@ -1,9 +1,31 @@
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { useAuth } from '../features/auth/useAuth';
 
 export default function AuthLinkErrorScreen() {
-  const { authLinkError, clearAuthLinkError } = useAuth();
+  const { authLinkError, clearAuthLinkError, isProcessingAuthLink } = useAuth();
+
+  if (isProcessingAuthLink) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.eyebrow}>ACCESO</Text>
+          <Text style={styles.title}>Procesando enlace…</Text>
+          <Text style={styles.description}>
+            Estamos comprobando el enlace de acceso. Espera un momento.
+          </Text>
+          <ActivityIndicator color="#111" style={styles.loader} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -57,6 +79,9 @@ const styles = StyleSheet.create({
     color: '#555',
     fontSize: 16,
     lineHeight: 23,
+  },
+  loader: {
+    marginTop: 24,
   },
   primaryButton: {
     minHeight: 50,

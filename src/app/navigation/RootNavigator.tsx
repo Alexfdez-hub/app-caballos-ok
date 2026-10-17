@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { selectAuthLinkGate } from '../../features/auth/authCallback';
 import { useAuth } from '../../features/auth/useAuth';
 import { useIdentity } from '../../features/identity/useIdentity';
 import AuthLinkErrorScreen from '../../screens/AuthLinkErrorScreen';
@@ -26,13 +27,28 @@ const IdentityErrorStack = createNativeStackNavigator<{
 }>();
 
 export function RootNavigator() {
-  const { session, isRestoringSession, isPasswordRecovery, authLinkError } =
-    useAuth();
+  const {
+    session,
+    isRestoringSession,
+    isPasswordRecovery,
+    isProcessingAuthLink,
+    authLinkError,
+  } = useAuth();
   const { identity, isLoadingIdentity, identityError } = useIdentity();
+  const authLinkGate = selectAuthLinkGate({
+    hasSession: session !== null,
+    isPasswordRecovery,
+    isProcessingAuthLink,
+    hasAuthLinkError: authLinkError !== null,
+  });
+
+  if (authLinkGate === 'processing' || authLinkGate === 'link-error') {
+    return <AuthLinkErrorScreen />;
+  }
 
   if (
     isRestoringSession ||
-    (session && isLoadingIdentity && !isPasswordRecovery && !authLinkError)
+    (session && isLoadingIdentity && authLinkGate !== 'update-password')
   ) {
     return (
       <View style={styles.loadingContainer}>
@@ -41,11 +57,7 @@ export function RootNavigator() {
     );
   }
 
-  if (authLinkError) {
-    return <AuthLinkErrorScreen />;
-  }
-
-  if (session && isPasswordRecovery) {
+  if (authLinkGate === 'update-password') {
     return (
       <NavigationContainer>
         <RecoveryStack.Navigator>
@@ -59,7 +71,7 @@ export function RootNavigator() {
     );
   }
 
-  if (!session) {
+  if (authLinkGate === 'signed-out') {
     return (
       <NavigationContainer>
         <PublicStack.Navigator>

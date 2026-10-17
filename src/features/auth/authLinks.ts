@@ -4,6 +4,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 
 import { supabase } from '../../services/supabase/client';
 import {
+  establishSessionFromCallback,
   interpretAuthCallbackUrl,
   selectAuthRedirectUrl,
 } from './authCallback';
@@ -25,27 +26,9 @@ export function getAuthRedirectUrl() {
 }
 
 export async function createSessionFromUrl(url: string) {
-  const interpreted = interpretAuthCallbackUrl(url);
-
-  if (interpreted.status === 'ignored') {
-    return { type: null, error: null, ignored: true as const };
-  }
-
-  if (interpreted.status === 'error') {
-    return { type: interpreted.type, error: interpreted.error };
-  }
-
-  if (interpreted.status === 'code') {
-    const { error } = await supabase.auth.exchangeCodeForSession(
-      interpreted.code,
-    );
-    return { type: interpreted.type, error };
-  }
-
-  const { error } = await supabase.auth.setSession({
-    access_token: interpreted.accessToken,
-    refresh_token: interpreted.refreshToken,
+  return establishSessionFromCallback(interpretAuthCallbackUrl(url), {
+    exchangeCodeForSession: (code) => supabase.auth.exchangeCodeForSession(code),
+    setSession: (tokens) => supabase.auth.setSession(tokens),
+    verifyOtp: (params) => supabase.auth.verifyOtp(params),
   });
-
-  return { type: interpreted.type, error };
 }
