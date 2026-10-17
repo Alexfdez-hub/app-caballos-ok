@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -13,12 +13,17 @@ import type { BookingStatus } from '../features/activity/types';
 import { useAuth } from '../features/auth/useAuth';
 import { shouldApplyAccountResult } from '../features/explore/accountResult';
 import {
+  acceptBookingResult,
+  acceptReconcileResult,
+  applyReconcileFailure,
+  bookingAttemptKey,
   canSubmitBooking,
   classifyBookingTransport,
-  reconcileBookingMutation,
-  settleBookingMutation,
-  startBookingMutation,
-  type BookingMutationPhase,
+  launchBookingAttempt,
+  readBookingAttempt,
+  showsReconcileAction,
+  writeBookingAttempt,
+  type BookingAttempt,
 } from '../features/explore/bookingMutation';
 import { userFacingExploreMessage } from '../features/explore/exploreErrors';
 import { getBookableOffer, getMyBookingRequest, requestBookableSlot } from '../features/explore/exploreService';
@@ -43,16 +48,38 @@ function newRequestId(): string {
 export default function BookableOfferScreen({ route }: BookableOfferScreenProps) {
   const { session } = useAuth();
   const { equineId, centerId, serviceId, startsAt, endsAt } = route.params;
+  const attemptKey = bookingAttemptKey({
+    userId: session?.user.id ?? null,
+    equineId,
+    centerId,
+    serviceId,
+    startsAt,
+    endsAt,
+  });
+  const heldAttempt = readBookingAttempt(attemptKey);
   const [offer, setOffer] = useState<BookableOffer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [phase, setPhase] = useState<BookingMutationPhase>('idle');
-  const [resultStatus, setResultStatus] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState<BookingAttempt>(heldAttempt);
   const requestSeqRef = useRef(0);
   const isScreenActiveRef = useRef(false);
   const userIdRef = useRef(session?.user.id ?? null);
-  const requestIdRef = useRef<string | null>(null);
+  const attemptKeyRef = useRef(attemptKey);
   userIdRef.current = session?.user.id ?? null;
+  attemptKeyRef.current = attemptKey;
+
+  const publishAttempt = (key: string, next: BookingAttempt) => {
+    writeBookingAttempt(key, next);
+    if (key !== attemptKeyRef.current) {
+      return;
+    }
+    setAttempt(next);
+  };
+
+  useEffect(() => {
+    setAttempt(readBookingAttempt(attemptKey));
+    setErrorMessage(null);
+  }, [attemptKey]);
 
   const load = useCallback(async () => {
     const requestSeq = requestSeqRef.current + 1;
@@ -120,18 +147,16 @@ export default function BookableOfferScreen({ route }: BookableOfferScreenProps)
   );
 
   const submit = () => {
-    if (!canSubmitBooking(phase) || !offer) {
+    if (!offer) {
       return;
     }
-    const nextPhase = startBookingMutation(phase);
-    if (nextPhase !== 'pending') {
+    const capturedKey = attemptKeyRef.current;
+    const launched = launchBookingAttempt(readBookingAttempt(capturedKey), newRequestId());
+    if (!launched.launched || !launched.attempt.clientRequestId) {
       return;
     }
-    setPhase('pending');
-    if (!requestIdRef.current) {
-      requestIdRef.current = newRequestId();
-    }
-    const requestId = requestIdRef.current;
+    publishAttempt(capturedKey, launched.attempt);
+    const requestId = launched.attempt.clientRequestId;
     const requestedUserId = userIdRef.current;
     void requestBookableSlot({
       clientRequestId: requestId,
@@ -142,56 +167,62 @@ export default function BookableOfferScreen({ route }: BookableOfferScreenProps)
       endsAt: offer.endsAt,
     })
       .then((result) => {
-        if (requestedUserId !== userIdRef.current) {
-          return;
+        const current = readBookingAttempt(capturedKey);
+        publishAttempt(
+          capturedKey,
+          acceptBookingResult(current, 'ok', result.bookingStatus),
+        );
+        if (capturedKey === attemptKeyRef.current && requestedUserId === userIdRef.current) {
+          setErrorMessage(null);
         }
-        setPhase((current) => settleBookingMutation(current, 'ok'));
-        setResultStatus(result.bookingStatus);
-        setErrorMessage(null);
       })
       .catch((error: unknown) => {
-        if (requestedUserId !== userIdRef.current) {
+        const outcome = classifyBookingTransport(error);
+        const current = readBookingAttempt(capturedKey);
+        publishAttempt(capturedKey, acceptBookingResult(current, outcome, null));
+        if (capturedKey !== attemptKeyRef.current || requestedUserId !== userIdRef.current) {
           return;
         }
-        const outcome = classifyBookingTransport(error);
-        setPhase((current) => settleBookingMutation(current, outcome));
-        if (outcome === 'rejected') {
-          setErrorMessage(userFacingExploreMessage(error));
-        }
+        setErrorMessage(outcome === 'rejected' ? userFacingExploreMessage(error) : null);
       });
   };
 
   const reconcile = () => {
-    const requestId = requestIdRef.current;
-    if (!requestId || phase !== 'ambiguous') {
+    const capturedKey = attemptKeyRef.current;
+    const current = readBookingAttempt(capturedKey);
+    if (!current.clientRequestId || !showsReconcileAction(current.phase)) {
       return;
     }
+    const requestId = current.clientRequestId;
     const requestedUserId = userIdRef.current;
     void getMyBookingRequest(requestId)
       .then((lookup) => {
-        if (requestedUserId !== userIdRef.current) {
-          return;
-        }
+        const latest = readBookingAttempt(capturedKey);
         const serverOutcome = lookup?.outcome ?? 'ABSENT';
-        setPhase((current) => reconcileBookingMutation(current, serverOutcome));
-        if (serverOutcome === 'COMMITTED') {
-          setResultStatus(lookup?.bookingStatus ?? null);
-        }
-        if (serverOutcome === 'ABSENT') {
-          requestIdRef.current = null;
+        publishAttempt(
+          capturedKey,
+          acceptReconcileResult(latest, serverOutcome, lookup?.bookingStatus ?? null),
+        );
+        if (capturedKey === attemptKeyRef.current && requestedUserId === userIdRef.current) {
+          setErrorMessage(null);
         }
       })
       .catch((error: unknown) => {
-        if (requestedUserId !== userIdRef.current) {
+        const latest = readBookingAttempt(capturedKey);
+        publishAttempt(capturedKey, {
+          ...latest,
+          phase: applyReconcileFailure(latest.phase, error),
+        });
+        if (capturedKey !== attemptKeyRef.current || requestedUserId !== userIdRef.current) {
           return;
         }
         setErrorMessage(userFacingExploreMessage(error));
       });
   };
 
-  const statusLabel = isBookingStatus(resultStatus)
-    ? bookingStatusLabel(resultStatus)
-    : resultStatus;
+  const statusLabel = isBookingStatus(attempt.resultStatus)
+    ? bookingStatusLabel(attempt.resultStatus)
+    : attempt.resultStatus;
 
   return (
     <ScreenScaffold>
@@ -223,25 +254,25 @@ export default function BookableOfferScreen({ route }: BookableOfferScreenProps)
               ? 'No hay un máximo de duración aprobado. No se aplica uno por defecto.'
               : `Límite registrado: ${offer.durationLimitMinutes} min.`}
           </Text>
-          {phase === 'succeeded' && statusLabel ? (
+          {attempt.phase === 'succeeded' && statusLabel ? (
             <Text style={styles.body}>Solicitud registrada: {statusLabel}</Text>
           ) : null}
-          {phase === 'ambiguous' ? (
+          {showsReconcileAction(attempt.phase) ? (
             <Text style={styles.message}>
               El resultado no llegó. No vuelvas a enviar la solicitud hasta reconciliarla.
             </Text>
           ) : null}
-          {phase === 'ambiguous' ? (
+          {showsReconcileAction(attempt.phase) ? (
             <Pressable accessibilityRole="button" onPress={reconcile} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Reconciliar con el servidor</Text>
             </Pressable>
           ) : null}
-          {canSubmitBooking(phase) ? (
+          {canSubmitBooking(attempt.phase) ? (
             <Pressable accessibilityRole="button" onPress={submit} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Solicitar reserva</Text>
             </Pressable>
           ) : null}
-          {phase === 'pending' ? <ActivityIndicator color={colors.text} /> : null}
+          {attempt.phase === 'pending' ? <ActivityIndicator color={colors.text} /> : null}
         </SectionCard>
       ) : null}
       <Text style={styles.note}>

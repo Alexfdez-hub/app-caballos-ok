@@ -51,7 +51,7 @@ create table public.booking_request_keys (
 );
 
 comment on table public.booking_request_keys is
-  'Idempotency key for request_bookable_slot. One key belongs to the caller account. A committed booking_id is replayed. A null booking_id is an ambiguous outcome and must not create another booking.';
+  'Idempotency key for request_bookable_slot. One key belongs to the caller account. A committed booking_id is replayed by request_bookable_slot only while that center and equine remain an ACTIVE subject of an OPEN pilot. After the subject ends or the pilot closes, historical reconciliation of the same key is only get_my_booking_request. A null booking_id is an ambiguous outcome and must not create another booking.';
 
 alter table public.booking_request_keys enable row level security;
 revoke all on table public.booking_request_keys from anon, authenticated;

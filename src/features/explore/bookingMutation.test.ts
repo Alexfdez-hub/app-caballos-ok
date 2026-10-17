@@ -2,11 +2,21 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  acceptBookingResult,
+  acceptBookingResultForSession,
+  acceptReconcileResult,
+  applyReconcileFailure,
+  bookingAttemptKey,
   canSubmitBooking,
   classifyBookingTransport,
+  launchBookingAttempt,
+  readBookingAttempt,
   reconcileBookingMutation,
   settleBookingMutation,
+  showsReconcileAction,
   startBookingMutation,
+  writeBookingAttempt,
+  type BookingAttempt,
 } from './bookingMutation.ts';
 import { shouldApplyAccountResult } from './accountResult.ts';
 import { initialExploreRange, shiftExploreRange } from './exploreRange.ts';
@@ -47,6 +57,148 @@ describe('booking mutation', () => {
       classifyBookingTransport({ message: 'Bookable request is not available' }),
       'rejected',
     );
+  });
+});
+
+describe('ambiguous P0001 booking request', () => {
+  const ambiguousError = {
+    code: 'P0001',
+    message: 'Booking request outcome is ambiguous',
+  };
+  const offer = {
+    equineId: 'equine-1',
+    centerId: 'center-1',
+    serviceId: 'service-1',
+    startsAt: '2026-12-02T09:00:00.000Z',
+    endsAt: '2026-12-02T10:00:00.000Z',
+  };
+
+  function ambiguousAttempt(): BookingAttempt {
+    const launched = launchBookingAttempt(
+      { phase: 'idle', clientRequestId: null, resultStatus: null },
+      'client-request-1',
+    );
+    return acceptBookingResult(
+      launched.attempt,
+      classifyBookingTransport(ambiguousError),
+      null,
+    );
+  }
+
+  it('keeps the request blocked and shows reconcile after P0001', () => {
+    const attempt = ambiguousAttempt();
+    assert.equal(attempt.phase, 'ambiguous');
+    assert.equal(canSubmitBooking(attempt.phase), false);
+    assert.equal(showsReconcileAction(attempt.phase), true);
+    assert.equal(attempt.clientRequestId, 'client-request-1');
+  });
+
+  it('does not launch another mutation and reuses the same client request id', () => {
+    const attempt = ambiguousAttempt();
+    const second = launchBookingAttempt(attempt, 'client-request-2');
+    const third = launchBookingAttempt(second.attempt, 'client-request-3');
+    assert.equal(second.launched, false);
+    assert.equal(third.launched, false);
+    assert.equal(second.attempt.clientRequestId, 'client-request-1');
+    assert.equal(third.attempt.clientRequestId, 'client-request-1');
+    assert.equal(canSubmitBooking(third.attempt.phase), false);
+  });
+
+  it('closes on COMMITTED and keeps the block while AMBIGUOUS', () => {
+    const attempt = ambiguousAttempt();
+    const committed = acceptReconcileResult(attempt, 'COMMITTED', 'APPROVED');
+    assert.equal(committed.phase, 'succeeded');
+    assert.equal(committed.resultStatus, 'APPROVED');
+    assert.equal(committed.clientRequestId, 'client-request-1');
+    assert.equal(canSubmitBooking(committed.phase), false);
+    assert.equal(showsReconcileAction(committed.phase), false);
+
+    const stillAmbiguous = acceptReconcileResult(attempt, 'AMBIGUOUS', null);
+    assert.equal(stillAmbiguous.phase, 'ambiguous');
+    assert.equal(stillAmbiguous.clientRequestId, 'client-request-1');
+    assert.equal(canSubmitBooking(stillAmbiguous.phase), false);
+    assert.equal(showsReconcileAction(stillAmbiguous.phase), true);
+  });
+
+  it('keeps an absent key on the existing failed path', () => {
+    const attempt = ambiguousAttempt();
+    const absent = acceptReconcileResult(attempt, 'ABSENT', null);
+    assert.equal(absent.phase, 'failed');
+    assert.equal(absent.clientRequestId, null);
+    assert.equal(canSubmitBooking(absent.phase), true);
+  });
+
+  it('keeps a recoverable reconcile error ambiguous and closes 42501', () => {
+    const attempt = ambiguousAttempt();
+    assert.equal(
+      applyReconcileFailure(attempt.phase, new TypeError('Network request failed')),
+      'ambiguous',
+    );
+    assert.equal(
+      applyReconcileFailure(attempt.phase, { code: '503', message: 'upstream unavailable' }),
+      'ambiguous',
+    );
+    assert.equal(attempt.clientRequestId, 'client-request-1');
+    assert.equal(canSubmitBooking(attempt.phase), false);
+
+    const closed = applyReconcileFailure(attempt.phase, {
+      code: '42501',
+      message: 'Bookable request is not available',
+    });
+    assert.equal(closed, 'closed');
+    assert.equal(canSubmitBooking(closed), false);
+    assert.equal(showsReconcileAction(closed), false);
+  });
+
+  it('does not let another account or offer inherit the ambiguous key', () => {
+    const keyA = bookingAttemptKey({ userId: 'user-a', ...offer });
+    const keyB = bookingAttemptKey({ userId: 'user-b', ...offer });
+    const otherOffer = bookingAttemptKey({ ...offer, userId: 'user-a', equineId: 'equine-2' });
+    writeBookingAttempt(keyA, ambiguousAttempt());
+
+    assert.equal(readBookingAttempt(keyB).phase, 'idle');
+    assert.equal(readBookingAttempt(keyB).clientRequestId, null);
+    assert.equal(readBookingAttempt(otherOffer).phase, 'idle');
+    assert.equal(readBookingAttempt(otherOffer).clientRequestId, null);
+    assert.equal(readBookingAttempt(keyA).clientRequestId, 'client-request-1');
+  });
+
+  it('ignores a late result from another account, offer, or an earlier phase', () => {
+    const current = ambiguousAttempt();
+    const otherAccount = acceptBookingResultForSession(
+      current,
+      { userId: 'user-a', offerKey: 'offer-a' },
+      { userId: 'user-b', offerKey: 'offer-a', outcome: 'ok', bookingStatus: 'APPROVED' },
+    );
+    const otherOffer = acceptBookingResultForSession(
+      current,
+      { userId: 'user-a', offerKey: 'offer-a' },
+      { userId: 'user-a', offerKey: 'offer-b', outcome: 'ok', bookingStatus: 'APPROVED' },
+    );
+    const lateSameSession = acceptBookingResultForSession(
+      current,
+      { userId: 'user-a', offerKey: 'offer-a' },
+      { userId: 'user-a', offerKey: 'offer-a', outcome: 'ok', bookingStatus: 'APPROVED' },
+    );
+
+    assert.equal(otherAccount.phase, 'ambiguous');
+    assert.equal(otherAccount.clientRequestId, 'client-request-1');
+    assert.equal(otherOffer.clientRequestId, 'client-request-1');
+    assert.equal(lateSameSession.phase, 'ambiguous');
+    assert.equal(lateSameSession.resultStatus, null);
+    assert.equal(
+      shouldApplyAccountResult(4, 4, true, 'user-a', 'user-b'),
+      false,
+    );
+  });
+
+  it('does not let a refresh started before the mutation clear the ambiguous key', () => {
+    const attempt = ambiguousAttempt();
+    const refreshApplies = shouldApplyAccountResult(1, 2, true, 'user-a', 'user-a');
+    assert.equal(refreshApplies, false);
+    assert.equal(attempt.phase, 'ambiguous');
+    assert.equal(attempt.clientRequestId, 'client-request-1');
+    assert.equal(canSubmitBooking(attempt.phase), false);
   });
 });
 
