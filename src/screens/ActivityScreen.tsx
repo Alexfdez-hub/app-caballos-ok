@@ -20,6 +20,7 @@ import {
   sessionPressPlan,
   sessionPressResult,
 } from '../features/activity/sessionActions';
+import { presentAccountSnapshot } from '../features/activity/accountSnapshot';
 import { useMyActivity } from '../features/activity/useMyActivity';
 import type { ActivityBooking } from '../features/activity/types';
 import { useAuth } from '../features/auth/useAuth';
@@ -179,9 +180,13 @@ export default function ActivityScreen() {
   const userIdRef = useRef(userId);
   const screenActiveRef = useRef(false);
   userIdRef.current = userId;
-  const { rows, isLoading, errorMessage, refresh } = useMyActivity(userId);
+  const activity = useMyActivity(userId);
   const confirmQueue = useConfirmQueue(userId);
-  const grouped = groupActivity(rows, new Date());
+  const activityView = presentAccountSnapshot(activity.read, userId);
+  const confirmView = presentAccountSnapshot(confirmQueue.read, userId);
+  const grouped = groupActivity(activityView.rows, new Date());
+  const activitySettled = activityView.owned && !activityView.isLoading;
+  const confirmSettled = confirmView.owned && !confirmView.isLoading;
 
   useFocusEffect(
     useCallback(() => {
@@ -199,19 +204,19 @@ export default function ActivityScreen() {
         subtitle="Tus reservas, solicitudes y sesiones."
       />
 
-      {isLoading ? <ActivityIndicator color={colors.text} /> : null}
+      {activityView.isLoading ? <ActivityIndicator color={colors.text} /> : null}
 
-      {errorMessage ? (
+      {activityView.owned && activityView.errorMessage ? (
         <Text accessibilityRole="alert" style={styles.message}>
-          {errorMessage}
+          {activityView.errorMessage}
         </Text>
       ) : null}
 
-      {!isLoading ? (
+      {activitySettled ? (
         <Pressable
           accessibilityRole="button"
           onPress={() => {
-            void refresh();
+            void activity.refresh();
           }}
           style={({ pressed }) => [
             styles.primaryButton,
@@ -219,24 +224,24 @@ export default function ActivityScreen() {
           ]}
         >
           <Text style={styles.primaryButtonText}>
-            {errorMessage ? 'Reintentar' : 'Actualizar'}
+            {activityView.errorMessage ? 'Reintentar' : 'Actualizar'}
           </Text>
         </Pressable>
       ) : null}
 
       <SectionCard title="Próximas">
-        {!isLoading && !errorMessage && grouped.upcoming.length === 0 ? (
+        {activitySettled && !activityView.errorMessage && grouped.upcoming.length === 0 ? (
           <EmptyStateCard
             title="No tienes próximas actividades"
             description="Cuando una reserva quede confirmada, aparecerá aquí."
           />
         ) : (
           <ActivityRows
-            rows={grouped.upcoming}
+            rows={activityView.owned ? grouped.upcoming : []}
             sessionActions
             userIdRef={userIdRef}
             screenActiveRef={screenActiveRef}
-            onChanged={() => void refresh()}
+            onChanged={() => void activity.refresh()}
           />
         )}
       </SectionCard>
@@ -246,18 +251,18 @@ export default function ActivityScreen() {
           Solo aparecen solicitudes ya aprobadas si tu cuenta tiene la
           autoridad de reservas del centro. Confirmar no es un pago.
         </Text>
-        {confirmQueue.errorMessage ? (
+        {confirmView.owned && confirmView.errorMessage ? (
           <Text accessibilityRole="alert" style={styles.message}>
-            {confirmQueue.errorMessage}
+            {confirmView.errorMessage}
           </Text>
         ) : null}
-        {!confirmQueue.isLoading && confirmQueue.rows.length === 0 ? (
+        {confirmSettled && confirmView.rows.length === 0 ? (
           <EmptyStateCard
             title="Nada pendiente de tu confirmación"
             description="Si no gestionas reservas de un centro, esta lista permanece vacía."
           />
         ) : (
-          confirmQueue.rows.map((booking) => (
+          (confirmView.owned ? confirmView.rows : []).map((booking) => (
             <ConfirmRow
               key={booking.bookingId}
               booking={booking}
@@ -265,7 +270,7 @@ export default function ActivityScreen() {
               screenActiveRef={screenActiveRef}
               onChanged={() => {
                 void confirmQueue.refresh();
-                void refresh();
+                void activity.refresh();
               }}
             />
           ))
@@ -273,18 +278,18 @@ export default function ActivityScreen() {
       </SectionCard>
 
       <SectionCard title="Solicitudes">
-        {!isLoading && !errorMessage && grouped.openRequests.length === 0 ? (
+        {activitySettled && !activityView.errorMessage && grouped.openRequests.length === 0 ? (
           <EmptyStateCard
             title="No hay solicitudes abiertas"
             description="Las peticiones de reserva pendientes de confirmación se mostrarán en esta lista."
           />
         ) : (
           <ActivityRows
-            rows={grouped.openRequests}
+            rows={activityView.owned ? grouped.openRequests : []}
             sessionActions={false}
             userIdRef={userIdRef}
             screenActiveRef={screenActiveRef}
-            onChanged={() => void refresh()}
+            onChanged={() => void activity.refresh()}
           />
         )}
       </SectionCard>
@@ -294,52 +299,52 @@ export default function ActivityScreen() {
           Estas horas son tus reservas. No son la ocupación del equino ni la
           disponibilidad del centro.
         </Text>
-        {!isLoading && !errorMessage && grouped.upcoming.length === 0 ? (
+        {activitySettled && !activityView.errorMessage && grouped.upcoming.length === 0 ? (
           <EmptyStateCard
             title="Todavía no hay reservas confirmadas"
             description="La agenda muestra solo las reservas confirmadas o en curso de tu cuenta."
           />
         ) : (
           <ActivityRows
-            rows={grouped.upcoming}
+            rows={activityView.owned ? grouped.upcoming : []}
             sessionActions={false}
             userIdRef={userIdRef}
             screenActiveRef={screenActiveRef}
-            onChanged={() => void refresh()}
+            onChanged={() => void activity.refresh()}
           />
         )}
       </SectionCard>
 
       <SectionCard title="Cerradas">
-        {!isLoading && !errorMessage && grouped.closed.length === 0 ? (
+        {activitySettled && !activityView.errorMessage && grouped.closed.length === 0 ? (
           <EmptyStateCard
             title="No hay reservas cerradas"
             description="Las canceladas, rechazadas, caducadas o en disputa aparecen aquí."
           />
         ) : (
           <ActivityRows
-            rows={grouped.closed}
+            rows={activityView.owned ? grouped.closed : []}
             sessionActions={false}
             userIdRef={userIdRef}
             screenActiveRef={screenActiveRef}
-            onChanged={() => void refresh()}
+            onChanged={() => void activity.refresh()}
           />
         )}
       </SectionCard>
 
       <SectionCard title="Historial">
-        {!isLoading && !errorMessage && grouped.history.length === 0 ? (
+        {activitySettled && !activityView.errorMessage && grouped.history.length === 0 ? (
           <EmptyStateCard
             title="Aún no hay historial"
             description="Las sesiones que completes aparecerán aquí."
           />
         ) : (
           <ActivityRows
-            rows={grouped.history}
+            rows={activityView.owned ? grouped.history : []}
             sessionActions={false}
             userIdRef={userIdRef}
             screenActiveRef={screenActiveRef}
-            onChanged={() => void refresh()}
+            onChanged={() => void activity.refresh()}
           />
         )}
         <Text style={styles.note}>
