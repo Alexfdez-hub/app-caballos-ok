@@ -1,79 +1,15 @@
-import { useCallback, useRef, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
-import { shouldApplyAccountResult } from '../explore/accountResult';
 import { userFacingActivityMessage } from './activityErrors';
 import { listMyActivity } from './activityService';
+import { useAccountRead } from './useAccountRead';
 import type { ActivityBooking } from './types';
 
 export function useMyActivity(userId: string | null) {
-  const [rows, setRows] = useState<ActivityBooking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const requestSeqRef = useRef(0);
-  const isScreenActiveRef = useRef(false);
-  const userIdRef = useRef(userId);
-  userIdRef.current = userId;
-
-  const refresh = useCallback(async () => {
-    const requestSeq = requestSeqRef.current + 1;
-    requestSeqRef.current = requestSeq;
-    const requestedUserId = userIdRef.current;
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const nextRows = await listMyActivity();
-      if (
-        !shouldApplyAccountResult(
-          requestSeq,
-          requestSeqRef.current,
-          isScreenActiveRef.current,
-          requestedUserId,
-          userIdRef.current,
-        )
-      ) {
-        return;
-      }
-      setRows(nextRows);
-    } catch (error) {
-      if (
-        !shouldApplyAccountResult(
-          requestSeq,
-          requestSeqRef.current,
-          isScreenActiveRef.current,
-          requestedUserId,
-          userIdRef.current,
-        )
-      ) {
-        return;
-      }
-      setRows([]);
-      setErrorMessage(userFacingActivityMessage(error));
-    } finally {
-      if (
-        shouldApplyAccountResult(
-          requestSeq,
-          requestSeqRef.current,
-          isScreenActiveRef.current,
-          requestedUserId,
-          userIdRef.current,
-        )
-      ) {
-        setIsLoading(false);
-      }
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      isScreenActiveRef.current = true;
-      void refresh();
-      return () => {
-        isScreenActiveRef.current = false;
-      };
-    }, [refresh, userId]),
+  const load = useCallback(() => listMyActivity(), []);
+  const mapError = useCallback(
+    (error: unknown) => userFacingActivityMessage(error),
+    [],
   );
-
-  return { rows, isLoading, errorMessage, refresh };
+  return useAccountRead<ActivityBooking>(userId, load, mapError);
 }

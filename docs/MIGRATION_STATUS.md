@@ -1,9 +1,17 @@
 # MIGRATION STATUS
 
+**Live note (2026-10-18):** `origin/main` is
+`fd7cd1a1337f5f54a8afc2d557de9a92a774e8b3` and contains migrations `042`
+and `043`. The Product Owner confirmed that project `efkauegdlmfkonzwyyiv`
+is normalized at exact versions `042` and `043`. This note does not
+re-query that project. The remote smoke procedure is
+`docs/VERTICAL_REMOTE_SMOKE.md`. It does not open a pilot or create a
+booking.
+
 **Live note (2026-10-17):** `042_bookable_offers.sql` is in the repository
-and is not deployed. The last recorded remote schema remains the
-previously authorized `041` deploy. `042` is not applied to that project
-by this train. Exploration, request, and the confirm queue require an
+and was not deployed at that date. The last recorded remote schema then
+remained the previously authorized `041` deploy. `042` was not applied to
+that project by that train. Exploration, request, and the confirm queue require an
 ACTIVE account, an ACTIVE person, and an ACTIVE subject of an OPEN
 administered pilot. `request_bookable_slot` does not replay a committed
 key after the subject ends or the pilot closes, and it does not insert
