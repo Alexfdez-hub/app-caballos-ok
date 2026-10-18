@@ -31,8 +31,6 @@
 -- request_bookable_slot returns CREATED or REPLAYED only while the
 -- center and equine are an ACTIVE subject of an OPEN pilot. A committed
 -- key does not skip that check and does not insert another booking.
--- Two concurrent keys for the same account and slot take one
--- transaction advisory lock, so the second links to the first booking.
 -- get_my_booking_request is the only historical reconciliation: a
 -- read of the caller's own key after the subject ends or the pilot
 -- closes. That read does not write and does not reopen the marketplace.
@@ -874,23 +872,6 @@ begin
       message = 'Bookable offer is not available';
   end if;
 
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(
-      caller_account::text
-      || '|'
-      || p_equine_id::text
-      || '|'
-      || p_center_id::text
-      || '|'
-      || p_service_id::text
-      || '|'
-      || p_starts_at::text
-      || '|'
-      || p_ends_at::text,
-      42
-    )
-  );
-
   select booking.id
     into existing_booking
     from public.bookings as booking
@@ -1019,7 +1000,7 @@ end;
 $$;
 
 comment on function public.request_bookable_slot(uuid, uuid, uuid, uuid, timestamptz, timestamptz) is
-  'Authenticated request for the ACTIVE caller PERSON. CREATED and REPLAYED both require the center and equine to remain an ACTIVE subject of an OPEN pilot, including when the key already points at a confirmed booking. Ending the subject or closing the pilot does not return REPLAYED and does not insert another booking. Concurrent keys for the same account and slot serialize on a transaction advisory lock and leave one open booking. Historical reconciliation of that key is only get_my_booking_request. Re-checks the derived slot, then calls create_booking_request. Never confirms and never writes a payment status. The same client_request_id replays the same booking while the pilot subject stays open. A key with no booking is ambiguous and does not insert another row. There is no no-payment-required status in the schema.';
+  'Authenticated request for the ACTIVE caller PERSON. CREATED and REPLAYED both require the center and equine to remain an ACTIVE subject of an OPEN pilot, including when the key already points at a confirmed booking. Ending the subject or closing the pilot does not return REPLAYED and does not insert another booking. Historical reconciliation of that key is only get_my_booking_request. Re-checks the derived slot, then calls create_booking_request. Never confirms and never writes a payment status. The same client_request_id replays the same booking while the pilot subject stays open. A key with no booking is ambiguous and does not insert another row. There is no no-payment-required status in the schema.';
 
 revoke all on function public.request_bookable_slot(uuid, uuid, uuid, uuid, timestamptz, timestamptz)
   from public, anon, authenticated, service_role;

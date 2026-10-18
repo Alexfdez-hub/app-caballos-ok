@@ -10,6 +10,12 @@ const files = {
   sessionA: path.join(testsDir, '042_bookable_offers_concurrency_session_a.sql'),
   sessionB: path.join(testsDir, '042_bookable_offers_concurrency_session_b.sql'),
   assert: path.join(testsDir, '042_bookable_offers_concurrency_assert.sql'),
+  tzA: path.join(testsDir, '042_bookable_offers_concurrency_tz_a.sql'),
+  tzB: path.join(testsDir, '042_bookable_offers_concurrency_tz_b.sql'),
+  tzAssert: path.join(testsDir, '042_bookable_offers_concurrency_tz_assert.sql'),
+  otherA: path.join(testsDir, '042_bookable_offers_concurrency_other_a.sql'),
+  otherB: path.join(testsDir, '042_bookable_offers_concurrency_other_b.sql'),
+  otherAssert: path.join(testsDir, '042_bookable_offers_concurrency_other_assert.sql'),
   cleanup: path.join(testsDir, '042_bookable_offers_concurrency_cleanup.sql'),
 };
 
@@ -157,6 +163,55 @@ function runSession(container, file, { waitFor = null, timeoutMs }) {
   return { granted, done, startedAt };
 }
 
+function assertInheritedMigrations() {
+  const baseProbe = runSync('git', [
+    'cat-file',
+    '-e',
+    'origin/main:supabase/migrations/042_bookable_offers.sql',
+  ]);
+  if (baseProbe.status !== 0) {
+    console.log(
+      'Migrations 001-042 check NOT RUN here: origin/main is not available. The App quality inherited-migration step remains the CI assertion.',
+    );
+    return [];
+  }
+
+  const diff = runSync('git', [
+    'diff',
+    '--name-status',
+    'origin/main',
+    '--',
+    'supabase/migrations',
+  ]);
+  if (diff.status !== 0) {
+    return ['Could not diff migrations against origin/main.'];
+  }
+
+  const failures = [];
+  const lines = diff.stdout.split(/\r?\n/).filter(Boolean);
+  for (const line of lines) {
+    const [status, filePath] = line.split('\t');
+    if (status === 'A' && filePath === 'supabase/migrations/043_bookable_offer_request_serialization.sql') {
+      continue;
+    }
+    failures.push(`Migrations 001-042 must stay unchanged (${status} ${filePath}).`);
+  }
+  if (failures.length === 0) {
+    console.log('Migrations 001-042 are unchanged versus origin/main.');
+  }
+  return failures;
+}
+
+async function runPair(container, fileA, fileB, waitFor) {
+  const a = runSession(container, fileA, {
+    waitFor,
+    timeoutMs: 20000,
+  });
+  await a.granted;
+  const b = runSession(container, fileB, { timeoutMs: 20000 });
+  return Promise.all([a.done, b.done]);
+}
+
 async function main() {
   const container = findContainer();
   if (!container) {
@@ -165,8 +220,9 @@ async function main() {
   }
 
   console.log(`Using database container ${container}`);
+  const failures = assertInheritedMigrations();
   console.log(
-    'Arrangement: session A requests one slot and holds the transaction for 2s. Session B uses another key for that account and slot and must wait.',
+    'Arrangement: same account waits; a second TimeZone uses the same instants; a second account does not wait.',
   );
 
   const setup = runSqlFile(container, files.setup);
@@ -178,43 +234,89 @@ async function main() {
 
   let sessionA;
   let sessionB;
+  let tzA;
+  let tzB;
+  let otherA;
+  let otherB;
   try {
-    const a = runSession(container, files.sessionA, {
-      waitFor: /session_a_holding/,
-      timeoutMs: 20000,
-    });
-    await a.granted;
-    const b = runSession(container, files.sessionB, { timeoutMs: 20000 });
-    [sessionA, sessionB] = await Promise.all([a.done, b.done]);
+    [sessionA, sessionB] = await runPair(
+      container,
+      files.sessionA,
+      files.sessionB,
+      /session_a_holding/,
+    );
+    [tzA, tzB] = await runPair(
+      container,
+      files.tzA,
+      files.tzB,
+      /session_tz_a_holding/,
+    );
+    [otherA, otherB] = await runPair(
+      container,
+      files.otherA,
+      files.otherB,
+      /session_other_a_holding/,
+    );
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     runSqlFile(container, files.cleanup);
     process.exit(1);
   }
 
-  printResult('session A', sessionA);
-  printResult('session B', sessionB);
+  printResult('same account A', sessionA);
+  printResult('same account B', sessionB);
+  printResult('timezone A', tzA);
+  printResult('timezone B', tzB);
+  printResult('other account A', otherA);
+  printResult('other account B', otherB);
 
-  const failures = [];
-  if (sessionA.timedOut || sessionB.timedOut) {
-    failures.push('A session timed out.');
-  }
-  if (sessionA.status !== 0 || sessionB.status !== 0) {
-    failures.push('A concurrent request failed.');
+  for (const result of [sessionA, sessionB, tzA, tzB, otherA, otherB]) {
+    if (result.timedOut) {
+      failures.push(`${result.file} timed out.`);
+    }
+    if (result.status !== 0) {
+      failures.push(`${result.file} failed.`);
+    }
   }
   if (!/CREATED/.test(sessionA.stdout) || !/REPLAYED/.test(sessionB.stdout)) {
-    failures.push('Expected session A CREATED and session B REPLAYED.');
+    failures.push('Same account must return one CREATED and one REPLAYED.');
   }
   if (sessionB.elapsedMs < 1500) {
     failures.push(
-      `Session B finished in ${sessionB.elapsedMs}ms and did not wait on session A.`,
+      `Same-account session B finished in ${sessionB.elapsedMs}ms and did not wait.`,
+    );
+  }
+  if (!/CREATED/.test(tzA.stdout) || !/REPLAYED/.test(tzB.stdout)) {
+    failures.push('Different session timezones must still return CREATED and REPLAYED.');
+  }
+  if (tzB.elapsedMs < 1500) {
+    failures.push(
+      `Timezone session B finished in ${tzB.elapsedMs}ms and did not share the UTC lock.`,
+    );
+  }
+  if (!/CREATED/.test(otherA.stdout) || !/CREATED/.test(otherB.stdout)) {
+    failures.push('Different accounts must each receive CREATED.');
+  }
+  if (otherB.elapsedMs >= 1500) {
+    failures.push(
+      `Other-account session B took ${otherB.elapsedMs}ms and was serialized with the first account.`,
     );
   }
 
   const assertion = runSqlFile(container, files.assert);
-  printResult('final rows', assertion);
+  printResult('same account rows', assertion);
   if (assertion.status !== 0) {
-    failures.push('Final row assertions failed.');
+    failures.push('Same-account row assertions failed.');
+  }
+  const tzAssertion = runSqlFile(container, files.tzAssert);
+  printResult('timezone rows', tzAssertion);
+  if (tzAssertion.status !== 0) {
+    failures.push('Timezone row assertions failed.');
+  }
+  const otherAssertion = runSqlFile(container, files.otherAssert);
+  printResult('other account rows', otherAssertion);
+  if (otherAssertion.status !== 0) {
+    failures.push('Different-account row assertions failed.');
   }
 
   const cleanup = runSqlFile(container, files.cleanup);
