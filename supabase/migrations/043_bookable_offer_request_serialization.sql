@@ -280,4 +280,3 @@ revoke all on function public.request_bookable_slot(uuid, uuid, uuid, uuid, time
   from public, anon, authenticated, service_role;
 grant execute on function public.request_bookable_slot(uuid, uuid, uuid, uuid, timestamptz, timestamptz)
   to authenticated;
-
