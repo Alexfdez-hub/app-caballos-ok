@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { EmptyStateCard } from '../app/ui/EmptyStateCard';
 import { ScreenHeader } from '../app/ui/ScreenHeader';
@@ -22,7 +23,14 @@ import {
 import { useMyActivity } from '../features/activity/useMyActivity';
 import type { ActivityBooking } from '../features/activity/types';
 import { useAuth } from '../features/auth/useAuth';
-import { userFacingExploreMessage } from '../features/explore/exploreErrors';
+import { userFacingMutationMessage } from '../features/activity/activityErrors';
+import {
+  beginExclusivePress,
+  endExclusivePress,
+  idleExclusivePress,
+  mayPublishExclusiveResult,
+  type ExclusivePress,
+} from '../features/activity/exclusivePress';
 import {
   confirmBooking,
   endBookedSession,
@@ -36,10 +44,14 @@ function ActivityRows({
   rows,
   onChanged,
   sessionActions,
+  userIdRef,
+  screenActiveRef,
 }: {
   rows: ActivityBooking[];
   onChanged: () => void;
   sessionActions: boolean;
+  userIdRef: { current: string | null };
+  screenActiveRef: { current: boolean };
 }) {
   return (
     <>
@@ -57,6 +69,8 @@ function ActivityRows({
             {action === 'start' ? (
               <SessionButton
                 label="Iniciar actividad"
+                userIdRef={userIdRef}
+                screenActiveRef={screenActiveRef}
                 onPress={() => startBookedSession(row.bookingId)}
                 onChanged={onChanged}
               />
@@ -64,6 +78,8 @@ function ActivityRows({
             {action === 'end' ? (
               <SessionButton
                 label="Finalizar actividad"
+                userIdRef={userIdRef}
+                screenActiveRef={screenActiveRef}
                 onPress={() => endBookedSession(row.sessionId as string)}
                 onChanged={onChanged}
               />
@@ -79,11 +95,16 @@ function SessionButton({
   label,
   onPress,
   onChanged,
+  userIdRef,
+  screenActiveRef,
 }: {
   label: string;
   onPress: () => Promise<string>;
   onChanged: () => void;
+  userIdRef: { current: string | null };
+  screenActiveRef: { current: boolean };
 }) {
+  const pressRef = useRef<ExclusivePress>(idleExclusivePress());
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -98,24 +119,50 @@ function SessionButton({
         accessibilityRole="button"
         disabled={pending}
         onPress={() => {
-          if (sessionPressPlan(pending) === 'ignore') {
+          if (sessionPressPlan(pressRef.current.held) === 'ignore') {
             return;
           }
+          const begun = beginExclusivePress(pressRef.current);
+          pressRef.current = begun.state;
+          if (begun.generation === null) {
+            return;
+          }
+          const generation = begun.generation;
+          const requestedUserId = userIdRef.current;
           setPending(true);
           setMessage(null);
           void onPress()
             .then(() => {
-              if (sessionPressResult(true) === 'refresh') {
+              if (
+                mayPublishExclusiveResult(
+                  pressRef.current,
+                  generation,
+                  screenActiveRef.current,
+                  requestedUserId,
+                  userIdRef.current,
+                ) &&
+                sessionPressResult(true) === 'refresh'
+              ) {
                 onChanged();
               }
             })
             .catch((error: unknown) => {
-              if (sessionPressResult(false) === 'message') {
-                setMessage(userFacingExploreMessage(error));
+              if (
+                mayPublishExclusiveResult(
+                  pressRef.current,
+                  generation,
+                  screenActiveRef.current,
+                  requestedUserId,
+                  userIdRef.current,
+                ) &&
+                sessionPressResult(false) === 'message'
+              ) {
+                setMessage(userFacingMutationMessage(error));
               }
             })
             .finally(() => {
-              setPending(false);
+              pressRef.current = endExclusivePress(pressRef.current, generation);
+              setPending(pressRef.current.held);
             });
         }}
         style={styles.primaryButton}
@@ -129,9 +176,21 @@ function SessionButton({
 export default function ActivityScreen() {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
+  const userIdRef = useRef(userId);
+  const screenActiveRef = useRef(false);
+  userIdRef.current = userId;
   const { rows, isLoading, errorMessage, refresh } = useMyActivity(userId);
   const confirmQueue = useConfirmQueue(userId);
   const grouped = groupActivity(rows, new Date());
+
+  useFocusEffect(
+    useCallback(() => {
+      screenActiveRef.current = true;
+      return () => {
+        screenActiveRef.current = false;
+      };
+    }, []),
+  );
 
   return (
     <ScreenScaffold>
@@ -175,6 +234,8 @@ export default function ActivityScreen() {
           <ActivityRows
             rows={grouped.upcoming}
             sessionActions
+            userIdRef={userIdRef}
+            screenActiveRef={screenActiveRef}
             onChanged={() => void refresh()}
           />
         )}
@@ -200,6 +261,8 @@ export default function ActivityScreen() {
             <ConfirmRow
               key={booking.bookingId}
               booking={booking}
+              userIdRef={userIdRef}
+              screenActiveRef={screenActiveRef}
               onChanged={() => {
                 void confirmQueue.refresh();
                 void refresh();
@@ -219,6 +282,8 @@ export default function ActivityScreen() {
           <ActivityRows
             rows={grouped.openRequests}
             sessionActions={false}
+            userIdRef={userIdRef}
+            screenActiveRef={screenActiveRef}
             onChanged={() => void refresh()}
           />
         )}
@@ -238,6 +303,8 @@ export default function ActivityScreen() {
           <ActivityRows
             rows={grouped.upcoming}
             sessionActions={false}
+            userIdRef={userIdRef}
+            screenActiveRef={screenActiveRef}
             onChanged={() => void refresh()}
           />
         )}
@@ -253,6 +320,8 @@ export default function ActivityScreen() {
           <ActivityRows
             rows={grouped.closed}
             sessionActions={false}
+            userIdRef={userIdRef}
+            screenActiveRef={screenActiveRef}
             onChanged={() => void refresh()}
           />
         )}
@@ -268,6 +337,8 @@ export default function ActivityScreen() {
           <ActivityRows
             rows={grouped.history}
             sessionActions={false}
+            userIdRef={userIdRef}
+            screenActiveRef={screenActiveRef}
             onChanged={() => void refresh()}
           />
         )}
@@ -284,10 +355,15 @@ export default function ActivityScreen() {
 function ConfirmRow({
   booking,
   onChanged,
+  userIdRef,
+  screenActiveRef,
 }: {
   booking: ConfirmableBooking;
   onChanged: () => void;
+  userIdRef: { current: string | null };
+  screenActiveRef: { current: boolean };
 }) {
+  const pressRef = useRef<ExclusivePress>(idleExclusivePress());
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -307,20 +383,48 @@ function ConfirmRow({
         accessibilityRole="button"
         disabled={pending}
         onPress={() => {
-          if (pending) {
+          if (sessionPressPlan(pressRef.current.held) === 'ignore') {
             return;
           }
+          const begun = beginExclusivePress(pressRef.current);
+          pressRef.current = begun.state;
+          if (begun.generation === null) {
+            return;
+          }
+          const generation = begun.generation;
+          const requestedUserId = userIdRef.current;
           setPending(true);
           setMessage(null);
           void confirmBooking(booking.bookingId)
             .then(() => {
-              onChanged();
+              if (
+                mayPublishExclusiveResult(
+                  pressRef.current,
+                  generation,
+                  screenActiveRef.current,
+                  requestedUserId,
+                  userIdRef.current,
+                )
+              ) {
+                onChanged();
+              }
             })
             .catch((error: unknown) => {
-              setMessage(userFacingExploreMessage(error));
+              if (
+                mayPublishExclusiveResult(
+                  pressRef.current,
+                  generation,
+                  screenActiveRef.current,
+                  requestedUserId,
+                  userIdRef.current,
+                )
+              ) {
+                setMessage(userFacingMutationMessage(error));
+              }
             })
             .finally(() => {
-              setPending(false);
+              pressRef.current = endExclusivePress(pressRef.current, generation);
+              setPending(pressRef.current.held);
             });
         }}
         style={styles.primaryButton}

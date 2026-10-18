@@ -1,6 +1,7 @@
 # Vertical MVP smoke
 
-Local procedure for migration `042`. This file does not run the fixture
+Local procedure for migration `042`. The remote operator procedure is
+`docs/VERTICAL_REMOTE_SMOKE.md`. This file does not run the fixture
 and does not authorize a remote deploy. Bugbot stays manual. Autofix
 stays off. Do not merge from this note.
 
