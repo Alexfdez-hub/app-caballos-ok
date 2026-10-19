@@ -5,6 +5,7 @@ export type AuthContextValue = {
   session: Session | null;
   isRestoringSession: boolean;
   isPasswordRecovery: boolean;
+  isProcessingAuthLink: boolean;
   authLinkError: string | null;
   completePasswordRecovery: () => void;
   clearAuthLinkError: () => void;

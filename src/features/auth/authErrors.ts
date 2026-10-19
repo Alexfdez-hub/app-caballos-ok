@@ -16,6 +16,7 @@ const EXPECTED_AUTH_CODES = new Set([
   'access_denied',
   'unexpected_failure',
   'user_repeated_signup',
+  'pkce_code_verifier_not_found',
 ]);
 
 const NETWORK_ERROR_PATTERN =
@@ -82,6 +83,43 @@ export function isMailerAuthError(error: unknown) {
   return (
     MAILER_ERROR_PATTERN.test(message) ||
     (code === 'unexpected_failure' && /email/i.test(message))
+  );
+}
+
+const RETRYABLE_CALLBACK_PATTERN =
+  /network request failed|failed to fetch|network error|fetch failed|internet connection|err_network|timeout|timed out/i;
+
+export function isRetryableAuthCallbackFailure(error: unknown) {
+  const status = getAuthErrorStatus(error);
+  if (status !== null && status >= 500) {
+    return true;
+  }
+
+  if (isNetworkAuthError(error)) {
+    return true;
+  }
+
+  if (status !== null && status > 0) {
+    return false;
+  }
+
+  const name = getAuthErrorName(error);
+  const message = getAuthErrorMessage(error);
+  const code = getAuthErrorCode(error);
+
+  if (
+    code ||
+    name === 'AuthCallbackError' ||
+    name === 'AuthApiError' ||
+    /otp expired|invalid or has expired|access denied|invalid grant/i.test(message)
+  ) {
+    return false;
+  }
+
+  return (
+    RETRYABLE_CALLBACK_PATTERN.test(name) ||
+    RETRYABLE_CALLBACK_PATTERN.test(message) ||
+    error instanceof Error
   );
 }
 
@@ -161,6 +199,10 @@ export function userFacingAuthMessage(
   const message = getAuthErrorMessage(error);
   const code = getAuthErrorCode(error);
 
+  if (action === 'callback' && isRetryableAuthCallbackFailure(error)) {
+    return 'No se pudo completar la conexión. Puedes volver a abrir el enlace e intentarlo de nuevo.';
+  }
+
   if (isNetworkAuthError(error)) {
     return 'No se pudo conectar con el servidor. Comprueba la conexión e inténtalo de nuevo.';
   }
@@ -213,6 +255,10 @@ export function userFacingAuthMessage(
 
   if (code === 'same_password') {
     return 'La nueva contraseña debe ser distinta de la actual.';
+  }
+
+  if (code === 'pkce_code_verifier_not_found') {
+    return 'Este enlace tiene que abrirse en la misma sesión de la app que lo pidió. Si cerraste Expo Go, cambiaste de red o el túnel de desarrollo ya no es el mismo, solicita un enlace nuevo.';
   }
 
   if (

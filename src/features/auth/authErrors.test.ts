@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 
+import { authCallbackClaimSettlement } from './authCallback.ts';
 import {
   isExpectedAuthError,
   isMailerAuthError,
   isNetworkAuthError,
+  isRetryableAuthCallbackFailure,
   logAuthFailure,
   userFacingAuthMessage,
 } from './authErrors.ts';
@@ -134,5 +136,50 @@ describe('expected auth errors', () => {
     );
     assert.equal(errorSpy.mock.callCount(), 0);
     errorSpy.mock.restore();
+  });
+
+  it('tells the user to retry a transient callback and not that the link expired', () => {
+    const cases = [
+      {
+        name: 'AuthRetryableFetchError',
+        message: 'Network request failed',
+        status: 0,
+      },
+      new Error('timeout'),
+      { name: 'AuthApiError', message: 'upstream timeout', status: 503 },
+    ];
+
+    for (const error of cases) {
+      assert.equal(isRetryableAuthCallbackFailure(error), true);
+      assert.equal(authCallbackClaimSettlement(error), 'released');
+      const copy = userFacingAuthMessage('callback', error);
+      assert.match(copy, /volver a abrir el enlace/);
+      assert.doesNotMatch(copy, /caducado/);
+    }
+
+    const expired = {
+      name: 'AuthApiError',
+      message: 'Email link is invalid or has expired',
+      code: 'otp_expired',
+      status: 403,
+    };
+    assert.equal(isRetryableAuthCallbackFailure(expired), false);
+    assert.equal(authCallbackClaimSettlement(expired), 'finalized');
+    assert.equal(
+      userFacingAuthMessage('callback', expired),
+      'El enlace de acceso no es válido o ha caducado. Solicita uno nuevo.',
+    );
+  });
+
+  it('explains a callback opened outside the session that requested it', () => {
+    assert.match(
+      userFacingAuthMessage('callback', {
+        name: 'AuthPKCECodeVerifierMissingError',
+        code: 'pkce_code_verifier_not_found',
+        message: 'PKCE code verifier not found in storage.',
+        status: 400,
+      }),
+      /misma sesión/,
+    );
   });
 });
