@@ -45,6 +45,53 @@ export function activityBucket(
   return null;
 }
 
+export type HomeActivitySummary = {
+  next: ActivityBooking | null;
+  openRequestCount: number;
+};
+
+export type HomePanelKind = 'loading' | 'error' | 'next' | 'empty' | 'open';
+
+export function homeActivityPanels(
+  settled: boolean,
+  errorMessage: string | null,
+  summary: HomeActivitySummary,
+): { next: HomePanelKind; pending: HomePanelKind } {
+  if (!settled) {
+    return { next: 'loading', pending: 'loading' };
+  }
+
+  if (errorMessage) {
+    return { next: 'error', pending: 'error' };
+  }
+
+  return {
+    next: summary.next ? 'next' : 'empty',
+    pending: summary.openRequestCount > 0 ? 'open' : 'empty',
+  };
+}
+
+export function summarizeHomeActivity(
+  rows: ActivityBooking[],
+  now: Date,
+): HomeActivitySummary {
+  const grouped = groupActivity(rows, now);
+  const next =
+    [...grouped.upcoming].sort((left, right) => {
+      const byStart =
+        new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime();
+      if (byStart !== 0) {
+        return byStart;
+      }
+      return left.bookingId.localeCompare(right.bookingId);
+    })[0] ?? null;
+
+  return {
+    next,
+    openRequestCount: grouped.openRequests.length,
+  };
+}
+
 export function groupActivity(rows: ActivityBooking[], now: Date) {
   const upcoming: ActivityBooking[] = [];
   const openRequests: ActivityBooking[] = [];

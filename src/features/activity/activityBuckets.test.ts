@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { activityBucket, formatActivityRange, groupActivity } from './activityBuckets.ts';
+import {
+  activityBucket,
+  formatActivityRange,
+  groupActivity,
+  homeActivityPanels,
+  summarizeHomeActivity,
+} from './activityBuckets.ts';
 import { userFacingActivityMessage } from './activityErrors.ts';
 import { parseActivityRow } from './activityRow.ts';
 import type { ActivityBooking } from './types.ts';
@@ -96,6 +102,60 @@ describe('activity buckets', () => {
       grouped.closed.map((item) => item.bookingId),
       ['gone', 'no'],
     );
+  });
+
+  it('summarizes the next upcoming booking and open requests for home', () => {
+    const summary = summarizeHomeActivity(
+      [
+        row({
+          bookingId: 'later',
+          startsAt: '2026-12-03T10:00:00.000Z',
+          endsAt: '2026-12-03T11:00:00.000Z',
+        }),
+        row({
+          bookingId: 'sooner',
+          startsAt: '2026-12-02T09:00:00.000Z',
+          endsAt: '2026-12-02T10:00:00.000Z',
+        }),
+        row({ bookingId: 'ask', bookingStatus: 'REQUESTED' }),
+        row({ bookingId: 'wait', bookingStatus: 'PENDING_APPROVAL' }),
+        row({ bookingId: 'done', bookingStatus: 'COMPLETED' }),
+      ],
+      now,
+    );
+    assert.equal(summary.next?.bookingId, 'sooner');
+    assert.equal(summary.openRequestCount, 2);
+  });
+
+  it('keeps a failed read from looking like an empty request list', () => {
+    assert.deepEqual(homeActivityPanels(true, 'No se pudo cargar tu actividad. Inténtalo de nuevo.', {
+      next: null,
+      openRequestCount: 0,
+    }), { next: 'error', pending: 'error' });
+  });
+
+  it('shows the next booking and open requests only after a settled read', () => {
+    const summary = summarizeHomeActivity(
+      [row({ bookingId: 'soon' }), row({ bookingId: 'ask', bookingStatus: 'REQUESTED' })],
+      now,
+    );
+    assert.deepEqual(homeActivityPanels(false, null, summary), {
+      next: 'loading',
+      pending: 'loading',
+    });
+    assert.deepEqual(homeActivityPanels(true, null, summary), {
+      next: 'next',
+      pending: 'open',
+    });
+  });
+
+  it('keeps home empty when nothing is upcoming or open', () => {
+    const summary = summarizeHomeActivity(
+      [row({ bookingId: 'done', bookingStatus: 'COMPLETED' })],
+      now,
+    );
+    assert.equal(summary.next, null);
+    assert.equal(summary.openRequestCount, 0);
   });
 
   it('formats the range in UTC', () => {
