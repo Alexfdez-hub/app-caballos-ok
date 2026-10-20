@@ -49,6 +49,7 @@ export type ProfileStackParamList = {
   CreateEquine: undefined;
   EquineDetail: { equineId: string };
   MyManagedEquines: undefined;
+  TestOperator: undefined;
 };
 
 export type AuthenticatedTabParamList = {
