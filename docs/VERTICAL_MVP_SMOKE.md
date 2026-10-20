@@ -5,10 +5,20 @@ Local procedure for migration `042`. The remote operator procedure is
 and does not authorize a remote deploy. Bugbot stays manual. Autofix
 stays off. Do not merge from this note.
 
-The hosted project still has the previously deployed schema. Expo Go
-against that project cannot call `list_bookable_offers` until a later
-authorized deploy of `042`. Do not apply the migration or the fixture
-there during this train.
+**Reading note (2026-10-20).** The statements in this file that the
+hosted project has not deployed `042` are historical. They described
+this procedure when it was written. The Product Owner's 2026-10-18
+report, recorded in `docs/MIGRATION_STATUS.md` and not re-queried by
+this note, says project `efkauegdlmfkonzwyyiv` is normalized at exact
+versions `042` and `043`. This note does not verify that report, does
+not deploy, and does not allow the local fixture on the hosted
+project. Remote steps stay in `docs/VERTICAL_REMOTE_SMOKE.md`.
+
+Historical statement, kept as the wording of this procedure and not a
+current remote reading: at that time the hosted project still had the
+previously deployed schema, and Expo Go against that project could not
+call `list_bookable_offers` until a later authorized deploy of `042`.
+Do not apply the migration or the fixture there.
 
 ## What the path does
 
@@ -47,7 +57,10 @@ reconcile.
 
 ## Local fixture
 
-Use a local database only, after migrations `001`–`042`. The two
+Use a local database only, after migrations `001`–`042`, and include
+`043` when that later file is already in the repository being migrated.
+Including `043` does not change the fixture window or the migration
+files. The two
 arguments must already exist in `auth.users`. The function does not
 create them.
 
@@ -94,7 +107,10 @@ Do not change either existing user's credentials. Do not create a third
 Auth user.
 
 1. Install the local fixture only if this build is pointed at a local
-   Supabase. For the hosted project, stop: `042` is not deployed.
+   Supabase. Historical stop, not a new remote reading: this procedure
+   said to stop on the hosted project because `042` was not deployed.
+   The 2026-10-18 Product Owner report is the later status and is not
+   re-checked here. Do not install the fixture on the hosted project.
 2. On the rider phone, sign in as the first existing user.
 3. Open Explorar. Move forward by seven days until `2026-12-02` is
    inside the shown UTC range.

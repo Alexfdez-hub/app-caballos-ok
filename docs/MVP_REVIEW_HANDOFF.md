@@ -51,7 +51,11 @@ Quedan en PostgreSQL, con tests SQL en `supabase/tests/` y scripts `npm run test
 - evidencia de sesión, cualificación y evaluación en buckets privados;
 - marketplace cerrado fuera de un sujeto ACTIVE de un piloto OPEN.
 
-Migraciones en el repositorio: `001`–`032` y `035`–`043`. No hay `033` ni `034`.
+Hay tres estados distintos. No se mezclan:
+
+- Repositorio: archivos de migración `001`–`032` y `035`–`043`. No hay `033` ni `034`.
+- Remoto comunicado por el Product Owner el 18-oct-2026, en la nota de `docs/MIGRATION_STATUS.md`: el proyecto `efkauegdlmfkonzwyyiv` está normalizado en las versiones exactas `042` y `043`. Este trabajo no ha vuelto a consultar ese proyecto y no convierte ese aviso en una verificación nueva.
+- Este cierre no despliega esquema. La frase de que `042` sigue sin desplegar no está vigente. La advertencia equivalente de `docs/VERTICAL_MVP_SMOKE.md` queda marcada como histórica.
 
 ## Cambio de este cierre
 
@@ -75,13 +79,38 @@ Tampoco hay RPC de llamador para aceptar una política, crear una cualificación
 
 `submit_review` y `report_incident` existen, pero `list_my_activity` no devuelve el equino ni el centro a propósito. Una pantalla de reseña necesitaría una lectura nueva y un tren propio. No forma parte de este cierre.
 
-## Cómo revisar
+## Comprobaciones
 
-1. Tests de cliente, sin base de datos: `npm run test:auth`.
-2. Tipo: `npm run typecheck`.
-3. Tests SQL: `npm run test:sql` contra una base local con las migraciones `001`–`043`. No ejecutarlos en el proyecto alojado desde este handoff.
-4. Recorrido manual, solo en local y con el fixture de `docs/VERTICAL_MVP_SMOKE.md`: Explorar → solicitar → confirmar → iniciar → finalizar → ver la próxima fila en Inicio.
-5. El proyecto alojado `efkauegdlmfkonzwyyiv` no recibe este cambio de esquema. Expo contra ese proyecto no llama a `list_bookable_offers` hasta un despliegue autorizado de `042`.
+Tres grupos distintos. Este archivo no ejecuta ninguno de los pasos del recorrido.
+
+### Declaradas en local
+
+Sobre el código de Inicio, en el commit que lo introdujo y de nuevo en esta corrección documental:
+
+- `npm run typecheck`
+- `npm run test:auth`
+
+Esas órdenes no abren una base de datos. El resultado ejecutado en esta corrección se anota en el pull request, no aquí como si fuera un smoke.
+
+### SQL en CI
+
+Este handoff no ejecuta `npm run test:sql` ni otro SQL. La evidencia SQL, si existe, es el job de CI del pull request. Este documento no copia ese resultado y no afirma que haya pasado.
+
+### No ejecutadas
+
+Smoke de Android, smoke remoto de `docs/VERTICAL_REMOTE_SMOKE.md`, fixture, piloto, túnel, Bugbot, Autofix, fusión y despliegue. No se han hecho en este trabajo.
+
+## Recorrido local, sin ejecutarlo
+
+Solo en una base local que ya tenga las migraciones del repositorio hasta `043`. El fixture es local: hace falta `app.vertical_fixture_local=1` y el rol `postgres`. No se instala en el proyecto alojado.
+
+Confirmar que `vertical_fixture_install` ha terminado antes de abrir Expo desde otra conexión. `127.0.0.1` no le sirve al teléfono. Al acabar, `vertical_fixture_retire()` en esa misma base local. Este párrafo no autoriza a lanzar esos comandos desde aquí.
+
+Explorar abre una ventana de siete días: desde las 00:00 UTC del día actual hasta las 00:00 UTC siete días después. Cada control de siete días desplaza el inicio y el fin otros siete días. El servidor incluye una franja cuando su inicio es mayor o igual que el inicio de la ventana y su fin es menor o igual que el fin de la ventana.
+
+Partiendo del 20-oct-2026 UTC, la ventana inicial es `2026-10-20T00:00:00Z`–`2026-10-27T00:00:00Z`. Seis avances dejan `2026-12-01T00:00:00Z`–`2026-12-08T00:00:00Z`. Esa ventana incluye el 2-dic-2026. La franja guardada sigue siendo `2026-12-02 09:00:00+00`–`12:00:00+00`. No se cambian esa fecha ni las migraciones.
+
+El recorrido, cuando alguien lo ejecute fuera de este documento: Explorar → solicitar → confirmar → iniciar → finalizar. La sesión terminada queda en Actividad → Historial. Inicio muestra otra próxima reserva, o el vacío si no queda ninguna. No muestra la reserva que acaba de completarse.
 
 ## Para ChatGPT o Codex
 
