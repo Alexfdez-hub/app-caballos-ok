@@ -10,6 +10,7 @@ import { colors } from '../app/ui/theme';
 import { presentAccountSnapshot } from '../features/activity/accountSnapshot';
 import {
   formatActivityRange,
+  homeActivityPanels,
   summarizeHomeActivity,
 } from '../features/activity/activityBuckets';
 import { bookingStatusLabel } from '../features/activity/labels';
@@ -25,6 +26,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const view = presentAccountSnapshot(activity.read, userId);
   const summary = summarizeHomeActivity(view.owned ? view.rows : [], new Date());
   const settled = view.owned && !view.isLoading;
+  const panels = homeActivityPanels(settled, view.errorMessage, summary);
   const firstName = identity?.firstName ?? '';
   const openActivity = () => {
     navigation.navigate('ActivityTab', { screen: 'Activity' });
@@ -38,8 +40,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       />
 
       <SectionCard title="Próxima actividad">
-        {!settled ? <ActivityIndicator color={colors.text} /> : null}
-        {settled && view.errorMessage ? (
+        {panels.next === 'loading' ? <ActivityIndicator color={colors.text} /> : null}
+        {panels.next === 'error' && view.errorMessage ? (
           <>
             <Text accessibilityRole="alert" style={styles.message}>
               {view.errorMessage}
@@ -54,7 +56,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             </Pressable>
           </>
         ) : null}
-        {settled && !view.errorMessage && summary.next ? (
+        {panels.next === 'next' && summary.next ? (
           <>
             <Text style={styles.title}>
               {bookingStatusLabel(summary.next.bookingStatus)}
@@ -67,7 +69,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             </Pressable>
           </>
         ) : null}
-        {settled && !view.errorMessage && !summary.next ? (
+        {panels.next === 'empty' ? (
           <EmptyStateCard
             title="No tienes próximas actividades"
             description="Cuando tengas una reserva aparecerá aquí."
@@ -76,8 +78,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       </SectionCard>
 
       <SectionCard title="Pendientes">
-        {!settled ? <ActivityIndicator color={colors.text} /> : null}
-        {settled && !view.errorMessage && summary.openRequestCount > 0 ? (
+        {panels.pending === 'loading' ? (
+          <ActivityIndicator color={colors.text} />
+        ) : null}
+        {panels.pending === 'error' ? (
+          <Text style={styles.description}>
+            Las solicitudes no se han podido leer.
+          </Text>
+        ) : null}
+        {panels.pending === 'open' ? (
           <>
             <Text style={styles.title}>
               {summary.openRequestCount === 1
@@ -92,7 +101,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             </Pressable>
           </>
         ) : null}
-        {settled && !view.errorMessage && summary.openRequestCount === 0 ? (
+        {panels.pending === 'empty' ? (
           <EmptyStateCard
             title="No hay solicitudes pendientes"
             description="Las peticiones que esperen respuesta se mostrarán en este espacio."

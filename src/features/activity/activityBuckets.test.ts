@@ -5,6 +5,7 @@ import {
   activityBucket,
   formatActivityRange,
   groupActivity,
+  homeActivityPanels,
   summarizeHomeActivity,
 } from './activityBuckets.ts';
 import { userFacingActivityMessage } from './activityErrors.ts';
@@ -124,6 +125,28 @@ describe('activity buckets', () => {
     );
     assert.equal(summary.next?.bookingId, 'sooner');
     assert.equal(summary.openRequestCount, 2);
+  });
+
+  it('keeps a failed read from looking like an empty request list', () => {
+    assert.deepEqual(homeActivityPanels(true, 'No se pudo cargar tu actividad. Inténtalo de nuevo.', {
+      next: null,
+      openRequestCount: 0,
+    }), { next: 'error', pending: 'error' });
+  });
+
+  it('shows the next booking and open requests only after a settled read', () => {
+    const summary = summarizeHomeActivity(
+      [row({ bookingId: 'soon' }), row({ bookingId: 'ask', bookingStatus: 'REQUESTED' })],
+      now,
+    );
+    assert.deepEqual(homeActivityPanels(false, null, summary), {
+      next: 'loading',
+      pending: 'loading',
+    });
+    assert.deepEqual(homeActivityPanels(true, null, summary), {
+      next: 'next',
+      pending: 'open',
+    });
   });
 
   it('keeps home empty when nothing is upcoming or open', () => {

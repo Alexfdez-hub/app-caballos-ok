@@ -50,6 +50,27 @@ export type HomeActivitySummary = {
   openRequestCount: number;
 };
 
+export type HomePanelKind = 'loading' | 'error' | 'next' | 'empty' | 'open';
+
+export function homeActivityPanels(
+  settled: boolean,
+  errorMessage: string | null,
+  summary: HomeActivitySummary,
+): { next: HomePanelKind; pending: HomePanelKind } {
+  if (!settled) {
+    return { next: 'loading', pending: 'loading' };
+  }
+
+  if (errorMessage) {
+    return { next: 'error', pending: 'error' };
+  }
+
+  return {
+    next: summary.next ? 'next' : 'empty',
+    pending: summary.openRequestCount > 0 ? 'open' : 'empty',
+  };
+}
+
 export function summarizeHomeActivity(
   rows: ActivityBooking[],
   now: Date,

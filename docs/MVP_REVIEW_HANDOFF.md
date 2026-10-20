@@ -121,3 +121,5 @@ El recorrido, cuando alguien lo ejecute fuera de este documento: Explorar → so
 Leer antes de proponer código: `AI_INSTRUCTIONS.md`, `docs/DATA_ARCHITECTURE.md`, `docs/MIGRATION_STATUS.md`, `docs/PRODUCT_DECISION_LOG.md` y este archivo.
 
 No reabrir el modelo legacy `users` / `horses` / `bookings`. No desactivar RLS. No poner `service_role` en Expo. No tratar un `DECISION_REQUIRED` como implementado porque el esquema ya tenga una tabla. Si una regla congelada no se puede cumplir, parar con `ARCHITECTURE_CONFLICT`.
+
+El procedimiento de prueba en Android, y lo que este entorno no tiene instalado, está en `docs/ANDROID_PO_PROCEDURE.md`. Ese archivo no ejecuta el smoke ni declara el MVP validado.
