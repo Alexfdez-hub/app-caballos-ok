@@ -57,12 +57,11 @@ reconcile.
 
 ## Local fixture
 
-Use a local database only, after migrations `001`–`042`, and include
+Use a local database only. Apply migrations `001`–`042`, and include
 `043` when that later file is already in the repository being migrated.
 Including `043` does not change the fixture window or the migration
-files. The two
-arguments must already exist in `auth.users`. The function does not
-create them.
+files. The two arguments must already exist in `auth.users`. The
+function does not create them.
 
 ```sql
 begin;
