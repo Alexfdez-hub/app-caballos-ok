@@ -102,9 +102,13 @@ Smoke de Android, smoke remoto de `docs/VERTICAL_REMOTE_SMOKE.md`, fixture, pilo
 
 ## Recorrido local, sin ejecutarlo
 
-Solo en una base local que ya tenga las migraciones del repositorio hasta `043`. El fixture es local: hace falta `app.vertical_fixture_local=1` y el rol `postgres`. No se instala en el proyecto alojado.
+Solo en una base local que ya tenga las migraciones del repositorio hasta `043`. El fixture es local: hace falta `app.vertical_fixture_local=1` y el rol `postgres`. No se instala en el proyecto alojado. Este párrafo no autoriza a lanzar esos comandos desde aquí.
 
-Confirmar que `vertical_fixture_install` ha terminado antes de abrir Expo desde otra conexión. `127.0.0.1` no le sirve al teléfono. Al acabar, `vertical_fixture_retire()` en esa misma base local. Este párrafo no autoriza a lanzar esos comandos desde aquí.
+Son tres pasos separados. Expo no entra en la transacción de instalación.
+
+1. En la base local: `BEGIN`, la configuración local, `vertical_fixture_install`, y `COMMIT`. Ese `COMMIT` tiene que estar hecho antes de que Expo, también desde otra conexión, vea el fixture. `127.0.0.1` no le sirve al teléfono. `ROLLBACK` en lugar de `COMMIT` descarta la instalación. Después de ese `ROLLBACK` no se continúa el smoke sobre esas filas: no han quedado.
+2. Recorrido de Expo, solo después de ese `COMMIT`.
+3. Retirada posterior, en una transacción local nueva: `BEGIN`, la misma configuración local, `vertical_fixture_retire()`, y `COMMIT`.
 
 Explorar abre una ventana de siete días: desde las 00:00 UTC del día actual hasta las 00:00 UTC siete días después. Cada control de siete días desplaza el inicio y el fin otros siete días. El servidor incluye una franja cuando su inicio es mayor o igual que el inicio de la ventana y su fin es menor o igual que el fin de la ventana.
 

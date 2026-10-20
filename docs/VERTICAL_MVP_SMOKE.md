@@ -63,6 +63,10 @@ Including `043` does not change the fixture window or the migration
 files. The two arguments must already exist in `auth.users`. The
 function does not create them.
 
+Three separate steps. Do not open Expo between `begin` and `commit`.
+
+1. Install and confirm on the local database:
+
 ```sql
 begin;
 select set_config('app.vertical_fixture_local', '1', true);
@@ -70,11 +74,22 @@ select public.vertical_fixture_install(
   '<existing-auth-user-a>'::uuid,
   '<existing-auth-user-b>'::uuid
 );
+commit;
 ```
 
-Inspect, then either `rollback` or, on that same local database:
+`commit` is required before Expo, including Expo reached from another
+connection, can see the fixture. `rollback` instead of `commit`
+discards the installation. After `rollback`, do not continue the smoke
+on those rows: they are not there.
+
+2. Expo journey, only after that `commit`. The Android section below is
+that journey. It is not part of the install transaction.
+
+3. Retire later, in a new local transaction:
 
 ```sql
+begin;
+select set_config('app.vertical_fixture_local', '1', true);
 select public.vertical_fixture_retire();
 commit;
 ```
