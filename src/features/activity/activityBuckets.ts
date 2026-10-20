@@ -45,6 +45,32 @@ export function activityBucket(
   return null;
 }
 
+export type HomeActivitySummary = {
+  next: ActivityBooking | null;
+  openRequestCount: number;
+};
+
+export function summarizeHomeActivity(
+  rows: ActivityBooking[],
+  now: Date,
+): HomeActivitySummary {
+  const grouped = groupActivity(rows, now);
+  const next =
+    [...grouped.upcoming].sort((left, right) => {
+      const byStart =
+        new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime();
+      if (byStart !== 0) {
+        return byStart;
+      }
+      return left.bookingId.localeCompare(right.bookingId);
+    })[0] ?? null;
+
+  return {
+    next,
+    openRequestCount: grouped.openRequests.length,
+  };
+}
+
 export function groupActivity(rows: ActivityBooking[], now: Date) {
   const upcoming: ActivityBooking[] = [];
   const openRequests: ActivityBooking[] = [];

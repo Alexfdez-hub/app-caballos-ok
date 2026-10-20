@@ -1,5 +1,12 @@
 # MIGRATION STATUS
 
+**Live note (2026-10-20):** the vertical MVP client path is closed for
+review. Home reads `list_my_activity()` for the next booking and open
+requests. The review boundary, executed checks, and items that stay
+unauthorized are in `docs/MVP_REVIEW_HANDOFF.md`. This note does not
+deploy, does not open the marketplace, and does not close any
+`DECISION_REQUIRED`.
+
 **Live note (2026-10-18):** `origin/main` is
 `fd7cd1a1337f5f54a8afc2d557de9a92a774e8b3` and contains migrations `042`
 and `043`. The Product Owner confirmed that project `efkauegdlmfkonzwyyiv`
