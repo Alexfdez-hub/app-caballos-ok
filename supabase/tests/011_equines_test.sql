@@ -913,7 +913,12 @@ begin
             'list_my_equine_ownership_claims',
             'list_my_equine_management_claims',
             'review_equine_ownership_claim',
-            'review_equine_management_claim'
+            'review_equine_management_claim',
+            'register_test_equine',
+            'assign_test_equine_to_center',
+            'grant_test_equine_permission',
+            'link_test_service_equine',
+            'mark_test_equine_visibility'
            )
          )
        )
