@@ -57,8 +57,10 @@ export default function TestOperatorScreen() {
   const [serviceName, setServiceName] = useState('TEST_ONLY Sesión');
   const [duration, setDuration] = useState('60');
   const [pilotCode, setPilotCode] = useState('TEST_ONLY_FLOW');
-  const [startsAt, setStartsAt] = useState('');
-  const [endsAt, setEndsAt] = useState('');
+  const [startsAt, setStartsAt] = useState('2026-12-02T09:00:00Z');
+  const [endsAt, setEndsAt] = useState('2026-12-02T12:00:00Z');
+  const [blockStartsAt, setBlockStartsAt] = useState('2026-12-02T08:00:00Z');
+  const [blockEndsAt, setBlockEndsAt] = useState('2026-12-02T08:30:00Z');
 
   const refresh = useCallback(async () => {
     const [rows, equines] = await Promise.all([listTestWorkspace(), listMyEquines()]);
@@ -277,9 +279,8 @@ export default function TestOperatorScreen() {
             );
           }}
         />
-        <Field label="Inicio UTC" value={startsAt} onChangeText={setStartsAt} />
-        <Field label="Fin UTC" value={endsAt} onChangeText={setEndsAt} />
-        <Text style={styles.hint}>Ejemplo: 2026-12-02T09:00:00Z y 2026-12-02T12:00:00Z</Text>
+        <Field label="Inicio de la ventana UTC" value={startsAt} onChangeText={setStartsAt} />
+        <Field label="Fin de la ventana UTC" value={endsAt} onChangeText={setEndsAt} />
         <Action
           label="Guardar disponibilidad"
           onPress={() => {
@@ -293,6 +294,11 @@ export default function TestOperatorScreen() {
             );
           }}
         />
+        <Field label="Inicio del bloqueo UTC" value={blockStartsAt} onChangeText={setBlockStartsAt} />
+        <Field label="Fin del bloqueo UTC" value={blockEndsAt} onChangeText={setBlockEndsAt} />
+        <Text style={styles.hint}>
+          El bloqueo no debe cubrir toda la ventana: si lo hace, Explorar no muestra hueco.
+        </Text>
         <View style={styles.row}>
           {BLOCKS.map((block) => (
             <Action
@@ -304,7 +310,14 @@ export default function TestOperatorScreen() {
                   return;
                 }
                 void run(
-                  () => addTestBlock(equineId, centerId, startsAt.trim(), endsAt.trim(), block),
+                  () =>
+                    addTestBlock(
+                      equineId,
+                      centerId,
+                      blockStartsAt.trim(),
+                      blockEndsAt.trim(),
+                      block,
+                    ),
                   'Bloqueo manual creado.',
                 );
               }}
@@ -345,7 +358,7 @@ export default function TestOperatorScreen() {
 
       <SectionCard title="9. Retirada">
         <Text style={styles.hint}>
-          Cierra los pilotos TEST_ONLY y desactiva centros, servicios, ventanas y bloqueos manuales. Conserva auditoría, personas y cuentas. No borra la ocupación de una reserva.
+          Retira solo los centros que esta cuenta administra y los equinos de los que es gestora principal. No toca el centro de otra cuenta. Conserva auditoría, personas y cuentas. No borra la ocupación de una reserva.
         </Text>
         <Action
           label="Retirar datos de prueba"
