@@ -19,6 +19,7 @@ import ReviewPilotScreen from '../../screens/ReviewPilotScreen';
 import VerificationScreen from '../../screens/VerificationScreen';
 import MyManagedEquinesScreen from '../../screens/MyManagedEquinesScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
+import TestOperatorScreen from '../../screens/TestOperatorScreen';
 import { colors } from '../ui/theme';
 import type {
   ActivityStackParamList,
@@ -195,6 +196,11 @@ function ProfileStack() {
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
         }}
+      />
+      <ProfileStackNavigator.Screen
+        name="TestOperator"
+        component={TestOperatorScreen}
+        options={{ headerShown: false }}
       />
       <ProfileStackNavigator.Screen
         name="MyManagedEquines"

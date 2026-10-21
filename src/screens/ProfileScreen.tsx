@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import type { ProfileScreenProps } from '../app/navigation/types';
@@ -10,6 +11,7 @@ import { SectionCard } from '../app/ui/SectionCard';
 import { signOut } from '../features/auth/authService';
 import { useAuth } from '../features/auth/useAuth';
 import { useIdentity } from '../features/identity/useIdentity';
+import { testOperatorAvailable } from '../features/testOperator/testOperatorService';
 import { usePilotReviewAccess } from '../features/verificationReview/usePilotReviewAccess';
 
 function formatDateOfBirth(value: string | null | undefined): string {
@@ -30,7 +32,28 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { session } = useAuth();
   const { identity } = useIdentity();
   const canOpenPilotReview = usePilotReviewAccess();
+  const [canOperateTests, setCanOperateTests] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void testOperatorAvailable()
+        .then((available) => {
+          if (active) {
+            setCanOperateTests(available);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setCanOperateTests(false);
+          }
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const fullName = [identity?.firstName, identity?.lastName]
     .filter(Boolean)
@@ -114,10 +137,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         />
         <MenuRow
           description="Consulta relaciones y consentimientos reales. No se verifican desde la app."
-          isLast
+          isLast={!canOperateTests}
           label="Relaciones de tutor / menores"
           onPress={() => navigation.navigate('GuardianRelationships')}
         />
+        {canOperateTests ? (
+          <MenuRow
+            description="Centros, permisos, ventanas y piloto TEST_ONLY. Solo aparece en una base local de prueba."
+            isLast
+            label="Operación de prueba"
+            onPress={() => navigation.navigate('TestOperator')}
+          />
+        ) : null}
       </SectionCard>
 
       <SectionCard title="Cuenta y legal">

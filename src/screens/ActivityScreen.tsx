@@ -8,6 +8,10 @@ import { ScreenScaffold } from '../app/ui/ScreenScaffold';
 import { SectionCard } from '../app/ui/SectionCard';
 import { colors } from '../app/ui/theme';
 import {
+  listAuthorizedActivityResults,
+  type AuthorizedActivityResult,
+} from '../features/testOperator/testOperatorService';
+import {
   formatActivityRange,
   groupActivity,
 } from '../features/activity/activityBuckets';
@@ -353,7 +357,63 @@ export default function ActivityScreen() {
           pendientes: esta pantalla no abre Storage.
         </Text>
       </SectionCard>
+
+      <AuthorizedResults />
     </ScreenScaffold>
+  );
+}
+
+function AuthorizedResults() {
+  const [rows, setRows] = useState<AuthorizedActivityResult[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void listAuthorizedActivityResults()
+        .then((next) => {
+          if (active) {
+            setRows(next);
+            setErrorMessage(null);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setErrorMessage('No se ha podido leer el resultado autorizado.');
+          }
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  return (
+    <SectionCard title="Resultado autorizado">
+      <Text style={styles.note}>
+        Incluye el equino y el centro. Un gestor lo ve solo con VIEW_ACTIVITY.
+        Confirmar reservas no abre esta lista.
+      </Text>
+      {errorMessage ? (
+        <Text accessibilityRole="alert" style={styles.message}>
+          {errorMessage}
+        </Text>
+      ) : null}
+      {!errorMessage && rows.length === 0 ? (
+        <EmptyStateCard
+          title="Sin resultados visibles"
+          description="Cuando haya una reserva tuya, o una con permiso de lectura, aparecerá aquí."
+        />
+      ) : null}
+      {rows.map((row) => (
+        <Text key={row.bookingId} style={styles.when}>
+          {row.centerName} · {row.equineName} · {bookingStatusLabel(row.bookingStatus)} ·{' '}
+          {formatActivityRange(row.startsAt, row.endsAt)}
+          {row.sessionStatus ? ` · Sesión ${row.sessionStatus}` : ''}
+          {row.callerRelation === 'VIEW_ACTIVITY' ? ' · Lectura del centro' : ''}
+        </Text>
+      ))}
+    </SectionCard>
   );
 }
 
