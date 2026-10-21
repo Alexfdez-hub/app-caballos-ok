@@ -16,13 +16,14 @@
 -- Remote application of this migration is not authorized by the
 -- train that added the file.
 
-create table public.test_operator_gate (
+create table if not exists public.test_operator_gate (
   singleton boolean primary key default true,
   enabled boolean not null default false,
   constraint test_operator_gate_singleton_check check (singleton)
 );
 
-insert into public.test_operator_gate (singleton, enabled) values (true, false);
+insert into public.test_operator_gate (singleton, enabled) values (true, false)
+on conflict (singleton) do nothing;
 
 comment on table public.test_operator_gate is
   'Single local switch. Migration leaves it false. Only a local seed turns it on. Not a client-writable role.';
@@ -30,7 +31,7 @@ comment on table public.test_operator_gate is
 alter table public.test_operator_gate enable row level security;
 revoke all on table public.test_operator_gate from public, anon, authenticated, service_role;
 
-create table public.test_operator_records (
+create table if not exists public.test_operator_records (
   id uuid primary key default gen_random_uuid(),
   entity_type text not null,
   entity_id uuid not null,
@@ -48,7 +49,7 @@ comment on table public.test_operator_records is
 alter table public.test_operator_records enable row level security;
 revoke all on table public.test_operator_records from public, anon, authenticated, service_role;
 
-create function public.assert_test_operator()
+create or replace function public.assert_test_operator()
 returns table (
   account_id uuid,
   person_id uuid
@@ -103,7 +104,7 @@ comment on function public.assert_test_operator() is
 revoke all on function public.assert_test_operator()
   from public, anon, authenticated, service_role;
 
-create function public.test_only_name(p_name text)
+create or replace function public.test_only_name(p_name text)
 returns boolean
 language sql
 immutable
@@ -117,7 +118,7 @@ $$;
 revoke all on function public.test_only_name(text)
   from public, anon, authenticated, service_role;
 
-create function public.test_operator_slug(p_name text)
+create or replace function public.test_operator_slug(p_name text)
 returns text
 language sql
 immutable
@@ -134,7 +135,7 @@ $$;
 revoke all on function public.test_operator_slug(text)
   from public, anon, authenticated, service_role;
 
-create function public.test_operator_remember(
+create or replace function public.test_operator_remember(
   p_entity_type text,
   p_entity_id uuid,
   p_account_id uuid
@@ -157,7 +158,7 @@ $$;
 revoke all on function public.test_operator_remember(text, uuid, uuid)
   from public, anon, authenticated, service_role;
 
-create function public.test_operator_available()
+create or replace function public.test_operator_available()
 returns boolean
 language plpgsql
 stable
@@ -184,7 +185,7 @@ revoke all on function public.test_operator_available()
   from public, anon, authenticated, service_role;
 grant execute on function public.test_operator_available() to authenticated;
 
-create function public.create_test_center(
+create or replace function public.create_test_center(
   p_name text,
   p_timezone text
 )
@@ -255,8 +256,8 @@ begin
 
   if center_id is null then
     raise exception using
-      errcode = '42501',
-      message = 'Test operator is local-only';
+      errcode = '22023',
+      message = 'The caller identity needs a market country before a test center can be created';
   end if;
 
   insert into public.center_memberships (
@@ -284,7 +285,7 @@ revoke all on function public.create_test_center(text, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.create_test_center(text, text) to authenticated;
 
-create function public.assign_test_center_role(
+create or replace function public.assign_test_center_role(
   p_center_id uuid,
   p_email text,
   p_role_code text
@@ -292,7 +293,7 @@ create function public.assign_test_center_role(
 returns uuid
 language plpgsql
 security definer
-set search_path = pg_catalog, public, auth
+set search_path = pg_catalog, public
 as $$
 declare
   actor_account uuid;
@@ -377,7 +378,7 @@ revoke all on function public.assign_test_center_role(uuid, text, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.assign_test_center_role(uuid, text, text) to authenticated;
 
-create function public.register_test_equine(p_equine_id uuid)
+create or replace function public.register_test_equine(p_equine_id uuid)
 returns uuid
 language plpgsql
 security definer
@@ -424,7 +425,7 @@ revoke all on function public.register_test_equine(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.register_test_equine(uuid) to authenticated;
 
-create function public.assert_test_equine_admin(
+create or replace function public.assert_test_equine_admin(
   p_equine_id uuid,
   p_center_id uuid,
   p_person_id uuid
@@ -465,7 +466,7 @@ $$;
 revoke all on function public.assert_test_equine_admin(uuid, uuid, uuid)
   from public, anon, authenticated, service_role;
 
-create function public.assign_test_equine_to_center(
+create or replace function public.assign_test_equine_to_center(
   p_equine_id uuid,
   p_center_id uuid,
   p_assignment_type text
@@ -535,7 +536,7 @@ revoke all on function public.assign_test_equine_to_center(uuid, uuid, text)
 grant execute on function public.assign_test_equine_to_center(uuid, uuid, text)
   to authenticated;
 
-create function public.grant_test_equine_permission(
+create or replace function public.grant_test_equine_permission(
   p_equine_id uuid,
   p_center_id uuid,
   p_permission_code text
@@ -614,7 +615,7 @@ revoke all on function public.grant_test_equine_permission(uuid, uuid, text)
 grant execute on function public.grant_test_equine_permission(uuid, uuid, text)
   to authenticated;
 
-create function public.create_test_service(
+create or replace function public.create_test_service(
   p_center_id uuid,
   p_name text,
   p_duration_minutes integer
@@ -689,7 +690,7 @@ revoke all on function public.create_test_service(uuid, text, integer)
   from public, anon, authenticated, service_role;
 grant execute on function public.create_test_service(uuid, text, integer) to authenticated;
 
-create function public.link_test_service_equine(
+create or replace function public.link_test_service_equine(
   p_service_id uuid,
   p_equine_id uuid
 )
@@ -766,7 +767,7 @@ revoke all on function public.link_test_service_equine(uuid, uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.link_test_service_equine(uuid, uuid) to authenticated;
 
-create function public.set_test_availability(
+create or replace function public.set_test_availability(
   p_equine_id uuid,
   p_center_id uuid,
   p_starts_at timestamptz,
@@ -840,7 +841,7 @@ revoke all on function public.set_test_availability(uuid, uuid, timestamptz, tim
 grant execute on function public.set_test_availability(uuid, uuid, timestamptz, timestamptz)
   to authenticated;
 
-create function public.add_test_calendar_block(
+create or replace function public.add_test_calendar_block(
   p_equine_id uuid,
   p_center_id uuid,
   p_starts_at timestamptz,
@@ -923,7 +924,7 @@ revoke all on function public.add_test_calendar_block(uuid, uuid, timestamptz, t
 grant execute on function public.add_test_calendar_block(uuid, uuid, timestamptz, timestamptz, text)
   to authenticated;
 
-create function public.mark_test_equine_visibility(
+create or replace function public.mark_test_equine_visibility(
   p_equine_id uuid,
   p_visibility text
 )
@@ -983,7 +984,7 @@ revoke all on function public.mark_test_equine_visibility(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.mark_test_equine_visibility(uuid, text) to authenticated;
 
-create function public.open_test_bookable_pilot(
+create or replace function public.open_test_bookable_pilot(
   p_pilot_code text,
   p_center_id uuid,
   p_equine_id uuid
@@ -1036,14 +1037,14 @@ revoke all on function public.open_test_bookable_pilot(text, uuid, uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.open_test_bookable_pilot(text, uuid, uuid) to authenticated;
 
-create function public.transfer_test_primary_manager(
+create or replace function public.transfer_test_primary_manager(
   p_equine_id uuid,
   p_email text
 )
 returns uuid
 language plpgsql
 security definer
-set search_path = pg_catalog, public, auth
+set search_path = pg_catalog, public
 as $$
 declare
   actor_account uuid;
@@ -1132,14 +1133,14 @@ revoke all on function public.transfer_test_primary_manager(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.transfer_test_primary_manager(uuid, text) to authenticated;
 
-create function public.transfer_test_person_ownership(
+create or replace function public.transfer_test_person_ownership(
   p_equine_id uuid,
   p_email text
 )
 returns uuid
 language plpgsql
 security definer
-set search_path = pg_catalog, public, auth
+set search_path = pg_catalog, public
 as $$
 declare
   actor_account uuid;
@@ -1240,7 +1241,7 @@ revoke all on function public.transfer_test_person_ownership(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.transfer_test_person_ownership(uuid, text) to authenticated;
 
-create function public.list_test_operator_workspace()
+create or replace function public.list_test_operator_workspace()
 returns table (
   kind text,
   entity_id uuid,
@@ -1302,7 +1303,7 @@ revoke all on function public.list_test_operator_workspace()
   from public, anon, authenticated, service_role;
 grant execute on function public.list_test_operator_workspace() to authenticated;
 
-create function public.retire_test_operator_data()
+create or replace function public.retire_test_operator_data()
 returns void
 language plpgsql
 security definer
@@ -1329,6 +1330,29 @@ begin
       message = 'Test operator operation is not available';
   end if;
 
+  for subject_row in
+    select subject.pilot_id, subject.center_id, subject.equine_id
+      from public.test_operator_records as record
+      join public.bookable_pilots as pilot
+        on pilot.id = record.entity_id
+      join public.bookable_pilot_subjects as subject
+        on subject.pilot_id = pilot.id
+     where record.entity_type = 'PILOT'
+       and pilot.pilot_code ~ '^TEST_ONLY'
+       and subject.status = 'ACTIVE'
+       and subject.ended_at is null
+       and public.has_active_center_role(actor_person, subject.center_id, 'ADMIN')
+       and public.has_active_equine_management_role(
+         actor_person, subject.equine_id, 'PRIMARY_MANAGER'
+       )
+  loop
+    perform public.end_bookable_pilot_subject(
+      subject_row.pilot_id,
+      subject_row.center_id,
+      subject_row.equine_id
+    );
+  end loop;
+
   for pilot_row in
     select pilot.id
       from public.test_operator_records as record
@@ -1337,27 +1361,21 @@ begin
      where record.entity_type = 'PILOT'
        and pilot.pilot_code ~ '^TEST_ONLY'
        and pilot.status = 'OPEN'
+       and not exists (
+         select 1
+           from public.bookable_pilot_subjects as subject
+          where subject.pilot_id = pilot.id
+            and subject.status = 'ACTIVE'
+            and subject.ended_at is null
+       )
   loop
-    for subject_row in
-      select subject.center_id, subject.equine_id
-        from public.bookable_pilot_subjects as subject
-       where subject.pilot_id = pilot_row.id
-         and subject.status = 'ACTIVE'
-         and subject.ended_at is null
-    loop
-      perform public.end_bookable_pilot_subject(
-        pilot_row.id,
-        subject_row.center_id,
-        subject_row.equine_id
-      );
-    end loop;
-
     perform public.close_bookable_pilot(pilot_row.id);
   end loop;
 
   update public.equine_availability_rules as rule
      set status = 'INACTIVE'
    where rule.status = 'ACTIVE'
+     and public.has_active_center_role(actor_person, rule.center_id, 'ADMIN')
      and exists (
        select 1
          from public.test_operator_records as equine_record
@@ -1366,6 +1384,9 @@ begin
           and center_record.entity_id = rule.center_id
         where equine_record.entity_type = 'EQUINE'
           and equine_record.entity_id = rule.equine_id
+          and public.has_active_equine_management_role(
+            actor_person, rule.equine_id, 'PRIMARY_MANAGER'
+          )
      );
 
   update public.equine_calendar_blocks as block
@@ -1374,6 +1395,7 @@ begin
    where block.status = 'ACTIVE'
      and block.source_type = 'MANUAL'
      and block.cancelled_at is null
+     and public.has_active_center_role(actor_person, block.center_id, 'ADMIN')
      and exists (
        select 1
          from public.test_operator_records as equine_record
@@ -1382,6 +1404,9 @@ begin
           and center_record.entity_id = block.center_id
         where equine_record.entity_type = 'EQUINE'
           and equine_record.entity_id = block.equine_id
+          and public.has_active_equine_management_role(
+            actor_person, block.equine_id, 'PRIMARY_MANAGER'
+          )
      );
 
   update public.service_equines as link
@@ -1390,7 +1415,10 @@ begin
    where link.service_id in (
      select record.entity_id
        from public.test_operator_records as record
+       join public.center_services as owned_service
+         on owned_service.id = record.entity_id
       where record.entity_type = 'SERVICE'
+        and public.has_active_center_role(actor_person, owned_service.center_id, 'ADMIN')
    );
 
   update public.equine_center_permissions as permission
@@ -1398,6 +1426,7 @@ begin
          revoked_at = clock_timestamp()
    where permission.status = 'ACTIVE'
      and permission.revoked_at is null
+     and public.has_active_center_role(actor_person, permission.center_id, 'ADMIN')
      and exists (
        select 1
          from public.test_operator_records as equine_record
@@ -1406,6 +1435,9 @@ begin
           and center_record.entity_id = permission.center_id
         where equine_record.entity_type = 'EQUINE'
           and equine_record.entity_id = permission.equine_id
+          and public.has_active_equine_management_role(
+            actor_person, permission.equine_id, 'PRIMARY_MANAGER'
+          )
      );
 
   update public.equine_center_assignments as assignment
@@ -1413,6 +1445,7 @@ begin
          ended_at = clock_timestamp()
    where assignment.status = 'ACTIVE'
      and assignment.ended_at is null
+     and public.has_active_center_role(actor_person, assignment.center_id, 'ADMIN')
      and exists (
        select 1
          from public.test_operator_records as equine_record
@@ -1421,6 +1454,9 @@ begin
           and center_record.entity_id = assignment.center_id
         where equine_record.entity_type = 'EQUINE'
           and equine_record.entity_id = assignment.equine_id
+          and public.has_active_equine_management_role(
+            actor_person, assignment.equine_id, 'PRIMARY_MANAGER'
+          )
      );
 
   update public.center_services as service
@@ -1430,6 +1466,7 @@ begin
      select record.entity_id
        from public.test_operator_records as record
       where record.entity_type = 'SERVICE'
+        and public.has_active_center_role(actor_person, service.center_id, 'ADMIN')
    );
 
   update public.equines as equine
@@ -1439,6 +1476,9 @@ begin
      select record.entity_id
        from public.test_operator_records as record
       where record.entity_type = 'EQUINE'
+        and public.has_active_equine_management_role(
+          actor_person, record.entity_id, 'PRIMARY_MANAGER'
+        )
    );
 
   update public.equestrian_centers as center
@@ -1449,7 +1489,8 @@ begin
        from public.test_operator_records as record
       where record.entity_type = 'CENTER'
    )
-     and public.test_only_name(center.name);
+     and public.test_only_name(center.name)
+     and public.has_active_center_role(actor_person, center.id, 'ADMIN');
 
   update public.center_memberships as membership
      set status = 'ENDED',
@@ -1460,6 +1501,7 @@ begin
        select record.entity_id
          from public.test_operator_records as record
         where record.entity_type = 'CENTER'
+          and public.has_active_center_role(actor_person, record.entity_id, 'ADMIN')
      );
 
   perform public.record_audit_event(
@@ -1472,13 +1514,13 @@ end;
 $$;
 
 comment on function public.retire_test_operator_data() is
-  'Closes TEST_ONLY pilots and deactivates the registered rows. Does not delete audit_events, pilot history, persons or auth users. Booking occupancy blocks stay.';
+  'Closes TEST_ONLY pilots and deactivates rows only where the caller is center ADMIN or primary manager. Does not delete audit_events, pilot history, persons or auth users. Booking occupancy blocks stay.';
 
 revoke all on function public.retire_test_operator_data()
   from public, anon, authenticated, service_role;
 grant execute on function public.retire_test_operator_data() to authenticated;
 
-create function public.list_authorized_activity_results()
+create or replace function public.list_authorized_activity_results()
 returns table (
   booking_id uuid,
   equine_name text,

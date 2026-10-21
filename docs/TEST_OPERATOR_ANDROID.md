@@ -7,10 +7,10 @@ La compuerta es la fila `test_operator_gate`, que la migración deja apagada. `s
 ## Preparar la base local
 
 1. Instalar la CLI de Supabase. Docker ya puede estar presente.
-2. En este repositorio: `npx supabase start`. Si la base ya existía antes de `044`, `npx supabase db reset` aplica migraciones y el seed. Eso borra la base local.
-3. Copiar `.env.supabase.local.example` a `.env.supabase.local` con la URL local y la clave anónima. No usar `service_role`.
-4. Si el teléfono no es el ordenador, la URL no puede ser `127.0.0.1`. El túnel de Expo no publica el puerto de Supabase.
-5. `npm run start:local -- --tunnel`.
+2. En este repositorio: `npx supabase start`. La base local de esta copia ya está en la migración 044 y la compuerta está encendida. No hagas otro `db reset`: borra la base local.
+3. `.env.supabase.local` debe llevar la URL que el teléfono puede alcanzar y la clave anónima. No usar `service_role`. En esta copia la URL de Wi-Fi es `http://192.168.1.35:54321`.
+4. `127.0.0.1` solo vale en el propio ordenador. El túnel de Expo publica el paquete de la app, no el puerto 54321. El teléfono tiene que estar en la misma red que `192.168.1.35`. Si está en la red del cable, cambia el host a `10.30.55.246` y conserva la clave.
+5. Cuando quieras dejar el proyecto alojado: `npm run start:local -- --tunnel`.
 
 Eso sustituye el paquete que ahora apunta al proyecto alojado. La sesión del proyecto alojado no vale en la base local.
 
@@ -47,7 +47,7 @@ La elegibilidad operable es la de un adulto con fecha de nacimiento, sin requisi
 
 ## Retirada
 
-En la misma pantalla, Retirar datos de prueba. Cierra los pilotos `TEST_ONLY`, desactiva centros, servicios y ventanas, revoca permisos y cancela bloqueos manuales. Conserva `audit_events`, el historial del piloto, las personas y las cuentas. No borra el bloque de ocupación de una reserva.
+En la misma pantalla, Retirar datos de prueba. Solo cierra lo que esa cuenta administra: sus centros `TEST_ONLY`, los equinos de los que es gestora principal y los pilotos que quedan sin sujetos activos. No toca el centro de otra cuenta. Conserva `audit_events`, el historial del piloto, las personas y las cuentas. No borra el bloque de ocupación de una reserva. Un bloqueo manual debe usar un intervalo distinto de la ventana de reserva.
 
 ## Qué no hace este tren
 
