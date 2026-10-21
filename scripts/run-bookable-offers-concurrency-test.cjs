@@ -191,7 +191,11 @@ function assertInheritedMigrations() {
   const lines = diff.stdout.split(/\r?\n/).filter(Boolean);
   for (const line of lines) {
     const [status, filePath] = line.split('\t');
-    if (status === 'A' && filePath === 'supabase/migrations/043_bookable_offer_request_serialization.sql') {
+    if (
+      status === 'A' &&
+      (filePath === 'supabase/migrations/043_bookable_offer_request_serialization.sql' ||
+        filePath === 'supabase/migrations/044_test_operator_local.sql')
+    ) {
       continue;
     }
     failures.push(`Migrations 001-042 must stay unchanged (${status} ${filePath}).`);
