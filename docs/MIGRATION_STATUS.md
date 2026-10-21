@@ -1,5 +1,7 @@
 # MIGRATION STATUS
 
+**Live note (2026-10-20, test operator):** migration `044_test_operator_local.sql` adds a local-only setup surface. The gate row is inserted disabled. `supabase/seed.sql` enables it on a local reset and is not part of a hosted deploy. Hosted application of `044` is not authorized. The Android procedure is `docs/TEST_OPERATOR_ANDROID.md`. PR #72 stays the home handoff and is not extended by this note.
+
 **Live note (2026-10-20):** the vertical MVP client path is closed for
 review. Home reads `list_my_activity()` for the next booking and open
 requests. The review boundary, executed checks, and items that stay
